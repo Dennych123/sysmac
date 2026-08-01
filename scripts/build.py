@@ -61,6 +61,8 @@ nodes.append({"id":G1,"type":"ui_group","name":"Sysmac Program Generator (MAIN +
 nodes.append({"id":UT,"type":"ui_tab","name":"Sysmac Generator","icon":"dashboard","order":1,"disabled":False,"hidden":False})
 nodes.append({"id":"gcfg_01","type":"global-config","env":[],"modules":{"node-red-dashboard":"3.6.6"}})
 
-out='/mnt/user-data/outputs/sysmac-program-generator-flow.json'
+outdir = os.path.join(_D,'outputs')
+os.makedirs(outdir, exist_ok=True)
+out = os.path.join(outdir,'sysmac-program-generator-flow.json')
 json.dump(nodes, open(out,'w'), indent=4)
 print("WROTE",out,len(nodes),"nodes")

@@ -1,5 +1,6 @@
 const fs=require('fs');
-const flowJson=JSON.parse(fs.readFileSync('/mnt/user-data/outputs/sysmac-program-generator-flow.json'));
+const path=require('path');
+const flowJson=JSON.parse(fs.readFileSync(path.join(__dirname,'..','outputs','sysmac-program-generator-flow.json')));
 const byId={}; flowJson.forEach(n=>byId[n.id]=n);
 const ctx={}; const flow={get:k=>ctx[k], set:(k,v)=>ctx[k]=v};
 const run=(id,msg)=>new Function('msg','flow','node','return (function(){'+byId[id].func+'})()')(msg,flow,{warn:console.warn});
@@ -53,7 +54,8 @@ const sp=run('s_split',v[0]); console.log('SPLIT:',sp.summary);
 const r=run('s_all',sp);
 console.log(r.payload.stats);
 if(r.payload.warnings) console.log('WARN:\n'+r.payload.warnings);
-r.payload.files.forEach(f=>fs.writeFileSync('/tmp/'+f.name,f.xml));
+const outdir=path.join(__dirname,'..','outputs'); fs.mkdirSync(outdir,{recursive:true});
+r.payload.files.forEach(f=>fs.writeFileSync(path.join(outdir,f.name),f.xml));
 console.log('FILES:',r.payload.files.map(f=>f.name).join(', '));
 
 // ---- cek silang: tiap operand harus terdeklarasi di file itu (ExternalVars/Vars) ----

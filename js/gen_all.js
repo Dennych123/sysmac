@@ -62,7 +62,9 @@ function buildUnit(stKey, devs){
     inputs.forEach(function(d,i){ S2.push(series(o++,[[portName(d.address),false]],d.name, i===0?"Physical input to symbol":null)); });
 
     // 3. HMI_Input
-    var S3=[];
+    var S3=[]; o=1;
+    P("HMI_INPUT_NOP","BOOL","No operation, reserved for HMI input");
+    S3.push(series(o++,[["GSB000",false]],"HMI_INPUT_NOP","HMI input not yet implemented, placeholder to keep section non-empty"));
 
     // 4. Timers
     var S4=[]; o=1;
@@ -282,7 +284,9 @@ function buildMain(devs){
     inputs.forEach(function(d,i){ S2.push(series(o++,[[portName(d.address),false]],d.name, i===0?"Physical input to symbol":null)); });
 
     // 3. HMI_Input
-    var S3=[];
+    var S3=[]; o=1;
+    P("HMI_INPUT_NOP","BOOL","No operation, reserved for HMI input");
+    S3.push(series(o++,[["GSB000",false]],"HMI_INPUT_NOP","HMI input not yet implemented, placeholder to keep section non-empty"));
 
     // 4. Timers
     var S4=[]; o=1;
