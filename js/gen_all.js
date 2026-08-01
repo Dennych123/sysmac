@@ -37,8 +37,8 @@ function buildUnit(stKey, devs){
     var actus   = pairUp(solList);
     if(solList.length%2) warnings.push(stKey+": solenoid count is odd, last output is not paired into an actuator.");
 
-    var ext=[],priv=[],glob=[];
-    function G(n,t,d){ var v=vr(n,t,d); glob.push("      "+v); ext.push("      "+v); GLOBALS[n]={t:t||"BOOL",d:d||""}; }
+    var ext=[],priv=[],glob=[],seen={};
+    function G(n,t,d){ if(seen[n]) return; seen[n]=1; var v=vr(n,t,d); glob.push("      "+v); ext.push("      "+v); GLOBALS[n]={t:t||"BOOL",d:d||""}; }
     function P(n,t,d){ priv.push("      "+vr(n,t,d)); }
     G("GSB000","BOOL","Equipment design coil, constant ON");
     MAIN_EXPORTS.forEach(function(n){ G(n,"BOOL","Machine status from main program"); });
@@ -250,8 +250,8 @@ function buildUnit(stKey, devs){
 function buildMain(devs){
     var inputs  = devs.filter(function(d){return d.io==="IN";});
     var outputs = devs.filter(function(d){return d.io==="OUT";});
-    var ext=[],priv=[],glob=[];
-    function G(n,t,d){ var v=vr(n,t,d); glob.push("      "+v); ext.push("      "+v); GLOBALS[n]={t:t||"BOOL",d:d||""}; }
+    var ext=[],priv=[],glob=[],seen={};
+    function G(n,t,d){ if(seen[n]) return; seen[n]=1; var v=vr(n,t,d); glob.push("      "+v); ext.push("      "+v); GLOBALS[n]={t:t||"BOOL",d:d||""}; }
     function P(n,t,d){ priv.push("      "+vr(n,t,d)); }
     G("GSB000","BOOL","Equipment design coil, constant ON");
     G("GSB001","BOOL","Equipment design coil, constant OFF");

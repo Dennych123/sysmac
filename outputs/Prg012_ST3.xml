@@ -35,7 +35,6 @@
       <Variable name="CH000_05"><Documentation xsi:type="SimpleText">MASTER ON</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
       <Variable name="PB_MSTR_ON"><Documentation xsi:type="SimpleText">MASTER ON</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
       <Variable name="CH000_06"><Documentation xsi:type="SimpleText">MASTER ON CONF</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
-      <Variable name="MSTR_RDY"><Documentation xsi:type="SimpleText">MASTER ON CONF</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
       <Variable name="CH000_07"><Documentation xsi:type="SimpleText">AUTO RUNNING</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
       <Variable name="PB_AUTO_RUN"><Documentation xsi:type="SimpleText">AUTO RUNNING</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
       <Variable name="CH000_08"><Documentation xsi:type="SimpleText">MACHINE STOP</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
@@ -243,7 +242,6 @@
       <Variable name="CH000_05"><Documentation xsi:type="SimpleText">MASTER ON</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
       <Variable name="PB_MSTR_ON"><Documentation xsi:type="SimpleText">MASTER ON</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
       <Variable name="CH000_06"><Documentation xsi:type="SimpleText">MASTER ON CONF</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
-      <Variable name="MSTR_RDY"><Documentation xsi:type="SimpleText">MASTER ON CONF</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
       <Variable name="CH000_07"><Documentation xsi:type="SimpleText">AUTO RUNNING</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
       <Variable name="PB_AUTO_RUN"><Documentation xsi:type="SimpleText">AUTO RUNNING</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
       <Variable name="CH000_08"><Documentation xsi:type="SimpleText">MACHINE STOP</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>

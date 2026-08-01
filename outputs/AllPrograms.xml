@@ -37,7 +37,6 @@
       <Variable name="CH000_05"><Documentation xsi:type="SimpleText">MASTER ON</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
       <Variable name="PB_MSTR_ON"><Documentation xsi:type="SimpleText">MASTER ON</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
       <Variable name="CH000_06"><Documentation xsi:type="SimpleText">MASTER ON CONF</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
-      <Variable name="MSTR_RDY"><Documentation xsi:type="SimpleText">MASTER ON CONF</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
       <Variable name="CH000_07"><Documentation xsi:type="SimpleText">AUTO RUNNING</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
       <Variable name="PB_AUTO_RUN"><Documentation xsi:type="SimpleText">AUTO RUNNING</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
       <Variable name="CH000_08"><Documentation xsi:type="SimpleText">MACHINE STOP</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
@@ -242,7 +241,6 @@
       <Variable name="CH000_05"><Documentation xsi:type="SimpleText">MASTER ON</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
       <Variable name="PB_MSTR_ON"><Documentation xsi:type="SimpleText">MASTER ON</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
       <Variable name="CH000_06"><Documentation xsi:type="SimpleText">MASTER ON CONF</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
-      <Variable name="MSTR_RDY"><Documentation xsi:type="SimpleText">MASTER ON CONF</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
       <Variable name="CH000_07"><Documentation xsi:type="SimpleText">AUTO RUNNING</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
       <Variable name="PB_AUTO_RUN"><Documentation xsi:type="SimpleText">AUTO RUNNING</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
       <Variable name="CH000_08"><Documentation xsi:type="SimpleText">MACHINE STOP</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
@@ -433,7 +431,6 @@
       <Variable name="CH000_05"><Documentation xsi:type="SimpleText">MASTER ON</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
       <Variable name="PB_MSTR_ON"><Documentation xsi:type="SimpleText">MASTER ON</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
       <Variable name="CH000_06"><Documentation xsi:type="SimpleText">MASTER ON CONF</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
-      <Variable name="MSTR_RDY"><Documentation xsi:type="SimpleText">MASTER ON CONF</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
       <Variable name="CH000_07"><Documentation xsi:type="SimpleText">AUTO RUNNING</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
       <Variable name="PB_AUTO_RUN"><Documentation xsi:type="SimpleText">AUTO RUNNING</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
       <Variable name="CH000_08"><Documentation xsi:type="SimpleText">MACHINE STOP</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
@@ -616,7 +613,6 @@
       <Variable name="CH000_05"><Documentation xsi:type="SimpleText">MASTER ON</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
       <Variable name="PB_MSTR_ON"><Documentation xsi:type="SimpleText">MASTER ON</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
       <Variable name="CH000_06"><Documentation xsi:type="SimpleText">MASTER ON CONF</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
-      <Variable name="MSTR_RDY"><Documentation xsi:type="SimpleText">MASTER ON CONF</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
       <Variable name="CH000_07"><Documentation xsi:type="SimpleText">AUTO RUNNING</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
       <Variable name="PB_AUTO_RUN"><Documentation xsi:type="SimpleText">AUTO RUNNING</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
       <Variable name="CH000_08"><Documentation xsi:type="SimpleText">MACHINE STOP</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
@@ -909,7 +905,7 @@
       <Variable name="LSC_ST3_PSH_BWD"><Documentation xsi:type="SimpleText">ST3 PUSHER BACKWARD position confirmed</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
       <Variable name="LSC_ST3_PSH_FWD"><Documentation xsi:type="SimpleText">ST3 PUSHER FORWARD position confirmed</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
       <Variable name="MF"><Documentation xsi:type="SimpleText">Cylinder motion fault table</Documentation><Type><TypeName>ARRAY[1..16] OF BOOL</TypeName></Type></Variable>
-      <Variable name="MSTR_RDY"><Documentation xsi:type="SimpleText">MASTER ON CONF</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
+      <Variable name="MSTR_RDY"><Documentation xsi:type="SimpleText">Machine status from main program</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
       <Variable name="NOT_EMG_STOP"><Documentation xsi:type="SimpleText">NOT EMERGENCY STOP</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
       <Variable name="NO_FAULT"><Documentation xsi:type="SimpleText">Machine status from main program</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
       <Variable name="PB410_RTN"><Documentation xsi:type="SimpleText">Process home return button</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>

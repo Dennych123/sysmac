@@ -108,7 +108,7 @@ LSC_ST3_EJC_FWD	BOOL			False	False	Do not publish	ST3 EJECTOR FORWARD position c
 LSC_ST3_PSH_BWD	BOOL			False	False	Do not publish	ST3 PUSHER BACKWARD position confirmed
 LSC_ST3_PSH_FWD	BOOL			False	False	Do not publish	ST3 PUSHER FORWARD position confirmed
 MF	ARRAY[1..16] OF BOOL			False	False	Do not publish	Cylinder motion fault table
-MSTR_RDY	BOOL			False	False	Do not publish	MASTER ON CONF
+MSTR_RDY	BOOL			False	False	Do not publish	Machine status from main program
 NOT_EMG_STOP	BOOL			False	False	Do not publish	NOT EMERGENCY STOP
 NO_FAULT	BOOL			False	False	Do not publish	Machine status from main program
 PB410_RTN	BOOL			False	False	Do not publish	Process home return button
