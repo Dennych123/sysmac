@@ -36,6 +36,15 @@ hasilnya. `build.py` juga menempelkan `js/lib.js` ke setiap node generator
 secara otomatis. Jangan menyalin isi lib ke file generator, dan jangan edit
 `index.html` langsung - edit `js/*.js` lalu build ulang.
 
+### Motion Sequence (urutan gerak AutoRunning)
+
+Setelah klik Generate, panel "Motion Sequence" muncul di `index.html` kalau
+ada station dengan actuator. Klik solenoid di baris "Available" buat nambah
+ke urutan gerak, Up/Down/Remove buat susun ulang - tiap perubahan langsung
+regenerate ladder AutoRunning station itu (idiom Denso TR0 cmd+confirm
+berantai, lihat `js/lib.js` -> `motionStep`). Station yang gak disentuh di
+panel ini tetap dapat kerangka placeholder biasa (lihat `Batasan`).
+
 ## Struktur
 
 | Berkas | Isi |
@@ -68,7 +77,12 @@ Terbalik akan memunculkan galat
 
 ## Batasan
 
-- Urutan gerak pada `AutoRunning` belum dibangkitkan, hanya kerangka `LB410` ke atas
+- Urutan gerak pada `AutoRunning` cuma dibangkitkan buat station yang
+  disusun lewat panel Motion Sequence di `index.html`. Station yang belum
+  disentuh tetap dapat kerangka placeholder `LB410` ke atas.
+- Motion Sequence belum mendukung overlay step-mode manual (`PB_STEP_MODE`
+  di project Denso asli) - cmd bit langsung `TR0 ANDNOT LSC`, tanpa tombol
+  step. Juga belum mendukung confirm selain solenoid+LSC (mis. servo).
 - Interlock pada `Individual` masih `GSB000`, harus ditulis manual
 - `Condition` unit berisi tiga slot cadangan
 - `HMI_Input` sengaja kosong
