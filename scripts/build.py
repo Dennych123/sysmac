@@ -26,7 +26,9 @@ tpl("s_in","Input: Alamat/Jenis/IO/Komen",1,
 fn("s_parse","Parse TSV",J('parse.js'),350,120,[["s_name"]])
 fn("s_name","Generate Name",J('genname.js'),510,120,[["s_val"]])
 fn("s_val","Validate",J('validate.js'),670,120,[["s_split"],["s_err"]],outs=2)
-fn("s_split","Split per Station",J('split.js'),840,120,[["s_all"]])
+fn("s_split","Split per Station",J('split.js'),840,120,[["s_motion_seq"]])
+nodes.append({"id":"s_motion_seq","type":"motion-sequencer","z":TAB,"name":"Motion Sequencer",
+    "sequences":{}, "x":945,"y":120,"wires":[["s_all"]]})
 fn("s_all","Generate Program XML",J('gen_all.js'),1050,120,[["s_out","s_warn"]],lib=True)
 
 tpl("s_err","Error display",3,

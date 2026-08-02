@@ -23,6 +23,18 @@ function merge2(o,a,b,out,cmt){var r=new Rung(o,cmt);var rail=r.rail();var ids=[
 function chunkNot(o,list,outBit,auxPrefix,cmt,vsink){var m='',bits=[],ch=[],i;for(i=0;i<list.length;i+=6)ch.push(list.slice(i,i+6));if(ch.length===1){return {xml:series(o,ch[0].map(function(x){return [x,true];}),outBit,cmt),n:1};}
 ch.forEach(function(c,idx){var b=auxPrefix+'_'+(idx+1);bits.push(b);if(vsink)vsink.push(b);m+=series(o+idx,c.map(function(x){return [x,true];}),b,idx===0?cmt:null);});
 m+=series(o+ch.length,bits.map(function(b){return [b,false];}),outBit);return {xml:m,n:ch.length+1};}
+// Motion step Denso (AutoRunning): TR0=prevBit. cmd = TR0 ANDNOT lsc. confirm = TR0 AND (sol AND lsc OR confirm).
+// Confirm self-latch WAJIB refIn ke TR0, bukan LeftPowerRail - PATTERN 4, salah ini bikin ladder salah tanpa error import.
+function motionStep(o,prevBit,sol,lsc,cmdBit,confirmBit,cmt){
+  var r=new Rung(o,cmt); var rail=r.rail();
+  var tr0=r.ct(prevBit,rail);
+  var cmdCoil=r.cl(cmdBit,r.ct(lsc,tr0,true));
+  var solLsc=r.ct(lsc,r.ct(sol,tr0));
+  var confAux=r.ct(confirmBit,tr0);
+  var confCoil=r.clm(confirmBit,[solLsc,confAux]);
+  r.rr([cmdCoil,confCoil]);
+  return r.build();
+}
 function vr(n,t,d){return '<Variable name="'+n+'"><Documentation xsi:type="SimpleText">'+esc(d||'')+'</Documentation><Type><TypeName>'+(t||'BOOL')+'</TypeName></Type></Variable>';}
 function sect(n,o,rungs){return '<BodyContent xsi:type="smcext:LdSection" name="'+esc(n)+'" evaluationOrder="'+o+'">'+rungs.join('')+'</BodyContent>';}
 function prog(name,ext,priv,sections,glob){

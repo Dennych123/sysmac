@@ -1,0 +1,110 @@
+<script type="text/javascript">
+    RED.nodes.registerType('motion-sequencer', {
+        category: 'sysmac-generator',
+        color: '#a6bbcf',
+        defaults: {
+            name: { value: "" },
+            sequences: { value: {} }
+        },
+        inputs: 1,
+        outputs: 1,
+        icon: "font-awesome/fa-sort-amount-asc",
+        label: function () { return this.name || "motion sequencer"; },
+        oneditprepare: function () {
+            var node = this;
+            var sequences = $.extend(true, {}, node.sequences || {});
+            var $stations = $('#motion-seq-stations');
+
+            function addStep($ol, name) {
+                var $li = $('<li class="motion-seq-row"></li>');
+                $('<span class="motion-seq-handle">&#9776;</span>').appendTo($li);
+                $('<span class="motion-seq-name"></span>').text(name).appendTo($li);
+                $('<button type="button" class="red-ui-button red-ui-button-small">Remove</button>')
+                    .appendTo($li).on('click', function () { $li.remove(); });
+                $ol.append($li);
+            }
+
+            function addStation(stKey, steps) {
+                if ($stations.find('[data-station="' + stKey + '"]').length) return;
+                var $box = $('<div class="motion-seq-station" data-station="' + stKey + '"></div>');
+                $('<div class="motion-seq-station-title"></div>').text(stKey).appendTo($box);
+                var $ol = $('<ol class="motion-seq-list"></ol>').appendTo($box);
+                (steps || []).forEach(function (name) { addStep($ol, name); });
+                $ol.sortable({ axis: 'y', containment: 'parent', handle: '.motion-seq-handle' }).disableSelection();
+
+                var $addRow = $('<div class="motion-seq-add"></div>').appendTo($box);
+                var $input = $('<input type="text" placeholder="SOL_ST1_STP5_CHK">').appendTo($addRow);
+                $('<button type="button" class="red-ui-button">Add step</button>').appendTo($addRow).on('click', function () {
+                    var v = $input.val().trim();
+                    if (v) { addStep($ol, v); $input.val(''); }
+                });
+                $input.on('keydown', function (e) {
+                    if (e.key === 'Enter') { e.preventDefault(); $addRow.find('button').trigger('click'); }
+                });
+                $('<button type="button" class="red-ui-button motion-seq-remove-station">Remove station</button>')
+                    .appendTo($box).on('click', function () { $box.remove(); });
+
+                $stations.append($box);
+            }
+
+            Object.keys(sequences).forEach(function (stKey) { addStation(stKey, sequences[stKey]); });
+
+            $('#motion-seq-add-station').on('click', function () {
+                var v = $('#motion-seq-new-station').val().trim().toUpperCase();
+                if (v) { addStation(v, []); $('#motion-seq-new-station').val(''); }
+            });
+        },
+        oneditsave: function () {
+            var out = {};
+            $('#motion-seq-stations .motion-seq-station').each(function () {
+                var stKey = $(this).data('station');
+                var names = [];
+                $(this).find('.motion-seq-name').each(function () { names.push($(this).text()); });
+                if (names.length) out[stKey] = names;
+            });
+            this.sequences = out;
+        }
+    });
+</script>
+
+<script type="text/html" data-template-name="motion-sequencer">
+    <style>
+        .motion-seq-station { border: 1px solid var(--red-ui-form-input-border-color, #ccc); border-radius: 4px; padding: 8px; margin-bottom: 10px; }
+        .motion-seq-station-title { font-weight: bold; margin-bottom: 6px; }
+        .motion-seq-list { list-style: none; margin: 0; padding: 0; min-height: 20px; }
+        .motion-seq-row { display: flex; align-items: center; gap: 8px; padding: 4px 6px; margin-bottom: 4px;
+            border: 1px solid #ddd; border-radius: 3px; background: #fafafa; cursor: default; }
+        .motion-seq-handle { cursor: grab; color: #888; }
+        .motion-seq-name { font-family: monospace; flex: 1; }
+        .motion-seq-add { margin-top: 6px; display: flex; gap: 6px; }
+        .motion-seq-add input { flex: 1; }
+        .motion-seq-remove-station { margin-top: 8px; }
+    </style>
+    <div class="form-row">
+        <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+        <input type="text" id="node-input-name" placeholder="Motion Sequencer">
+    </div>
+    <div class="form-row">
+        <label>Urutan motion per station</label>
+        <p class="motion-seq-hint">Ketik station key (ST1, ST2, ...) buat tambah section baru.
+        Tiap section: ketik nama solenoid persis (SOL_ST1_STP5_CHK), klik Add step, drag buat urutkan.</p>
+        <div style="display:flex;gap:6px;margin-bottom:10px">
+            <input type="text" id="motion-seq-new-station" placeholder="ST1" style="width:100px">
+            <button type="button" id="motion-seq-add-station" class="red-ui-button">Add station</button>
+        </div>
+        <div id="motion-seq-stations"></div>
+    </div>
+</script>
+
+<script type="text/html" data-help-name="motion-sequencer">
+    <p>Susun urutan gerak AutoRunning per station, jadi ladder cmd+confirm berantai
+    (idiom TR0 Denso) menggantikan placeholder <code>LB410 onwards</code> di generator.</p>
+    <p>Sisip node ini di antara <b>Split per Station</b> dan <b>Generate Program XML</b>.</p>
+    <p>Tambah station (ST1/ST2/...), ketik nama solenoid persis seperti yang muncul di
+    <code>GlobalVariables.tsv</code> / komentar program hasil generate (mis.
+    <code>SOL_ST1_STP5_CHK</code>), klik <b>Add step</b>, drag buat urutkan arah mana yang
+    gerak duluan.</p>
+    <p>Nama yang gak cocok sama actuator station itu (typo, atau IO list berubah) di-skip
+    dengan warning saat run, bukan bikin generate gagal. Station yang gak dikonfigurasi di
+    sini tetap dapat placeholder lama (<code>Batasan</code> di README).</p>
+</script>

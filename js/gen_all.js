@@ -19,6 +19,19 @@ var MF_TYPE = "ARRAY[1.."+MF_SIZE+"] OF BOOL";
 function stripAS(n){ return n.replace(/^AS_/,""); }
 function pad(n,w){ return ("0000"+n).slice(-w); }
 function pairUp(l){ var p=[]; for(var i=0;i<l.length;i+=2){ if(l[i+1]) p.push([l[i],l[i+1]]); } return p; }
+// Cari LSC (limit switch combination) yang komennya paling mirip sama device (dipakai buat motion fault dan AutoRunning)
+function findLsc(dev,asPairs){
+    var tk=function(d){return (d.komen||"").toUpperCase().split(/[^A-Z0-9]+/).filter(function(w){return w.length>2;});};
+    var sc=function(x,y){var a1=tk(x),b1=tk(y),m=0;a1.forEach(function(w){if(b1.indexOf(w)>=0)m++;});return m;};
+    var best=null,bestScore=0;
+    asPairs.forEach(function(p){
+        p.forEach(function(asDev){
+            var s=sc(dev,asDev);
+            if(s>=2 && s>bestScore){ bestScore=s; best="LSC_"+stripAS(asDev.name); }
+        });
+    });
+    return best;
+}
 function AL(n,cmt){ var t="AL["+n+"]"; if(cmt) ARRAY_ELEMENTS[t]=cmt; return t; }
 function MF(n,cmt){ var t="MF["+n+"]"; if(cmt) ARRAY_ELEMENTS[t]=cmt; return t; }
 
@@ -107,14 +120,8 @@ function buildUnit(stKey, devs){
     });
     actus.forEach(function(a,i){
         if(mfN>mfCap){ warnings.push(stKey+": MF motion-fault block full (max "+MF_PER_STATION+" per station), actuator "+a[0].komen+" skipped."); return; }
-        var lscA=null,lscB=null;
-        asPairs.forEach(function(p){
-            if(lscA) return;
-            var tk=function(d){return (d.komen||"").toUpperCase().split(/[^A-Z0-9]+/).filter(function(w){return w.length>2;});};
-            var sc=function(x,y){var a1=tk(x),b1=tk(y),m=0;a1.forEach(function(w){if(b1.indexOf(w)>=0)m++;});return m;};
-            if(sc(a[0],p[0])>=2){ lscA="LSC_"+stripAS(p[0].name); lscB="LSC_"+stripAS(p[1].name); }
-        });
-        if(!lscA){ warnings.push(stKey+": no matching limit switch for actuator "+a[0].komen+", motion fault skipped."); return; }
+        var lscA=findLsc(a[0],asPairs), lscB=findLsc(a[1],asPairs);
+        if(!lscA||!lscB){ warnings.push(stKey+": no matching limit switch for actuator "+a[0].komen+", motion fault skipped."); return; }
         var cmt="Cylinder motion fault, solenoid energised but position not confirmed: "+a[0].komen+" / "+a[1].komen;
         var mf=MF(mfN,cmt), tmr="LT"+pad(200+i,3);
         P(tmr,"TON","Motion timeout for "+a[0].komen);
@@ -194,28 +201,59 @@ function buildUnit(stKey, devs){
     });
 
     // 10. AutoRunning : unit menerima AUTO_RUN dari main lalu mengurut sendiri
+    // Urutan gerak diambil dari flow.get("motionSequences")[stKey] (diisi node Motion Sequencer),
+    // array nama solenoid berurutan. Station yang belum dikonfigurasi tetap pakai placeholder lama.
     var S10=[]; o=1;
-    ["LB400","LB400_A","LB409","LB499"].forEach(function(b,i){
-        P(b,"BOOL",["Automatic motion start","Unit is running","Unit cycle completed","Automatic operation complete"][i]);
-    });
-    S10.push(latch(o++,[["AUTO_RUN",false]],"LB400",[["LB309",false],["LB409",true],["CYCLE_STOP",true]],
+    P("LB400","BOOL","Automatic motion start"); P("LB400_A","BOOL","Unit is running");
+    S10.push(latch(o++,[["AUTO_RUN",false]],"LB400",[["LB309",false],["LB499",true],["CYCLE_STOP",true]],
         "Automatic motion start, sequencing is handled inside this unit"));
     S10.push(series(o++,[["LB400",false]],"LB400_A",null));
-    var stepBits=[];
-    actus.forEach(function(a,i){
-        var sM="LB"+pad(410+i*2,3), sR="LB"+pad(411+i*2,3);
-        P(sM,"BOOL","Automatic command, "+a[0].komen); P(sR,"BOOL","Automatic command, "+a[1].komen);
-        stepBits.push(sM);
+
+    var seq=((flow.get("motionSequences")||{})[stKey])||[];
+    var solByName={}; actus.forEach(function(a){ solByName[a[0].name]=a[0]; solByName[a[1].name]=a[1]; });
+    var cmdBitOf={}, prevBit="LB400", stepCount=0;
+    seq.forEach(function(name){
+        var dev=solByName[name];
+        if(!dev){ warnings.push(stKey+': motion sequence references unknown solenoid "'+name+'", step skipped.'); return; }
+        var lsc=findLsc(dev,asPairs);
+        if(!lsc){ warnings.push(stKey+': no matching limit switch for "'+name+'" in motion sequence, step skipped.'); return; }
+        var cmdBit="LB"+pad(410+stepCount*2,3), confirmBit="LB"+pad(411+stepCount*2,3);
+        P(cmdBit,"BOOL","Automatic command, "+dev.komen); P(confirmBit,"BOOL","Automatic complete, "+dev.komen);
+        S10.push(motionStep(o++, prevBit, name, lsc, cmdBit, confirmBit, "Motion "+(stepCount+1)+": "+dev.komen));
+        cmdBitOf[name]=cmdBit; prevBit=confirmBit; stepCount++;
     });
-    S10.push(series(o++,[["LB400",false],["LB105",false]],"LB409","Motion steps to be written here using LB410 onwards"));
-    S10.push(series(o++,[["LB409",false]],"LB499",null));
+
+    P("LB499","BOOL","Automatic operation complete");
+    if(stepCount){
+        S10.push(series(o++,[[prevBit,false]],"LB499","1 cycle motion complete"));
+    } else {
+        actus.forEach(function(a,i){
+            var sM="LB"+pad(410+i*2,3), sR="LB"+pad(411+i*2,3);
+            P(sM,"BOOL","Automatic command, "+a[0].komen); P(sR,"BOOL","Automatic command, "+a[1].komen);
+        });
+        P("LB409","BOOL","Unit cycle completed");
+        S10.push(series(o++,[["LB400",false],["LB105",false]],"LB409","Motion steps to be written here using LB410 onwards, or configure the Motion Sequencer node"));
+        S10.push(series(o++,[["LB409",false]],"LB499",null));
+    }
 
     // 11. Auto_Output
     var S11=[]; o=1;
-    actus.forEach(function(a,i){
-        S11.push(merge2(o++,"LB"+pad(410+i*2,3),indM[i],a[0].name, i===0?"Automatic and individual command merged to solenoid":null));
-        S11.push(merge2(o++,"LB"+pad(411+i*2,3),indR[i],a[1].name,null));
-    });
+    if(stepCount){
+        var firstOut=true;
+        actus.forEach(function(a,i){
+            [[a[0],indM[i]],[a[1],indR[i]]].forEach(function(pair){
+                var dev=pair[0], indBit=pair[1], autoBit=cmdBitOf[dev.name]||null;
+                S11.push(merge2(o++, autoBit||indBit, autoBit?indBit:null, dev.name,
+                    firstOut?"Automatic and individual command merged to solenoid":null));
+                firstOut=false;
+            });
+        });
+    } else {
+        actus.forEach(function(a,i){
+            S11.push(merge2(o++,"LB"+pad(410+i*2,3),indM[i],a[0].name, i===0?"Automatic and individual command merged to solenoid":null));
+            S11.push(merge2(o++,"LB"+pad(411+i*2,3),indR[i],a[1].name,null));
+        });
+    }
     var used={}; actus.forEach(function(a){ used[a[0].name]=1; used[a[1].name]=1; });
     outputs.filter(function(d){return !used[d.name];}).forEach(function(d,i){
         var ab="LB"+pad(480+i,3); P(ab,"BOOL","Automatic command, "+d.komen);
