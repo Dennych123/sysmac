@@ -105,17 +105,27 @@ const outdir=path.join(__dirname,'..','outputs'); fs.mkdirSync(outdir,{recursive
 stub.files.forEach(f=>fs.writeFileSync(path.join(outdir,f.name),f.xml));
 const okStub = validate('stub', stub.files);
 
-// Skenario 2: motionSequences terisi buat ST1 (2 langkah, arah CHK lalu UCHK actuator STOPPER-5)
-console.log('\n=== Skenario motion sequence (ST1 dikonfigurasi) ===');
-const seeded = runPipeline({ motionSequences: { ST1: ['SOL_ST1_STP5_CHK','SOL_ST1_STP5_UCHK'] } });
+// Skenario 2: motionSequences terisi buat ST1 pakai graph baru - linear, fork (n1/n3 paralel dari
+// LB400), AND-join (n4 nunggu n2 dan n3), OR-gate + rujukan bit eksternal (n5: n2 OR GSB000, gaya
+// akses Condition section / sensor). Solenoid dipakai berkali-kali cuma buat nguji codegen, bukan
+// skenario fisik yang realistis.
+console.log('\n=== Skenario motion sequence graph (ST1: linear + fork + AND-join + OR-gate) ===');
+const seeded = runPipeline({ motionSequences: { ST1: [
+    { id:'n1', sol:'SOL_ST1_STP5_CHK',  after:[],              join:'AND' },
+    { id:'n2', sol:'SOL_ST1_STP5_UCHK', after:['n1'],          join:'AND' },
+    { id:'n3', sol:'SOL_ST1_STP5_CHK',  after:[],              join:'AND' },
+    { id:'n4', sol:'SOL_ST1_STP5_UCHK', after:['n2','n3'],     join:'AND' },
+    { id:'n5', sol:'SOL_ST1_STP5_CHK',  after:['n2','GSB000'], join:'OR'  },
+] } });
 const okSeeded = validate('seeded', seeded.files);
 
-// Motion step ST1 harus benar-benar kepakai (bukan silently jatuh ke stub) - AutoRunning section
-// wajib punya rung "Motion 1"/"Motion 2", bukan cuma komen placeholder lama.
+// AutoRunning section wajib punya semua 5 rung "Motion N", dua rung Join (AND dan OR), dan gak
+// jatuh ke placeholder stub lama - bukti graph-nya bener-bener kepakai bukan silently di-skip.
 const st1 = seeded.files.find(f=>f.name==='Prg010_ST1.xml');
-const usedRealSequence = st1 && /Motion 1: /.test(st1.xml) && /Motion 2: /.test(st1.xml)
-    && !/Motion steps to be written here/.test(st1.xml);
-console.log(usedRealSequence ? 'MOTION SEQUENCE OK: ST1 pakai chained ladder, bukan stub'
-                              : 'MOTION SEQUENCE GAGAL: ST1 masih stub padahal sudah diseed');
+const hasAllMotions = st1 && [1,2,3,4,5].every(n => new RegExp('Motion '+n+': ').test(st1.xml));
+const hasJoins = st1 && /Join \(AND\)/.test(st1.xml) && /Join \(OR\)/.test(st1.xml);
+const usedRealSequence = hasAllMotions && hasJoins && !/Motion steps to be written here/.test(st1.xml);
+console.log(usedRealSequence ? 'MOTION SEQUENCE OK: ST1 pakai graph (linear+fork+AND+OR), bukan stub'
+                              : 'MOTION SEQUENCE GAGAL: ST1 masih stub atau graph gak lengkap kepakai');
 
 if(!okStub || !okSeeded || !usedRealSequence) process.exit(1);

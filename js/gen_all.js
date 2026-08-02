@@ -209,23 +209,57 @@ function buildUnit(stKey, devs){
         "Automatic motion start, sequencing is handled inside this unit"));
     S10.push(series(o++,[["LB400",false]],"LB400_A",null));
 
+    // Graph: [{id, sol, after:[nodeId-or-bit,...], join:"AND"|"OR"}, ...]. after harus rujuk node
+    // SEBELUMNYA (dijamin oleh editor) atau bit apapun yang sudah dideklarasi (mis. LB300 Condition,
+    // sensor). after.length>1 dimaterialisasi jadi 1 rung AND/OR dulu sebelum motionStep-nya.
     var seq=((flow.get("motionSequences")||{})[stKey])||[];
     var solByName={}; actus.forEach(function(a){ solByName[a[0].name]=a[0]; solByName[a[1].name]=a[1]; });
-    var cmdBitOf={}, prevBit="LB400", stepCount=0;
-    seq.forEach(function(name){
-        var dev=solByName[name];
-        if(!dev){ warnings.push(stKey+': motion sequence references unknown solenoid "'+name+'", step skipped.'); return; }
+    var nodeIds={}; seq.forEach(function(n){ nodeIds[n.id]=true; });
+    var cmdBitOf={}, confirmBitOf={}, referenced={}, stepCount=0, joinN=0, endBits=[];
+
+    function resolveBit(ref){ return nodeIds[ref] ? confirmBitOf[ref] : ref; }
+
+    seq.forEach(function(node){
+        var dev=solByName[node.sol];
+        if(!dev){ warnings.push(stKey+': motion sequence references unknown solenoid "'+node.sol+'", step skipped.'); return; }
         var lsc=findLsc(dev,asPairs);
-        if(!lsc){ warnings.push(stKey+': no matching limit switch for "'+name+'" in motion sequence, step skipped.'); return; }
+        if(!lsc){ warnings.push(stKey+': no matching limit switch for "'+node.sol+'" in motion sequence, step skipped.'); return; }
+
+        var after=(node.after||[]).filter(function(ref){
+            if(nodeIds[ref] && confirmBitOf[ref]===undefined){
+                warnings.push(stKey+': motion step "'+node.sol+'" depends on a skipped step "'+ref+'", dependency ignored.');
+                return false;
+            }
+            return true;
+        });
+
+        var prevBit;
+        if(!after.length){
+            prevBit="LB400";
+        } else if(after.length===1){
+            prevBit=resolveBit(after[0]);
+        } else {
+            var joinBit="LB"+pad(500+joinN,3); joinN++;
+            P(joinBit,"BOOL",(node.join==="OR"?"Any of":"All of")+" "+after.length+" condition(s) before "+dev.komen);
+            var bits=after.map(resolveBit);
+            var jcmt="Join ("+(node.join==="OR"?"OR":"AND")+") before motion "+(stepCount+1)+": "+dev.komen;
+            if(node.join==="OR") S10.push(orMany(o++, bits, joinBit, jcmt));
+            else S10.push(series(o++, bits.map(function(b){return [b,false];}), joinBit, jcmt));
+            prevBit=joinBit;
+        }
+        after.forEach(function(ref){ if(nodeIds[ref]) referenced[ref]=true; });
+
         var cmdBit="LB"+pad(410+stepCount*2,3), confirmBit="LB"+pad(411+stepCount*2,3);
         P(cmdBit,"BOOL","Automatic command, "+dev.komen); P(confirmBit,"BOOL","Automatic complete, "+dev.komen);
-        S10.push(motionStep(o++, prevBit, name, lsc, cmdBit, confirmBit, "Motion "+(stepCount+1)+": "+dev.komen));
-        cmdBitOf[name]=cmdBit; prevBit=confirmBit; stepCount++;
+        S10.push(motionStep(o++, prevBit, node.sol, lsc, cmdBit, confirmBit, "Motion "+(stepCount+1)+": "+dev.komen));
+        cmdBitOf[node.sol]=cmdBit; confirmBitOf[node.id]=confirmBit; stepCount++;
     });
+    seq.forEach(function(n){ if(confirmBitOf[n.id]!==undefined && !referenced[n.id]) endBits.push(confirmBitOf[n.id]); });
 
     P("LB499","BOOL","Automatic operation complete");
     if(stepCount){
-        S10.push(series(o++,[[prevBit,false]],"LB499","1 cycle motion complete"));
+        S10.push(series(o++, endBits.map(function(b){return [b,false];}), "LB499",
+            endBits.length>1?"1 cycle motion complete, all parallel branches finished":"1 cycle motion complete"));
     } else {
         actus.forEach(function(a,i){
             var sM="LB"+pad(410+i*2,3), sR="LB"+pad(411+i*2,3);

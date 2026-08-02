@@ -11,6 +11,8 @@ Rung.prototype.build=function(){var c=this.c?'<CommonObject xsi:type="Comment"><
 
 // conds = [[operand, negated], ...]  -> AND series -> 1 coil
 function series(o,conds,out,cmt,outNeg,edge){var r=new Rung(o,cmt);var cur=r.rail();conds.forEach(function(c){cur=r.ct(c[0],cur,c[1]);});var x=r.cl(out,cur,outNeg,edge);r.rr([x]);return r.build();}
+// bits = [operand, ...]  -> OR (parallel dari rail) -> 1 coil, kebalikan AND-nya series()
+function orMany(o,bits,out,cmt){var r=new Rung(o,cmt);var rail=r.rail();var ids=bits.map(function(b){return r.ct(b,rail);});var x=r.clm(out,ids);r.rr([x]);return r.build();}
 // self-latch: (OR trigs OR bit) AND blocks -> bit
 function latch(o,trigs,bit,blocks,cmt){var r=new Rung(o,cmt);var rail=r.rail();var ids=trigs.map(function(t){return r.ct(t[0],rail,t[1]);});ids.push(r.ct(bit,rail));blocks=blocks||[];if(!blocks.length){var x=r.clm(bit,ids);r.rr([x]);return r.build();}var cur=r.ctm(blocks[0][0],ids,blocks[0][1]);for(var i=1;i<blocks.length;i++)cur=r.ct(blocks[i][0],cur,blocks[i][1]);var y=r.cl(bit,cur);r.rr([y]);return r.build();}
 // dual-aux confirm Denso (3 rung)

@@ -39,11 +39,24 @@ secara otomatis. Jangan menyalin isi lib ke file generator, dan jangan edit
 ### Motion Sequence (urutan gerak AutoRunning)
 
 Setelah klik Generate, panel "Motion Sequence" muncul di `index.html` kalau
-ada station dengan actuator. Klik solenoid di baris "Available" buat nambah
-ke urutan gerak, Up/Down/Remove buat susun ulang - tiap perubahan langsung
-regenerate ladder AutoRunning station itu (idiom Denso TR0 cmd+confirm
-berantai, lihat `js/lib.js` -> `motionStep`). Station yang gak disentuh di
-panel ini tetap dapat kerangka placeholder biasa (lihat `Batasan`).
+ada station dengan actuator - berupa kanvas graph, bukan list linear. Klik
+solenoid buat nambah node, seret dari bulatan kuning di node ke node lain
+yang LEBIH BARU buat bikin panah dependency ("node ini nunggu node itu
+selesai"). Beberapa node boleh nunjuk ke node yang sama (paralel - jalan
+bareng), satu node boleh punya 2+ panah masuk (badge AND muncul otomatis,
+klik buat toggle ke OR - AND = nunggu semua, OR = nunggu salah satu).
+"+ Condition/bit" nambah node rujukan bit yang sudah ada (`LB300` dkk di
+section Condition, sensor, atau operand lain) sebagai sumber panah, bukan
+solenoid. Posisi node bisa diseret, itu kosmetik doang. Tiap perubahan
+struktur graph langsung regenerate ladder AutoRunning station itu.
+
+Codegen: idiom Denso TR0 cmd+confirm (`js/lib.js` -> `motionStep`) tetap
+dipakai per node; kalau sebuah node punya 2+ dependency, satu rung AND
+(`series`) atau OR (`orMany`) dibikin dulu buat gabungin jadi satu bit,
+baru bit itu jadi TR0 buat `motionStep`-nya. Node yang gak ada yang
+nunjuk ke dia (ujung cabang paralel) semuanya di-AND jadi `LB499`
+"1 cycle motion complete". Station yang gak disentuh di panel ini tetap
+dapat kerangka placeholder biasa (lihat `Batasan`).
 
 ## Struktur
 
