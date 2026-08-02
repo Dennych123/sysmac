@@ -36,24 +36,6 @@ hasilnya. `build.py` juga menempelkan `js/lib.js` ke setiap node generator
 secara otomatis. Jangan menyalin isi lib ke file generator, dan jangan edit
 `index.html` langsung - edit `js/*.js` lalu build ulang.
 
-### Node Motion Sequencer (opsional, buat urutan gerak AutoRunning)
-
-`nodered-nodes/motion-sequencer/` adalah custom Node-RED node beneran (bukan
-`function` node inline kayak `js/*.js`), jadi butuh diinstall terpisah -
-import `flow.json` saja TIDAK cukup buat node ini muncul di palette:
-
-```bash
-cd ~/.node-red
-npm install /path/ke/repo/nodered-nodes/motion-sequencer
-# restart Node-RED
-```
-
-Node ini duduk di antara "Split per Station" dan "Generate Program XML".
-Double-click, tambah station (ST1/ST2/...), ketik nama solenoid persis
-(mis. `SOL_ST1_STP5_CHK`, sama seperti yang muncul di `GlobalVariables.tsv`),
-drag buat urutkan. Station yang tidak dikonfigurasi di node ini tetap dapat
-placeholder `LB410 onwards` seperti sebelumnya - lihat `Batasan`.
-
 ## Struktur
 
 | Berkas | Isi |
@@ -68,7 +50,6 @@ placeholder `LB410 onwards` seperti sebelumnya - lihat `Batasan`.
 | `scripts/build.py` | Perakit flow JSON Node-RED |
 | `scripts/test.js` | Uji jalan dan validasi |
 | `index.html` | Hasil build, jangan diedit langsung |
-| `nodered-nodes/motion-sequencer/` | Custom Node-RED node: urutan motion AutoRunning per station |
 
 ## Uji yang dijalankan `test.js`
 
@@ -87,12 +68,7 @@ Terbalik akan memunculkan galat
 
 ## Batasan
 
-- Urutan gerak pada `AutoRunning` cuma dibangkitkan buat station yang
-  dikonfigurasi lewat node Motion Sequencer (lihat di atas). Station yang
-  belum dikonfigurasi tetap dapat kerangka placeholder `LB410` ke atas.
-- Motion Sequencer belum mendukung overlay step-mode manual (`PB_STEP_MODE`
-  di project Denso asli) - cmd bit langsung `TR0 ANDNOT LSC`, tanpa tombol
-  step. Juga belum mendukung confirm selain solenoid+LSC (mis. servo).
+- Urutan gerak pada `AutoRunning` belum dibangkitkan, hanya kerangka `LB410` ke atas
 - Interlock pada `Individual` masih `GSB000`, harus ditulis manual
 - `Condition` unit berisi tiga slot cadangan
 - `HMI_Input` sengaja kosong
