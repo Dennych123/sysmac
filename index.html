@@ -57,6 +57,17 @@
   .gjoin-badge{cursor:pointer}
   .gjoin-badge rect{fill:#333}
   .gjoin-badge text{fill:#fff;font-size:8px;text-anchor:middle;font-family:Consolas,monospace}
+  .json-io{border-top:1px dashed #ccc;margin-top:8px;padding-top:8px}
+  .json-io textarea{height:90px;font-size:10px}
+  .json-io .row{display:flex;gap:6px;margin-top:4px}
+  .json-io button{font-size:11px;padding:5px 10px;margin:0}
+  .json-io .json-import{background:#27ae60}
+  .json-io .json-import:hover{background:#1e8449}
+  .json-io .json-export{background:#2c3e50}
+  .json-io .json-export:hover{background:#1a242f}
+  .json-io .json-msg{font-size:10px;margin-top:4px;white-space:pre-wrap}
+  .json-io .json-msg.ok{color:#1e8449}
+  .json-io .json-msg.err{color:#c0392b}
 </style>
 </head>
 <body>
@@ -74,7 +85,10 @@ kuning ke node LAIN (boleh ke arah manapun, asal gak muter balik) buat bikin dep
 2+ dependency dapat badge AND/OR - klik toggle. "+ Condition/bit" bikin node rujukan bit yang sudah
 ada (Condition section LB300 dkk, sensor). Klik node/panah buat SELECT (kuning), tekan Delete/
 Backspace buat hapus yang keselect. Seret node cuma buat rapihin posisi. Station yang gak disentuh
-tetap pakai kerangka placeholder biasa.</p>
+tetap pakai kerangka placeholder biasa. Tiap station juga punya kotak <b>Import/Export JSON</b> di
+bawah - bisa tempel JSON hasil AI atau bikinan sendiri (format: array varian
+<code>[{"condition":"","nodes":[{"id":"n1","sol":"SOL_...","after":[],"join":"AND"}]}]</code>),
+gak wajib drag-drop manual.</p>
 <div id="motionPanel"></div>
 
 <div id="results"></div>
@@ -247,6 +261,70 @@ function moveNode(st, vIdx, id, x, y) {
 function nodeLabel(n) {
   var t = n.type === 'condition' ? n.bit : n.sol;
   return t.length > 15 ? t.slice(0, 13) + '..' : t;
+}
+
+// ===== Import/Export JSON, buat isi graph tanpa drag-drop manual (mis. hasil AI) =====
+// Format: array varian [{condition, nodes:[{id,sol,after,join}]}] - SAMA PERSIS bentuk yang
+// dikirim ke gen_all.js lewat flow.get("motionSequences"). `after` boleh nunjuk node id lain DI
+// VARIAN YANG SAMA, atau bit apapun yang sudah ada (Condition section, sensor) - kalau bit itu
+// gak match id node manapun di JSON-nya, otomatis dibikinin node "condition" biar kegambar.
+function variantsToJSON(stKey) {
+  var variants = (motionState[stKey] || []).map(function (v) {
+    var motionNodes = v.nodes.filter(function (n) { return n.type === 'motion'; });
+    return {
+      condition: v.condition || '',
+      nodes: motionNodes.map(function (n) { return { id: n.id, sol: n.sol, after: n.after.slice(), join: n.join }; })
+    };
+  });
+  return JSON.stringify(variants, null, 2);
+}
+
+function importSequenceJSON(stKey, jsonText) {
+  var parsed;
+  try { parsed = JSON.parse(jsonText); }
+  catch (e) { return 'JSON gak valid: ' + e.message; }
+  if (!Array.isArray(parsed)) return 'JSON harus array varian: [{"condition":"","nodes":[...]}]';
+
+  var newVariants = [];
+  for (var vi = 0; vi < parsed.length; vi++) {
+    var raw = parsed[vi] || {};
+    if (!Array.isArray(raw.nodes)) return 'Varian ke-' + (vi + 1) + ' butuh field "nodes" (array)';
+    var v = { condition: String(raw.condition || '').trim(), nodes: [] };
+    var idx = 0;
+    for (var ni = 0; ni < raw.nodes.length; ni++) {
+      var n = raw.nodes[ni] || {};
+      if (!n.id || !n.sol) return 'Varian ke-' + (vi + 1) + ' node ke-' + (ni + 1) + ' butuh "id" dan "sol"';
+      var pos = { x: 20 + (idx % 4) * 145, y: 20 + Math.floor(idx / 4) * 75 }; idx++;
+      v.nodes.push({
+        id: String(n.id), type: 'motion', sol: String(n.sol),
+        after: Array.isArray(n.after) ? n.after.map(String) : [],
+        join: n.join === 'OR' ? 'OR' : 'AND', x: pos.x, y: pos.y
+      });
+    }
+    // auto-bikin node "condition" buat tiap `after` yang gak match id node motion manapun di varian ini
+    var motionIds = {}; v.nodes.forEach(function (n) { motionIds[n.id] = true; });
+    var extraBits = [];
+    v.nodes.forEach(function (n) { n.after.forEach(function (ref) { if (!motionIds[ref] && extraBits.indexOf(ref) < 0) extraBits.push(ref); }); });
+    extraBits.forEach(function (bit) {
+      var pos = { x: 20 + (idx % 4) * 145, y: 20 + Math.floor(idx / 4) * 75 }; idx++;
+      v.nodes.push({ id: bit, type: 'condition', bit: bit, x: pos.x, y: pos.y });
+    });
+    newVariants.push(v);
+  }
+
+  motionState[stKey] = newVariants.length ? newVariants : [{ condition: '', nodes: [] }];
+  // motionCounters dipakai buat generate id "n1","n2",... lewat tombol +solenoid - naikkin biar
+  // gak collide sama id yang barusan diimport (mis. JSON-nya juga pake id "n1").
+  motionState[stKey].forEach(function (v, vIdx) {
+    var maxN = 0;
+    v.nodes.forEach(function (n) {
+      var m = /^n(\d+)$/.exec(n.id);
+      if (m) maxN = Math.max(maxN, parseInt(m[1], 10));
+    });
+    motionCounters[vKey(stKey, vIdx)] = maxN + 1;
+  });
+  selected = null;
+  return null;
 }
 
 function renderResults(payload) {
@@ -501,6 +579,26 @@ function renderMotionPanel() {
     var addVBtn = document.createElement('button'); addVBtn.className = 'add-variant'; addVBtn.textContent = '+ Variant';
     addVBtn.addEventListener('click', function () { addVariant(stKey); renderMotionPanel(); });
     box.appendChild(addVBtn);
+
+    var jsonBox = document.createElement('div'); jsonBox.className = 'json-io';
+    var jsonLabel = document.createElement('div'); jsonLabel.className = 'hint';
+    jsonLabel.textContent = 'Import/Export JSON (array varian) - ganti seluruh sequence station ini:';
+    var jsonTa = document.createElement('textarea');
+    jsonTa.placeholder = '[{"condition":"","nodes":[{"id":"n1","sol":"' + (names[0] || 'SOL_...') + '","after":[],"join":"AND"}]}]';
+    var jsonRow = document.createElement('div'); jsonRow.className = 'row';
+    var jsonMsg = document.createElement('div'); jsonMsg.className = 'json-msg';
+    var importBtn = document.createElement('button'); importBtn.className = 'json-import'; importBtn.textContent = 'Import JSON';
+    importBtn.addEventListener('click', function () {
+      var err = importSequenceJSON(stKey, jsonTa.value);
+      if (err) { jsonMsg.className = 'json-msg err'; jsonMsg.textContent = err; return; }
+      jsonMsg.className = 'json-msg ok'; jsonMsg.textContent = 'Imported.';
+      renderMotionPanel(); regenerate();
+    });
+    var exportBtn = document.createElement('button'); exportBtn.className = 'json-export'; exportBtn.textContent = 'Export JSON';
+    exportBtn.addEventListener('click', function () { jsonTa.value = variantsToJSON(stKey); jsonMsg.className = 'json-msg'; jsonMsg.textContent = ''; });
+    jsonRow.appendChild(importBtn); jsonRow.appendChild(exportBtn);
+    jsonBox.appendChild(jsonLabel); jsonBox.appendChild(jsonTa); jsonBox.appendChild(jsonRow); jsonBox.appendChild(jsonMsg);
+    box.appendChild(jsonBox);
 
     motionPanelEl.appendChild(box);
   });

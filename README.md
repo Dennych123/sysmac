@@ -58,6 +58,24 @@ keselect (bersih otomatis nge-hapus panah yang nempel). Posisi node bisa
 diseret, itu kosmetik doang. Tiap perubahan struktur langsung regenerate
 ladder AutoRunning station itu.
 
+**Import/Export JSON** - tiap station-box punya kotak JSON di bawah, buat
+isi/ambil seluruh sequence station itu tanpa drag-drop manual (mis. hasil
+generate AI, atau nulis/nyalin langsung). Format persis bentuk yang dikirim
+ke `gen_all.js`:
+```json
+[
+  { "condition": "", "nodes": [
+    { "id": "n1", "sol": "SOL_ST1_STP5_CHK", "after": [], "join": "AND" },
+    { "id": "n2", "sol": "SOL_ST1_STP5_UCHK", "after": ["n1"], "join": "AND" }
+  ] }
+]
+```
+`after` boleh nunjuk id node lain di varian yang sama, atau bit apapun yang
+sudah dideklarasi (Condition section, sensor) - kalau bit itu gak match id
+node manapun di JSON-nya, node "condition" otomatis dibikin biar kegambar.
+Import mengganti SELURUH varian station itu; Export nulis balik state
+sekarang ke textarea (bisa disalin/disimpan).
+
 Codegen: idiom Denso TR0 cmd+confirm (`js/lib.js` -> `motionStep`) tetap
 dipakai per node - cmd bit break-nya `ANDNOT` bit confirm node itu sendiri
 (bukan `ANDNOT` LSC), jadi cmd tetap ON sampai posisi beneran kekonfirmasi.
