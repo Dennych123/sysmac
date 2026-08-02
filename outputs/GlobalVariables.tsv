@@ -3,6 +3,14 @@ AIR_SC_CONF	BOOL			False	False	Do not publish	AIR SOURCE CONF
 AL	ARRAY[1..100] OF BOOL			False	False	Do not publish	Alarm bit table
 AS_ST1_LFT_DIV_BWD	BOOL			False	False	Do not publish	ST1 LEFT DIVIDER BACKWARD
 AS_ST1_LFT_DIV_FWD	BOOL			False	False	Do not publish	ST1 LEFT DIVIDER FORWARD
+AS_ST1_RGT_DIV_BWD	BOOL			False	False	Do not publish	ST1 RIGHT DIVIDER BACKWARD
+AS_ST1_RGT_DIV_FWD	BOOL			False	False	Do not publish	ST1 RIGHT DIVIDER FORWARD
+AS_ST1_STP2_CHK	BOOL			False	False	Do not publish	ST1 STOPPER-2 CHUCK
+AS_ST1_STP2_UCHK	BOOL			False	False	Do not publish	ST1 STOPPER-2 UNCHUCK
+AS_ST1_STP3_CHK	BOOL			False	False	Do not publish	ST1 STOPPER-3 CHUCK
+AS_ST1_STP3_UCHK	BOOL			False	False	Do not publish	ST1 STOPPER-3 UNCHUCK
+AS_ST1_STP4_CHK	BOOL			False	False	Do not publish	ST1 STOPPER-4 CHUCK
+AS_ST1_STP4_UCHK	BOOL			False	False	Do not publish	ST1 STOPPER-4 UNCHUCK
 AS_ST1_STP5_CHK	BOOL			False	False	Do not publish	ST1 STOPPER-5 CHUCK
 AS_ST1_STP5_UCHK	BOOL			False	False	Do not publish	ST1 STOPPER-5 UNCHUCK
 AS_ST2_STP1_DN	BOOL			False	False	Do not publish	ST2 STOPPER-1 DOWN
@@ -13,58 +21,107 @@ AS_ST3_PSH_BWD	BOOL			False	False	Do not publish	ST3 PUSHER BACKWARD
 AS_ST3_PSH_FWD	BOOL			False	False	Do not publish	ST3 PUSHER FORWARD
 AUTO_MODE	BOOL			False	False	Do not publish	Machine status from main program
 AUTO_RUN	BOOL			False	False	Do not publish	Machine status from main program
+BZ_2PB_BZZR2	BOOL			False	False	Do not publish	2PB BUZZER-2
 BZ_BZZR1	BOOL			False	False	Do not publish	BUZZER-1
-CH000_00	BOOL			False	False	Do not publish	NOT EMERGENCY STOP
-CH000_01	BOOL			False	False	Do not publish	FUSE GOOD CONF
-CH000_02	BOOL			False	False	Do not publish	AIR SOURCE CONF
-CH000_03	BOOL			False	False	Do not publish	SAFETY CONF
-CH000_04	BOOL			False	False	Do not publish	AUTO IND
-CH000_05	BOOL			False	False	Do not publish	MASTER ON
-CH000_06	BOOL			False	False	Do not publish	MASTER ON CONF
-CH000_07	BOOL			False	False	Do not publish	AUTO RUNNING
-CH000_08	BOOL			False	False	Do not publish	MACHINE STOP
-CH000_09	BOOL			False	False	Do not publish	CYCLE STOP
-CH000_12	BOOL			False	False	Do not publish	FAULT RESET
-CH000_13	BOOL			False	False	Do not publish	ST3 SHUTTER-1 EXIST
-CH000_14	BOOL			False	False	Do not publish	ST3 SHUTTER-2 EXIST
-CH001_02	BOOL			False	False	Do not publish	MASTER ON
-CH001_03	BOOL			False	False	Do not publish	BUZZER-1
-CH002_00	BOOL			False	False	Do not publish	ST2 INSERT FLOW OUT
-CH002_01	BOOL			False	False	Do not publish	ST1 INSERT FLOW OUT
-CH002_02	BOOL			False	False	Do not publish	ST1 SHUTTER-1 FULL
-CH002_14	BOOL			False	False	Do not publish	ST1 STOPPER-5 CHUCK
-CH002_15	BOOL			False	False	Do not publish	ST1 STOPPER-5 UNCHUCK
-CH003_00	BOOL			False	False	Do not publish	ST3 EJECTOR FORWARD
-CH003_01	BOOL			False	False	Do not publish	ST3 EJECTOR BACKWARD
-CH003_02	BOOL			False	False	Do not publish	ST3 PUSHER FORWARD
-CH003_03	BOOL			False	False	Do not publish	ST3 PUSHER BACKWARD
-CH003_04	BOOL			False	False	Do not publish	ST2 STOPPER-1 UP
-CH003_05	BOOL			False	False	Do not publish	ST2 STOPPER-1 DOWN
-CH003_06	BOOL			False	False	Do not publish	ST1 LEFT DIVIDER BACKWARD
-CH003_07	BOOL			False	False	Do not publish	ST1 LEFT DIVIDER FORWARD
-CH005_00	BOOL			False	False	Do not publish	ST3 EJECTOR FORWARD
-CH005_01	BOOL			False	False	Do not publish	ST3 EJECTOR BACKWARD
-CH005_02	BOOL			False	False	Do not publish	ST3 PUSHER FORWARD
-CH005_03	BOOL			False	False	Do not publish	ST3 PUSHER BACKWARD
-CH005_04	BOOL			False	False	Do not publish	ST2 STOPPER-1 UP
-CH005_05	BOOL			False	False	Do not publish	ST2 STOPPER-1 DOWN
-CH005_06	BOOL			False	False	Do not publish	SOL LEFT DIVIDER BACKWARD
-CH005_07	BOOL			False	False	Do not publish	SOL LEFT DIVIDER FORWARD
-CH006_00	BOOL			False	False	Do not publish	ST1 STOPPER-5 CHUCK
-CH006_01	BOOL			False	False	Do not publish	ST1 STOPPER-5 UNCHUCK
-CH006_07	BOOL			False	False	Do not publish	PART FEEDER-1 START
-CH010_01	BOOL			False	False	Do not publish	ST3 SHUTTER-1 FLOW OUT
-CH010_05	BOOL			False	False	Do not publish	ST3 SHUTTER FULL
-CR_PART_FDR1_STR	BOOL			False	False	Do not publish	PART FEEDER-1 START
-CR_SOL_LFT_DIV_BWD	BOOL			False	False	Do not publish	SOL LEFT DIVIDER BACKWARD
-CR_SOL_LFT_DIV_FWD	BOOL			False	False	Do not publish	SOL LEFT DIVIDER FORWARD
-CR_ST2_STP1_DN	BOOL			False	False	Do not publish	ST2 STOPPER-1 DOWN
-CR_ST2_STP1_UP	BOOL			False	False	Do not publish	ST2 STOPPER-1 UP
-CR_ST3_EJC_BWD	BOOL			False	False	Do not publish	ST3 EJECTOR BACKWARD
-CR_ST3_EJC_FWD	BOOL			False	False	Do not publish	ST3 EJECTOR FORWARD
-CR_ST3_PSH_BWD	BOOL			False	False	Do not publish	ST3 PUSHER BACKWARD
-CR_ST3_PSH_FWD	BOOL			False	False	Do not publish	ST3 PUSHER FORWARD
+CH0_00	BOOL			False	False	Do not publish	NOT EMERGENCY STOP
+CH0_01	BOOL			False	False	Do not publish	FUSE GOOD CONF
+CH0_02	BOOL			False	False	Do not publish	AIR SOURCE CONF
+CH0_03	BOOL			False	False	Do not publish	SAFETY CONF
+CH0_04	BOOL			False	False	Do not publish	AUTO IND
+CH0_05	BOOL			False	False	Do not publish	MASTER ON
+CH0_06	BOOL			False	False	Do not publish	MASTER ON CONF
+CH0_07	BOOL			False	False	Do not publish	AUTO RUNNING
+CH0_08	BOOL			False	False	Do not publish	MACHINE STOP
+CH0_09	BOOL			False	False	Do not publish	CYCLE STOP
+CH0_10	BOOL			False	False	Do not publish	DANDORI LOCK-UNLOCK
+CH0_11	BOOL			False	False	Do not publish	SCAN ENABLE
+CH0_12	BOOL			False	False	Do not publish	FAULT RESET
+CH0_13	BOOL			False	False	Do not publish	ST3  SHUTTER-1 EXIST
+CH0_14	BOOL			False	False	Do not publish	ST3  SHUTTER-2 EXIST
+CH0_15	BOOL			False	False	Do not publish	ST3  SHUTTER-3 EXIST
+CH0_16	BOOL			False	False	Do not publish	ST3  SHUTTER-4 EXIST
+CH0_17	BOOL			False	False	Do not publish	ST3  SHUTTER-1 FLOW OUT
+CH0_18	BOOL			False	False	Do not publish	ST3  SHUTTER-2 FLOW OUT
+CH0_19	BOOL			False	False	Do not publish	ST3  SHUTTER-3 FLOW OUT
+CH0_20	BOOL			False	False	Do not publish	ST3  SHUTTER-4 FLOW OUT
+CH0_21	BOOL			False	False	Do not publish	ST3  SHUTTER FULL
+CH1_00	BOOL			False	False	Do not publish	EMERGENCY STOP INTERLOCK
+CH1_01	BOOL			False	False	Do not publish	AUTO RUNNING
+CH1_02	BOOL			False	False	Do not publish	MASTER ON
+CH1_03	BOOL			False	False	Do not publish	BUZZER-1
+CH1_04	BOOL			False	False	Do not publish	TOWER LAMP RED
+CH1_05	BOOL			False	False	Do not publish	TOWER LAMP YELLOW
+CH1_06	BOOL			False	False	Do not publish	TOWER LAMP GREEN
+CH1_08	BOOL			False	False	Do not publish	2PB DANDORI LOCK-UNLOCK
+CH1_09	BOOL			False	False	Do not publish	2PB SCAN ENABLE
+CH1_10	BOOL			False	False	Do not publish	2PB FAULT
+CH1_11	BOOL			False	False	Do not publish	2PB BUZZER-2
+CH1_12	BOOL			False	False	Do not publish	2PB KANBAN  OK
+CH1_13	BOOL			False	False	Do not publish	2PB KANBAN  NG
+CH1_14	BOOL			False	False	Do not publish	2PB TRACE  OK
+CH1_15	BOOL			False	False	Do not publish	2PB TRACE  NG
+CH2_00	BOOL			False	False	Do not publish	ST2 INSERT FLOW OUT
+CH2_01	BOOL			False	False	Do not publish	ST1 INSERT FLOW OUT
+CH2_02	BOOL			False	False	Do not publish	ST1  SHUTTER-1 FULL
+CH2_03	BOOL			False	False	Do not publish	ST1  SHUTTER-2 FULL
+CH2_04	BOOL			False	False	Do not publish	ST1  SHUTTER-3 FULL
+CH2_05	BOOL			False	False	Do not publish	ST1  SHUTTER-4 FULL
+CH2_14	BOOL			False	False	Do not publish	ST1 STOPPER-5 CHUCK
+CH2_15	BOOL			False	False	Do not publish	ST1 STOPPER-5 UNCHUCK
+CH3_00	BOOL			False	False	Do not publish	ST3 EJECTOR FORWARD
+CH3_01	BOOL			False	False	Do not publish	ST3 EJECTOR BACKWARD
+CH3_02	BOOL			False	False	Do not publish	ST3 PUSHER FORWARD
+CH3_03	BOOL			False	False	Do not publish	ST3 PUSHER BACKWARD
+CH3_04	BOOL			False	False	Do not publish	ST2 STOPPER-1 UP
+CH3_05	BOOL			False	False	Do not publish	ST2 STOPPER-1 DOWN
+CH3_06	BOOL			False	False	Do not publish	ST1 LEFT DIVIDER BACKWARD
+CH3_07	BOOL			False	False	Do not publish	ST1 LEFT DIVIDER FORWARD
+CH3_08	BOOL			False	False	Do not publish	ST1 RIGHT DIVIDER BACKWARD
+CH3_09	BOOL			False	False	Do not publish	ST1 RIGHT DIVIDER FORWARD
+CH3_10	BOOL			False	False	Do not publish	ST1 STOPPER-2 CHUCK
+CH3_11	BOOL			False	False	Do not publish	ST1 STOPPER-2 UNCHUCK
+CH3_12	BOOL			False	False	Do not publish	ST1 STOPPER-3 CHUCK
+CH3_13	BOOL			False	False	Do not publish	ST1 STOPPER-3 UNCHUCK
+CH3_14	BOOL			False	False	Do not publish	ST1 STOPPER-4 CHUCK
+CH3_15	BOOL			False	False	Do not publish	ST1 STOPPER-4 UNCHUCK
+CH5_00	BOOL			False	False	Do not publish	ST3  EJECTOR FORWARD
+CH5_01	BOOL			False	False	Do not publish	ST3  EJECTOR BACKWARD
+CH5_02	BOOL			False	False	Do not publish	ST3  PUSHER FORWARD
+CH5_03	BOOL			False	False	Do not publish	ST3  PUSHER BACKWARD
+CH5_04	BOOL			False	False	Do not publish	ST2  STOPPER-1 UP
+CH5_05	BOOL			False	False	Do not publish	ST2  STOPPER-1 DOWN
+CH5_06	BOOL			False	False	Do not publish	ST1 LEFT DIVIDER BACKWARD
+CH5_07	BOOL			False	False	Do not publish	ST1 LEFT DIVIDER FORWARD
+CH5_08	BOOL			False	False	Do not publish	ST1 RIGHT DIVIDER BACKWARD
+CH5_09	BOOL			False	False	Do not publish	ST1 RIGHT DIVIDER FORWARD
+CH5_10	BOOL			False	False	Do not publish	ST1 STOPPER-2 CHUCK
+CH5_11	BOOL			False	False	Do not publish	ST1  STOPPER-2 UNCHUCK
+CH5_12	BOOL			False	False	Do not publish	ST1  STOPPER-3 CHUCK
+CH5_13	BOOL			False	False	Do not publish	ST1  STOPPER-3 UNCHUCK
+CH5_14	BOOL			False	False	Do not publish	ST1  STOPPER-4 CHUCK
+CH5_15	BOOL			False	False	Do not publish	ST1  STOPPER-4 UNCHUCK
+CH6_00	BOOL			False	False	Do not publish	ST1  STOPPER-5 CHUCK
+CH6_01	BOOL			False	False	Do not publish	ST1  STOPPER-5 UNCHUCK
+CH6_02	BOOL			False	False	Do not publish	ST1 DANDORI  TYPE-1 LOCK
+CH6_03	BOOL			False	False	Do not publish	ST1 DANDORI  TYPE-1 UNLOCK
+CH6_04	BOOL			False	False	Do not publish	ST1 DANDORI  TYPE-2 LOCK
+CH6_05	BOOL			False	False	Do not publish	ST1 DANDORI  TYPE-2 UNLOCK
+CH6_07	BOOL			False	False	Do not publish	ST1 PART FEEDER-1 START
+CH6_08	BOOL			False	False	Do not publish	ST1 PART FEEDER-2 START
+CR_ST1_LFT_DIV_BWD	BOOL			False	False	Do not publish	ST1 LEFT DIVIDER BACKWARD
+CR_ST1_LFT_DIV_FWD	BOOL			False	False	Do not publish	ST1 LEFT DIVIDER FORWARD
+CR_ST1_PART_FDR1_STR	BOOL			False	False	Do not publish	ST1 PART FEEDER-1 START
+CR_ST1_PART_FDR2_STR	BOOL			False	False	Do not publish	ST1 PART FEEDER-2 START
+CR_ST1_RGT_DIV_BWD	BOOL			False	False	Do not publish	ST1 RIGHT DIVIDER BACKWARD
+CR_ST1_RGT_DIV_FWD	BOOL			False	False	Do not publish	ST1 RIGHT DIVIDER FORWARD
+CR_ST2_STP1_DN	BOOL			False	False	Do not publish	ST2  STOPPER-1 DOWN
+CR_ST2_STP1_UP	BOOL			False	False	Do not publish	ST2  STOPPER-1 UP
+CR_ST3_EJC_BWD	BOOL			False	False	Do not publish	ST3  EJECTOR BACKWARD
+CR_ST3_EJC_FWD	BOOL			False	False	Do not publish	ST3  EJECTOR FORWARD
+CR_ST3_PSH_BWD	BOOL			False	False	Do not publish	ST3  PUSHER BACKWARD
+CR_ST3_PSH_FWD	BOOL			False	False	Do not publish	ST3  PUSHER FORWARD
 CYCLE_STOP	BOOL			False	False	Do not publish	Machine status from main program
+EMER_INTLK	BOOL			False	False	Do not publish	EMERGENCY STOP INTERLOCK
 FUSE_GOOD	BOOL			False	False	Do not publish	FUSE GOOD CONF
 GB010_00	BOOL			False	False	Do not publish	ST1 unit at home position
 GB010_01	BOOL			False	False	Do not publish	ST1 emergency stop clear
@@ -99,6 +156,14 @@ HOME_POST	BOOL			False	False	Do not publish	Machine status from main program
 IND_MODE	BOOL			False	False	Do not publish	Machine status from main program
 LSC_ST1_LFT_DIV_BWD	BOOL			False	False	Do not publish	ST1 LEFT DIVIDER BACKWARD position confirmed
 LSC_ST1_LFT_DIV_FWD	BOOL			False	False	Do not publish	ST1 LEFT DIVIDER FORWARD position confirmed
+LSC_ST1_RGT_DIV_BWD	BOOL			False	False	Do not publish	ST1 RIGHT DIVIDER BACKWARD position confirmed
+LSC_ST1_RGT_DIV_FWD	BOOL			False	False	Do not publish	ST1 RIGHT DIVIDER FORWARD position confirmed
+LSC_ST1_STP2_CHK	BOOL			False	False	Do not publish	ST1 STOPPER-2 CHUCK position confirmed
+LSC_ST1_STP2_UCHK	BOOL			False	False	Do not publish	ST1 STOPPER-2 UNCHUCK position confirmed
+LSC_ST1_STP3_CHK	BOOL			False	False	Do not publish	ST1 STOPPER-3 CHUCK position confirmed
+LSC_ST1_STP3_UCHK	BOOL			False	False	Do not publish	ST1 STOPPER-3 UNCHUCK position confirmed
+LSC_ST1_STP4_CHK	BOOL			False	False	Do not publish	ST1 STOPPER-4 CHUCK position confirmed
+LSC_ST1_STP4_UCHK	BOOL			False	False	Do not publish	ST1 STOPPER-4 UNCHUCK position confirmed
 LSC_ST1_STP5_CHK	BOOL			False	False	Do not publish	ST1 STOPPER-5 CHUCK position confirmed
 LSC_ST1_STP5_UCHK	BOOL			False	False	Do not publish	ST1 STOPPER-5 UNCHUCK position confirmed
 LSC_ST2_STP1_DN	BOOL			False	False	Do not publish	ST2 STOPPER-1 DOWN position confirmed
@@ -113,34 +178,68 @@ NOT_EMG_STOP	BOOL			False	False	Do not publish	NOT EMERGENCY STOP
 NO_FAULT	BOOL			False	False	Do not publish	Machine status from main program
 PB410_RTN	BOOL			False	False	Do not publish	Process home return button
 PB410_STG	BOOL			False	False	Do not publish	Individual staging button
-PB411_1M	BOOL			False	False	Do not publish	Individual button, ST1 STOPPER-5 CHUCK
-PB411_1R	BOOL			False	False	Do not publish	Individual button, ST1 STOPPER-5 UNCHUCK
+PB411_1M	BOOL			False	False	Do not publish	Individual button, ST1 LEFT DIVIDER BACKWARD
+PB411_1R	BOOL			False	False	Do not publish	Individual button, ST1 LEFT DIVIDER FORWARD
+PB411_2M	BOOL			False	False	Do not publish	Individual button, ST1 RIGHT DIVIDER BACKWARD
+PB411_2R	BOOL			False	False	Do not publish	Individual button, ST1 RIGHT DIVIDER FORWARD
+PB411_3M	BOOL			False	False	Do not publish	Individual button, ST1 STOPPER-2 CHUCK
+PB411_3R	BOOL			False	False	Do not publish	Individual button, ST1  STOPPER-2 UNCHUCK
+PB411_4M	BOOL			False	False	Do not publish	Individual button, ST1  STOPPER-3 CHUCK
+PB411_4R	BOOL			False	False	Do not publish	Individual button, ST1  STOPPER-3 UNCHUCK
+PB411_5M	BOOL			False	False	Do not publish	Individual button, ST1  STOPPER-4 CHUCK
+PB411_5R	BOOL			False	False	Do not publish	Individual button, ST1  STOPPER-4 UNCHUCK
+PB411_6M	BOOL			False	False	Do not publish	Individual button, ST1  STOPPER-5 CHUCK
+PB411_6R	BOOL			False	False	Do not publish	Individual button, ST1  STOPPER-5 UNCHUCK
+PB411_7M	BOOL			False	False	Do not publish	Individual button, ST1 DANDORI  TYPE-1 LOCK
+PB411_7R	BOOL			False	False	Do not publish	Individual button, ST1 DANDORI  TYPE-1 UNLOCK
+PB411_8M	BOOL			False	False	Do not publish	Individual button, ST1 DANDORI  TYPE-2 LOCK
+PB411_8R	BOOL			False	False	Do not publish	Individual button, ST1 DANDORI  TYPE-2 UNLOCK
+PB412_1M	BOOL			False	False	Do not publish	Individual button, ST1 PART FEEDER-1 START
+PB412_1R	BOOL			False	False	Do not publish	Individual button, ST1 PART FEEDER-2 START
 PB420_RTN	BOOL			False	False	Do not publish	Process home return button
 PB420_STG	BOOL			False	False	Do not publish	Individual staging button
-PB421_1M	BOOL			False	False	Do not publish	Individual button, ST2 STOPPER-1 UP
-PB421_1R	BOOL			False	False	Do not publish	Individual button, ST2 STOPPER-1 DOWN
+PB421_1M	BOOL			False	False	Do not publish	Individual button, ST2  STOPPER-1 UP
+PB421_1R	BOOL			False	False	Do not publish	Individual button, ST2  STOPPER-1 DOWN
 PB430_RTN	BOOL			False	False	Do not publish	Process home return button
 PB430_STG	BOOL			False	False	Do not publish	Individual staging button
-PB431_1M	BOOL			False	False	Do not publish	Individual button, ST3 EJECTOR FORWARD
-PB431_1R	BOOL			False	False	Do not publish	Individual button, ST3 EJECTOR BACKWARD
-PB431_2M	BOOL			False	False	Do not publish	Individual button, ST3 PUSHER FORWARD
-PB431_2R	BOOL			False	False	Do not publish	Individual button, ST3 PUSHER BACKWARD
+PB431_1M	BOOL			False	False	Do not publish	Individual button, ST3  EJECTOR FORWARD
+PB431_1R	BOOL			False	False	Do not publish	Individual button, ST3  EJECTOR BACKWARD
+PB431_2M	BOOL			False	False	Do not publish	Individual button, ST3  PUSHER FORWARD
+PB431_2R	BOOL			False	False	Do not publish	Individual button, ST3  PUSHER BACKWARD
 PB_AUTO_RUN	BOOL			False	False	Do not publish	AUTO RUNNING
 PB_CYCL_STOP	BOOL			False	False	Do not publish	CYCLE STOP
+PB_DDR_LCKN	BOOL			False	False	Do not publish	DANDORI LOCK-UNLOCK
 PB_FLT_RST	BOOL			False	False	Do not publish	FAULT RESET
 PB_MC_STOP	BOOL			False	False	Do not publish	MACHINE STOP
 PB_MSTR_ON	BOOL			False	False	Do not publish	MASTER ON
+PB_SCN_ENB	BOOL			False	False	Do not publish	SCAN ENABLE
 PH_ST1_INS_FLW_OUT	BOOL			False	False	Do not publish	ST1 INSERT FLOW OUT
-PH_ST1_SHT1_FULL	BOOL			False	False	Do not publish	ST1 SHUTTER-1 FULL
+PH_ST1_SHT1_FULL	BOOL			False	False	Do not publish	ST1  SHUTTER-1 FULL
+PH_ST1_SHT2_FULL	BOOL			False	False	Do not publish	ST1  SHUTTER-2 FULL
+PH_ST1_SHT3_FULL	BOOL			False	False	Do not publish	ST1  SHUTTER-3 FULL
+PH_ST1_SHT4_FULL	BOOL			False	False	Do not publish	ST1  SHUTTER-4 FULL
 PH_ST2_INS_FLW_OUT	BOOL			False	False	Do not publish	ST2 INSERT FLOW OUT
-PH_ST3_SHT1_EXS	BOOL			False	False	Do not publish	ST3 SHUTTER-1 EXIST
-PH_ST3_SHT1_FLW_OUT	BOOL			False	False	Do not publish	ST3 SHUTTER-1 FLOW OUT
-PH_ST3_SHT2_EXS	BOOL			False	False	Do not publish	ST3 SHUTTER-2 EXIST
-PH_ST3_SHT_FULL	BOOL			False	False	Do not publish	ST3 SHUTTER FULL
+PH_ST3_SHT1_EXS	BOOL			False	False	Do not publish	ST3  SHUTTER-1 EXIST
+PH_ST3_SHT1_FLW_OUT	BOOL			False	False	Do not publish	ST3  SHUTTER-1 FLOW OUT
+PH_ST3_SHT2_EXS	BOOL			False	False	Do not publish	ST3  SHUTTER-2 EXIST
+PH_ST3_SHT2_FLW_OUT	BOOL			False	False	Do not publish	ST3  SHUTTER-2 FLOW OUT
+PH_ST3_SHT3_EXS	BOOL			False	False	Do not publish	ST3  SHUTTER-3 EXIST
+PH_ST3_SHT3_FLW_OUT	BOOL			False	False	Do not publish	ST3  SHUTTER-3 FLOW OUT
+PH_ST3_SHT4_EXS	BOOL			False	False	Do not publish	ST3  SHUTTER-4 EXIST
+PH_ST3_SHT4_FLW_OUT	BOOL			False	False	Do not publish	ST3  SHUTTER-4 FLOW OUT
+PH_ST3_SHT_FULL	BOOL			False	False	Do not publish	ST3  SHUTTER FULL
 PL411_1M	BOOL			False	False	Do not publish	Lamp, ST1 STOPPER-5 CHUCK
 PL411_1R	BOOL			False	False	Do not publish	Lamp, ST1 STOPPER-5 UNCHUCK
 PL411_2M	BOOL			False	False	Do not publish	Lamp, ST1 LEFT DIVIDER BACKWARD
 PL411_2R	BOOL			False	False	Do not publish	Lamp, ST1 LEFT DIVIDER FORWARD
+PL411_3M	BOOL			False	False	Do not publish	Lamp, ST1 RIGHT DIVIDER BACKWARD
+PL411_3R	BOOL			False	False	Do not publish	Lamp, ST1 RIGHT DIVIDER FORWARD
+PL411_4M	BOOL			False	False	Do not publish	Lamp, ST1 STOPPER-2 CHUCK
+PL411_4R	BOOL			False	False	Do not publish	Lamp, ST1 STOPPER-2 UNCHUCK
+PL411_5M	BOOL			False	False	Do not publish	Lamp, ST1 STOPPER-3 CHUCK
+PL411_5R	BOOL			False	False	Do not publish	Lamp, ST1 STOPPER-3 UNCHUCK
+PL411_6M	BOOL			False	False	Do not publish	Lamp, ST1 STOPPER-4 CHUCK
+PL411_6R	BOOL			False	False	Do not publish	Lamp, ST1 STOPPER-4 UNCHUCK
 PL421_1M	BOOL			False	False	Do not publish	Lamp, ST2 STOPPER-1 UP
 PL421_1R	BOOL			False	False	Do not publish	Lamp, ST2 STOPPER-1 DOWN
 PL431_1M	BOOL			False	False	Do not publish	Lamp, ST3 EJECTOR FORWARD
@@ -148,6 +247,14 @@ PL431_1R	BOOL			False	False	Do not publish	Lamp, ST3 EJECTOR BACKWARD
 PL431_2M	BOOL			False	False	Do not publish	Lamp, ST3 PUSHER FORWARD
 PL431_2R	BOOL			False	False	Do not publish	Lamp, ST3 PUSHER BACKWARD
 PLC_GOOD	BOOL			False	False	Do not publish	Machine status from main program
+PL_2PB_DDR_LCKN	BOOL			False	False	Do not publish	2PB DANDORI LOCK-UNLOCK
+PL_2PB_FLT	BOOL			False	False	Do not publish	2PB FAULT
+PL_2PB_KBN_NG	BOOL			False	False	Do not publish	2PB KANBAN  NG
+PL_2PB_KBN_OK	BOOL			False	False	Do not publish	2PB KANBAN  OK
+PL_2PB_SCN_ENB	BOOL			False	False	Do not publish	2PB SCAN ENABLE
+PL_2PB_TRC_NG	BOOL			False	False	Do not publish	2PB TRACE  NG
+PL_2PB_TRC_OK	BOOL			False	False	Do not publish	2PB TRACE  OK
+PL_AUTO_RUN	BOOL			False	False	Do not publish	AUTO RUNNING
 PL_CYCLE_STOP	BOOL			False	False	Do not publish	Cycle stop lamp on operation panel
 PL_HMI_ALL_HOME	BOOL			False	False	Do not publish	All machine home indication
 PL_HMI_AUTO_RUN	BOOL			False	False	Do not publish	Auto running indication
@@ -156,10 +263,23 @@ PL_HMI_CYCLE_STOP	BOOL			False	False	Do not publish	Cycle stopping indication
 PL_HMI_MASTER_ON	BOOL			False	False	Do not publish	Master on indication
 PL_HMI_NO_FAULT	BOOL			False	False	Do not publish	No fault indication
 PL_MSTR_ON	BOOL			False	False	Do not publish	MASTER ON
+PL_TWR_LMP_GRN	BOOL			False	False	Do not publish	TOWER LAMP GREEN
+PL_TWR_LMP_RED	BOOL			False	False	Do not publish	TOWER LAMP RED
+PL_TWR_LMP_YLW	BOOL			False	False	Do not publish	TOWER LAMP YELLOW
 PWR_ON	BOOL			False	False	Do not publish	Machine status from main program
 SAFE_CONF	BOOL			False	False	Do not publish	SAFETY CONF
-SOL_ST1_STP5_CHK	BOOL			False	False	Do not publish	ST1 STOPPER-5 CHUCK
-SOL_ST1_STP5_UCHK	BOOL			False	False	Do not publish	ST1 STOPPER-5 UNCHUCK
+SOL_ST1_DDR_TYP1_LCK	BOOL			False	False	Do not publish	ST1 DANDORI  TYPE-1 LOCK
+SOL_ST1_DDR_TYP1_ULCK	BOOL			False	False	Do not publish	ST1 DANDORI  TYPE-1 UNLOCK
+SOL_ST1_DDR_TYP2_LCK	BOOL			False	False	Do not publish	ST1 DANDORI  TYPE-2 LOCK
+SOL_ST1_DDR_TYP2_ULCK	BOOL			False	False	Do not publish	ST1 DANDORI  TYPE-2 UNLOCK
+SOL_ST1_STP2_CHK	BOOL			False	False	Do not publish	ST1 STOPPER-2 CHUCK
+SOL_ST1_STP2_UCHK	BOOL			False	False	Do not publish	ST1  STOPPER-2 UNCHUCK
+SOL_ST1_STP3_CHK	BOOL			False	False	Do not publish	ST1  STOPPER-3 CHUCK
+SOL_ST1_STP3_UCHK	BOOL			False	False	Do not publish	ST1  STOPPER-3 UNCHUCK
+SOL_ST1_STP4_CHK	BOOL			False	False	Do not publish	ST1  STOPPER-4 CHUCK
+SOL_ST1_STP4_UCHK	BOOL			False	False	Do not publish	ST1  STOPPER-4 UNCHUCK
+SOL_ST1_STP5_CHK	BOOL			False	False	Do not publish	ST1  STOPPER-5 CHUCK
+SOL_ST1_STP5_UCHK	BOOL			False	False	Do not publish	ST1  STOPPER-5 UNCHUCK
 SS_AUTO_IND	BOOL			False	False	Do not publish	AUTO IND
 AL[1]	BOOL			False	False	Do not publish	Emergency stop button pressed
 AL[2]	BOOL			False	False	Do not publish	Fuse disconnected
@@ -173,73 +293,22 @@ AL[9]	BOOL			False	False	Do not publish	Spare, reserved for MAIN alarm group
 AL[10]	BOOL			False	False	Do not publish	Spare, reserved for MAIN alarm group
 AL[11]	BOOL			False	False	Do not publish	Dual sensor fault, both ends detected at the same time: ST1 STOPPER-5 CHUCK / ST1 STOPPER-5 UNCHUCK
 AL[12]	BOOL			False	False	Do not publish	Dual sensor fault, both ends detected at the same time: ST1 LEFT DIVIDER BACKWARD / ST1 LEFT DIVIDER FORWARD
-AL[13]	BOOL			False	False	Do not publish	Spare, reserved for ST1 alarm group
-AL[14]	BOOL			False	False	Do not publish	Spare, reserved for ST1 alarm group
-AL[15]	BOOL			False	False	Do not publish	Spare, reserved for ST1 alarm group
-AL[16]	BOOL			False	False	Do not publish	Spare, reserved for ST1 alarm group
-AL[17]	BOOL			False	False	Do not publish	Spare, reserved for ST1 alarm group
-AL[18]	BOOL			False	False	Do not publish	Spare, reserved for ST1 alarm group
-AL[19]	BOOL			False	False	Do not publish	Spare, reserved for ST1 alarm group
-AL[20]	BOOL			False	False	Do not publish	Spare, reserved for ST1 alarm group
-AL[21]	BOOL			False	False	Do not publish	Spare, reserved for ST1 alarm group
-AL[22]	BOOL			False	False	Do not publish	Spare, reserved for ST1 alarm group
-AL[23]	BOOL			False	False	Do not publish	Spare, reserved for ST1 alarm group
-AL[24]	BOOL			False	False	Do not publish	Spare, reserved for ST1 alarm group
-AL[25]	BOOL			False	False	Do not publish	Spare, reserved for ST1 alarm group
-AL[26]	BOOL			False	False	Do not publish	Spare, reserved for ST1 alarm group
-AL[27]	BOOL			False	False	Do not publish	Spare, reserved for ST1 alarm group
-AL[28]	BOOL			False	False	Do not publish	Spare, reserved for ST1 alarm group
-AL[29]	BOOL			False	False	Do not publish	Spare, reserved for ST1 alarm group
-AL[30]	BOOL			False	False	Do not publish	Spare, reserved for ST1 alarm group
-AL[31]	BOOL			False	False	Do not publish	Dual sensor fault, both ends detected at the same time: ST2 STOPPER-1 UP / ST2 STOPPER-1 DOWN
-AL[32]	BOOL			False	False	Do not publish	Spare, reserved for ST2 alarm group
-AL[33]	BOOL			False	False	Do not publish	Spare, reserved for ST2 alarm group
-AL[34]	BOOL			False	False	Do not publish	Spare, reserved for ST2 alarm group
-AL[35]	BOOL			False	False	Do not publish	Spare, reserved for ST2 alarm group
-AL[36]	BOOL			False	False	Do not publish	Spare, reserved for ST2 alarm group
-AL[37]	BOOL			False	False	Do not publish	Spare, reserved for ST2 alarm group
-AL[38]	BOOL			False	False	Do not publish	Spare, reserved for ST2 alarm group
-AL[39]	BOOL			False	False	Do not publish	Spare, reserved for ST2 alarm group
-AL[40]	BOOL			False	False	Do not publish	Spare, reserved for ST2 alarm group
-AL[41]	BOOL			False	False	Do not publish	Spare, reserved for ST2 alarm group
-AL[42]	BOOL			False	False	Do not publish	Spare, reserved for ST2 alarm group
-AL[43]	BOOL			False	False	Do not publish	Spare, reserved for ST2 alarm group
-AL[44]	BOOL			False	False	Do not publish	Spare, reserved for ST2 alarm group
-AL[45]	BOOL			False	False	Do not publish	Spare, reserved for ST2 alarm group
-AL[46]	BOOL			False	False	Do not publish	Spare, reserved for ST2 alarm group
-AL[47]	BOOL			False	False	Do not publish	Spare, reserved for ST2 alarm group
-AL[48]	BOOL			False	False	Do not publish	Spare, reserved for ST2 alarm group
-AL[49]	BOOL			False	False	Do not publish	Spare, reserved for ST2 alarm group
-AL[50]	BOOL			False	False	Do not publish	Spare, reserved for ST2 alarm group
-AL[51]	BOOL			False	False	Do not publish	Dual sensor fault, both ends detected at the same time: ST3 EJECTOR FORWARD / ST3 EJECTOR BACKWARD
-AL[52]	BOOL			False	False	Do not publish	Dual sensor fault, both ends detected at the same time: ST3 PUSHER FORWARD / ST3 PUSHER BACKWARD
-AL[53]	BOOL			False	False	Do not publish	Spare, reserved for ST3 alarm group
-AL[54]	BOOL			False	False	Do not publish	Spare, reserved for ST3 alarm group
-AL[55]	BOOL			False	False	Do not publish	Spare, reserved for ST3 alarm group
-AL[56]	BOOL			False	False	Do not publish	Spare, reserved for ST3 alarm group
-AL[57]	BOOL			False	False	Do not publish	Spare, reserved for ST3 alarm group
-AL[58]	BOOL			False	False	Do not publish	Spare, reserved for ST3 alarm group
-AL[59]	BOOL			False	False	Do not publish	Spare, reserved for ST3 alarm group
-AL[60]	BOOL			False	False	Do not publish	Spare, reserved for ST3 alarm group
-AL[61]	BOOL			False	False	Do not publish	Spare, reserved for ST3 alarm group
-AL[62]	BOOL			False	False	Do not publish	Spare, reserved for ST3 alarm group
-AL[63]	BOOL			False	False	Do not publish	Spare, reserved for ST3 alarm group
-AL[64]	BOOL			False	False	Do not publish	Spare, reserved for ST3 alarm group
-AL[65]	BOOL			False	False	Do not publish	Spare, reserved for ST3 alarm group
-AL[66]	BOOL			False	False	Do not publish	Spare, reserved for ST3 alarm group
-AL[67]	BOOL			False	False	Do not publish	Spare, reserved for ST3 alarm group
-AL[68]	BOOL			False	False	Do not publish	Spare, reserved for ST3 alarm group
-AL[69]	BOOL			False	False	Do not publish	Spare, reserved for ST3 alarm group
-AL[70]	BOOL			False	False	Do not publish	Spare, reserved for ST3 alarm group
-MF[1]	BOOL			False	False	Do not publish	Cylinder motion fault, solenoid energised but position not confirmed: ST1 STOPPER-5 CHUCK / ST1 STOPPER-5 UNCHUCK
-MF[2]	BOOL			False	False	Do not publish	Spare, reserved for ST1 motion fault group
-MF[3]	BOOL			False	False	Do not publish	Spare, reserved for ST1 motion fault group
-MF[4]	BOOL			False	False	Do not publish	Spare, reserved for ST1 motion fault group
-MF[5]	BOOL			False	False	Do not publish	Cylinder motion fault, solenoid energised but position not confirmed: ST2 STOPPER-1 UP / ST2 STOPPER-1 DOWN
-MF[6]	BOOL			False	False	Do not publish	Spare, reserved for ST2 motion fault group
-MF[7]	BOOL			False	False	Do not publish	Spare, reserved for ST2 motion fault group
-MF[8]	BOOL			False	False	Do not publish	Spare, reserved for ST2 motion fault group
-MF[9]	BOOL			False	False	Do not publish	Cylinder motion fault, solenoid energised but position not confirmed: ST3 EJECTOR FORWARD / ST3 EJECTOR BACKWARD
-MF[10]	BOOL			False	False	Do not publish	Cylinder motion fault, solenoid energised but position not confirmed: ST3 PUSHER FORWARD / ST3 PUSHER BACKWARD
-MF[11]	BOOL			False	False	Do not publish	Spare, reserved for ST3 motion fault group
-MF[12]	BOOL			False	False	Do not publish	Spare, reserved for ST3 motion fault group
+AL[13]	BOOL			False	False	Do not publish	Dual sensor fault, both ends detected at the same time: ST1 RIGHT DIVIDER BACKWARD / ST1 RIGHT DIVIDER FORWARD
+AL[14]	BOOL			False	False	Do not publish	Dual sensor fault, both ends detected at the same time: ST1 STOPPER-2 CHUCK / ST1 STOPPER-2 UNCHUCK
+AL[15]	BOOL			False	False	Do not publish	Dual sensor fault, both ends detected at the same time: ST1 STOPPER-3 CHUCK / ST1 STOPPER-3 UNCHUCK
+AL[16]	BOOL			False	False	Do not publish	Dual sensor fault, both ends detected at the same time: ST1 STOPPER-4 CHUCK / ST1 STOPPER-4 UNCHUCK
+AL[17]	BOOL			False	False	Do not publish	Dual sensor fault, both ends detected at the same time: ST2 STOPPER-1 UP / ST2 STOPPER-1 DOWN
+AL[18]	BOOL			False	False	Do not publish	Dual sensor fault, both ends detected at the same time: ST3 EJECTOR FORWARD / ST3 EJECTOR BACKWARD
+AL[19]	BOOL			False	False	Do not publish	Dual sensor fault, both ends detected at the same time: ST3 PUSHER FORWARD / ST3 PUSHER BACKWARD
+MF[1]	BOOL			False	False	Do not publish	Cylinder motion fault, solenoid energised but position not confirmed: ST1 LEFT DIVIDER BACKWARD / ST1 LEFT DIVIDER FORWARD
+MF[2]	BOOL			False	False	Do not publish	Cylinder motion fault, solenoid energised but position not confirmed: ST1 RIGHT DIVIDER BACKWARD / ST1 RIGHT DIVIDER FORWARD
+MF[3]	BOOL			False	False	Do not publish	Cylinder motion fault, solenoid energised but position not confirmed: ST1 STOPPER-2 CHUCK / ST1  STOPPER-2 UNCHUCK
+MF[4]	BOOL			False	False	Do not publish	Cylinder motion fault, solenoid energised but position not confirmed: ST1  STOPPER-3 CHUCK / ST1  STOPPER-3 UNCHUCK
+MF[5]	BOOL			False	False	Do not publish	Cylinder motion fault, solenoid energised but position not confirmed: ST1  STOPPER-4 CHUCK / ST1  STOPPER-4 UNCHUCK
+MF[6]	BOOL			False	False	Do not publish	Cylinder motion fault, solenoid energised but position not confirmed: ST1  STOPPER-5 CHUCK / ST1  STOPPER-5 UNCHUCK
+MF[7]	BOOL			False	False	Do not publish	Spare, reserved for ST1 motion fault group
+MF[8]	BOOL			False	False	Do not publish	Spare, reserved for ST1 motion fault group
+MF[9]	BOOL			False	False	Do not publish	Spare, reserved for ST1 motion fault group
+MF[10]	BOOL			False	False	Do not publish	Cylinder motion fault, solenoid energised but position not confirmed: ST2  STOPPER-1 UP / ST2  STOPPER-1 DOWN
+MF[11]	BOOL			False	False	Do not publish	Cylinder motion fault, solenoid energised but position not confirmed: ST3  EJECTOR FORWARD / ST3  EJECTOR BACKWARD
+MF[12]	BOOL			False	False	Do not publish	Cylinder motion fault, solenoid energised but position not confirmed: ST3  PUSHER FORWARD / ST3  PUSHER BACKWARD

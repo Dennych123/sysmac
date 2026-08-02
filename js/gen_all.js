@@ -9,12 +9,6 @@ var ARRAY_ELEMENTS = {}; // "AL[61]" -> comment, buat baris per elemen di Global
 
 // Nama status global mengikuti standar Denso (MSTR_RDY, bukan MSTR_READY)
 var MAIN_EXPORTS = ["PWR_ON","PLC_GOOD","AUTO_MODE","IND_MODE","NO_FAULT","HOME_POST","AUTO_RUN","CYCLE_STOP","MSTR_RDY"];
-// AL: index 1..AL_MAIN_RESERVED buat alarm MAIN, sisanya dibagi blok per station (AL_PER_STATION slot) biar index gak tabrakan antar unit
-// MF: dibagi blok per station juga (MF_PER_STATION slot), gak ada reservasi MAIN karena motion fault cuma di unit
-var AL_MAIN_RESERVED = 10, AL_PER_STATION = 20, MF_PER_STATION = 4;
-var AL_SIZE = 100, MF_SIZE = 16;
-var AL_TYPE = "ARRAY[1.."+AL_SIZE+"] OF BOOL";
-var MF_TYPE = "ARRAY[1.."+MF_SIZE+"] OF BOOL";
 
 function stripAS(n){ return n.replace(/^AS_/,""); }
 function pad(n,w){ return ("0000"+n).slice(-w); }
@@ -43,6 +37,28 @@ ukeys.forEach(function(k,i){
     var n = parseInt(k.replace(/\D/g,""),10) || (i+1);
     STMAP[k] = { prg:"Prg"+pad(10+i,3)+"_"+k, gb:"GB"+pad(10+i,3), n:n };
 });
+
+// AL/MF: index 1..AL_MAIN_RESERVED buat alarm MAIN, sisanya blok per station UKURAN DINAMIS
+// (persis sebesar jumlah AS-pair / actuator-pair station itu sendiri) - bukan lebar tetap, biar
+// station dengan banyak actuator gak kehabisan slot dan station kecil gak buang-buang array.
+var AL_MAIN_RESERVED = 10;
+var AL_BLOCK = {}, MF_BLOCK = {};
+(function computeArrayBlocks(){
+    var alCursor = AL_MAIN_RESERVED, mfCursor = 0;
+    ukeys.forEach(function(k){
+        var devs = groups[k];
+        var asCount = pairUp(devs.filter(function(d){return d.jenis==="AS";}).sort(function(a,b){return a.row-b.row;})).length;
+        var actCount = pairUp(devs.filter(function(d){return d.io==="OUT" && (d.jenis==="CR"||d.jenis==="SOL");})).length;
+        AL_BLOCK[k] = { start: alCursor+1, end: alCursor+asCount };
+        alCursor += asCount;
+        MF_BLOCK[k] = { start: mfCursor+1, end: mfCursor+actCount };
+        mfCursor += actCount;
+    });
+    AL_SIZE = Math.max(100, alCursor);
+    MF_SIZE = Math.max(16, mfCursor);
+})();
+var AL_TYPE = "ARRAY[1.."+AL_SIZE+"] OF BOOL";
+var MF_TYPE = "ARRAY[1.."+MF_SIZE+"] OF BOOL";
 
 // ============================================================ UNIT
 function buildUnit(stKey, devs){
@@ -105,12 +121,13 @@ function buildUnit(stKey, devs){
     });
 
     // 6. Fault
-    // AL/MF global buat semua program, jadi tiap station dapat blok index sendiri (via SN) biar gak tabrakan bit sama station lain
+    // AL/MF global buat semua program, tiap station dapat blok index dinamis (AL_BLOCK/MF_BLOCK,
+    // dihitung dari jumlah AS-pair/actuator station itu sendiri) biar gak tabrakan bit sama station lain
     var S6=[]; o=1; var fltList=[];
-    var alCap=Math.min(AL_MAIN_RESERVED+SN*AL_PER_STATION, AL_SIZE), alN=AL_MAIN_RESERVED+(SN-1)*AL_PER_STATION+1;
-    var mfCap=Math.min(SN*MF_PER_STATION, MF_SIZE), mfN=(SN-1)*MF_PER_STATION+1;
+    var alCap=AL_BLOCK[stKey].end, alN=AL_BLOCK[stKey].start;
+    var mfCap=MF_BLOCK[stKey].end, mfN=MF_BLOCK[stKey].start;
     asPairs.forEach(function(p,i){
-        if(alN>alCap){ warnings.push(stKey+": AL alarm block full (max "+AL_PER_STATION+" per station), dual sensor fault for "+p[0].komen+" skipped."); return; }
+        if(alN>alCap){ warnings.push(stKey+": AL alarm block full, dual sensor fault for "+p[0].komen+" skipped."); return; }
         var cmt="Dual sensor fault, both ends detected at the same time: "+p[0].komen+" / "+p[1].komen;
         var t=AL(alN,cmt);
         var r=new Rung(o++, cmt);
@@ -119,7 +136,7 @@ function buildUnit(stKey, devs){
         fltList.push(t); alN++;
     });
     actus.forEach(function(a,i){
-        if(mfN>mfCap){ warnings.push(stKey+": MF motion-fault block full (max "+MF_PER_STATION+" per station), actuator "+a[0].komen+" skipped."); return; }
+        if(mfN>mfCap){ warnings.push(stKey+": MF motion-fault block full, actuator "+a[0].komen+" skipped."); return; }
         var lscA=findLsc(a[0],asPairs), lscB=findLsc(a[1],asPairs);
         if(!lscA||!lscB){ warnings.push(stKey+": no matching limit switch for actuator "+a[0].komen+", motion fault skipped."); return; }
         var cmt="Cylinder motion fault, solenoid energised but position not confirmed: "+a[0].komen+" / "+a[1].komen;
@@ -209,57 +226,99 @@ function buildUnit(stKey, devs){
         "Automatic motion start, sequencing is handled inside this unit"));
     S10.push(series(o++,[["LB400",false]],"LB400_A",null));
 
-    // Graph: [{id, sol, after:[nodeId-or-bit,...], join:"AND"|"OR"}, ...]. after harus rujuk node
-    // SEBELUMNYA (dijamin oleh editor) atau bit apapun yang sudah dideklarasi (mis. LB300 Condition,
-    // sensor). after.length>1 dimaterialisasi jadi 1 rung AND/OR dulu sebelum motionStep-nya.
-    var seq=((flow.get("motionSequences")||{})[stKey])||[];
+    // motionSequences[stKey] = daftar VARIAN sequence: [{condition, nodes:[{id,sol,after,join},...]}].
+    // Tiap varian punya graph sendiri, digerbangi opsional oleh bit Condition (mis. LB300 - PATTERN 3
+    // condition-select: cuma varian yang kondisinya true yang jalan). Varian tanpa condition = selalu
+    // aktif (root langsung LB400) - kasus sequence tunggal biasa. Semua varian nge-OR ke LB499 bareng.
+    // after boleh rujuk node MANAPUN di varian yang sama (bukan cuma yang lebih dulu dibikin) - graph
+    // di-topological-sort dulu di sini, jadi urutan drag-connect di editor gak ngaruh ke kebenarannya.
+    // after.length>1 dimaterialisasi jadi 1 rung AND/OR dulu sebelum motionStep-nya.
+    var variants=((flow.get("motionSequences")||{})[stKey])||[];
     var solByName={}; actus.forEach(function(a){ solByName[a[0].name]=a[0]; solByName[a[1].name]=a[1]; });
-    var nodeIds={}; seq.forEach(function(n){ nodeIds[n.id]=true; });
-    var cmdBitOf={}, confirmBitOf={}, referenced={}, stepCount=0, joinN=0, endBits=[];
+    var stepCount=0, joinN=0, varN=0, cmdBitOf={}, variantDoneBits=[];
 
-    function resolveBit(ref){ return nodeIds[ref] ? confirmBitOf[ref] : ref; }
-
-    seq.forEach(function(node){
-        var dev=solByName[node.sol];
-        if(!dev){ warnings.push(stKey+': motion sequence references unknown solenoid "'+node.sol+'", step skipped.'); return; }
-        var lsc=findLsc(dev,asPairs);
-        if(!lsc){ warnings.push(stKey+': no matching limit switch for "'+node.sol+'" in motion sequence, step skipped.'); return; }
-
-        var after=(node.after||[]).filter(function(ref){
-            if(nodeIds[ref] && confirmBitOf[ref]===undefined){
-                warnings.push(stKey+': motion step "'+node.sol+'" depends on a skipped step "'+ref+'", dependency ignored.');
-                return false;
-            }
-            return true;
-        });
-
-        var prevBit;
-        if(!after.length){
-            prevBit="LB400";
-        } else if(after.length===1){
-            prevBit=resolveBit(after[0]);
-        } else {
-            var joinBit="LB"+pad(500+joinN,3); joinN++;
-            P(joinBit,"BOOL",(node.join==="OR"?"Any of":"All of")+" "+after.length+" condition(s) before "+dev.komen);
-            var bits=after.map(resolveBit);
-            var jcmt="Join ("+(node.join==="OR"?"OR":"AND")+") before motion "+(stepCount+1)+": "+dev.komen;
-            if(node.join==="OR") S10.push(orMany(o++, bits, joinBit, jcmt));
-            else S10.push(series(o++, bits.map(function(b){return [b,false];}), joinBit, jcmt));
-            prevBit=joinBit;
+    function topoSort(nodes){
+        var byId={}; nodes.forEach(function(n){ byId[n.id]=n; });
+        var visited={}, visiting={}, out=[];
+        function visit(n){
+            if(visited[n.id]||visiting[n.id]) return; // cycle guard - editor sudah cegah, ini jaga-jaga
+            visiting[n.id]=true;
+            (n.after||[]).forEach(function(ref){ if(byId[ref]) visit(byId[ref]); });
+            visiting[n.id]=false; visited[n.id]=true; out.push(n);
         }
-        after.forEach(function(ref){ if(nodeIds[ref]) referenced[ref]=true; });
+        nodes.forEach(visit);
+        return out;
+    }
 
-        var cmdBit="LB"+pad(410+stepCount*2,3), confirmBit="LB"+pad(411+stepCount*2,3);
-        P(cmdBit,"BOOL","Automatic command, "+dev.komen); P(confirmBit,"BOOL","Automatic complete, "+dev.komen);
-        S10.push(motionStep(o++, prevBit, node.sol, lsc, cmdBit, confirmBit, "Motion "+(stepCount+1)+": "+dev.komen));
-        cmdBitOf[node.sol]=cmdBit; confirmBitOf[node.id]=confirmBit; stepCount++;
+    variants.forEach(function(variant){
+        var nodes=topoSort(variant.nodes||[]);
+        var nodeIds={}; nodes.forEach(function(n){ nodeIds[n.id]=true; });
+        var confirmBitOf={}, referenced={};
+        function resolveBit(ref){ return nodeIds[ref] ? confirmBitOf[ref] : ref; }
+
+        var rootBit="LB400";
+        if(variant.condition){
+            var gateBit="LB"+pad(550+varN,3); varN++;
+            P(gateBit,"BOOL","Motion sequence variant active: LB400 AND "+variant.condition);
+            S10.push(series(o++,[["LB400",false],[variant.condition,false]], gateBit,
+                "Sequence variant gate: "+variant.condition));
+            rootBit=gateBit;
+        }
+
+        var variantEndBits=[];
+        nodes.forEach(function(node){
+            var dev=solByName[node.sol];
+            if(!dev){ warnings.push(stKey+': motion sequence references unknown solenoid "'+node.sol+'", step skipped.'); return; }
+            var lsc=findLsc(dev,asPairs);
+            if(!lsc){ warnings.push(stKey+': no matching limit switch for "'+node.sol+'" in motion sequence, step skipped.'); return; }
+
+            var after=(node.after||[]).filter(function(ref){
+                if(nodeIds[ref] && confirmBitOf[ref]===undefined){
+                    warnings.push(stKey+': motion step "'+node.sol+'" depends on a skipped step "'+ref+'", dependency ignored.');
+                    return false;
+                }
+                return true;
+            });
+
+            var prevBit;
+            if(!after.length){
+                prevBit=rootBit;
+            } else if(after.length===1){
+                prevBit=resolveBit(after[0]);
+            } else {
+                var joinBit="LB"+pad(500+joinN,3); joinN++;
+                P(joinBit,"BOOL",(node.join==="OR"?"Any of":"All of")+" "+after.length+" condition(s) before "+dev.komen);
+                var bits=after.map(resolveBit);
+                var jcmt="Join ("+(node.join==="OR"?"OR":"AND")+") before motion "+(stepCount+1)+": "+dev.komen;
+                if(node.join==="OR") S10.push(orMany(o++, bits, joinBit, jcmt));
+                else S10.push(series(o++, bits.map(function(b){return [b,false];}), joinBit, jcmt));
+                prevBit=joinBit;
+            }
+            after.forEach(function(ref){ if(nodeIds[ref]) referenced[ref]=true; });
+
+            var cmdBit="LB"+pad(410+stepCount*2,3), confirmBit="LB"+pad(411+stepCount*2,3);
+            P(cmdBit,"BOOL","Automatic command, "+dev.komen); P(confirmBit,"BOOL","Automatic complete, "+dev.komen);
+            S10.push(motionStep(o++, prevBit, node.sol, lsc, cmdBit, confirmBit, "Motion "+(stepCount+1)+": "+dev.komen));
+            cmdBitOf[node.sol]=cmdBit; confirmBitOf[node.id]=confirmBit; stepCount++;
+        });
+        nodes.forEach(function(n){ if(confirmBitOf[n.id]!==undefined && !referenced[n.id]) variantEndBits.push(confirmBitOf[n.id]); });
+
+        if(variantEndBits.length===1){
+            variantDoneBits.push(variantEndBits[0]);
+        } else if(variantEndBits.length>1){
+            var doneBit="LB"+pad(570+varN,3);
+            P(doneBit,"BOOL","Sequence variant complete, all parallel branches finished");
+            S10.push(series(o++, variantEndBits.map(function(b){return [b,false];}), doneBit,
+                "Sequence variant complete: all parallel branches finished"));
+            variantDoneBits.push(doneBit);
+        }
     });
-    seq.forEach(function(n){ if(confirmBitOf[n.id]!==undefined && !referenced[n.id]) endBits.push(confirmBitOf[n.id]); });
 
     P("LB499","BOOL","Automatic operation complete");
-    if(stepCount){
-        S10.push(series(o++, endBits.map(function(b){return [b,false];}), "LB499",
-            endBits.length>1?"1 cycle motion complete, all parallel branches finished":"1 cycle motion complete"));
+    if(variantDoneBits.length===1){
+        S10.push(series(o++,[[variantDoneBits[0],false]],"LB499","1 cycle motion complete"));
+    } else if(variantDoneBits.length>1){
+        S10.push(orMany(o++, variantDoneBits, "LB499", "1 cycle motion complete, any active sequence variant finished"));
     } else {
         actus.forEach(function(a,i){
             var sM="LB"+pad(410+i*2,3), sR="LB"+pad(411+i*2,3);
@@ -300,8 +359,8 @@ function buildUnit(stKey, devs){
         var pg=1+Math.floor(i/PER_PAGE), nn=(i%PER_PAGE)+1;
         var pM="PL4"+SN+pg+"_"+nn+"M", pR="PL4"+SN+pg+"_"+nn+"R";
         G(pM,"BOOL","Lamp, "+p[0].komen); G(pR,"BOOL","Lamp, "+p[1].komen);
-        S12.push(series(o++,[["LSC_"+stripAS(p[0].name),false]],pM, i===0?"Actuator position feedback to operation panel":null));
-        S12.push(series(o++,[["LSC_"+stripAS(p[1].name),false]],pR,null));
+        S12.push(series(o++,[[p[0].name,false]],pM, i===0?"Actuator position feedback to operation panel":null));
+        S12.push(series(o++,[[p[1].name,false]],pR,null));
     });
 
     // 13. Device_Output
@@ -553,9 +612,8 @@ ukeys.forEach(function(k){ files.push(buildUnit(k,groups[k])); });
     }
     fillRange(AL,1,AL_MAIN_RESERVED,"MAIN alarm group");
     ukeys.forEach(function(k){
-        var SN=STMAP[k].n;
-        fillRange(AL, AL_MAIN_RESERVED+(SN-1)*AL_PER_STATION+1, Math.min(AL_MAIN_RESERVED+SN*AL_PER_STATION,AL_SIZE), k+" alarm group");
-        fillRange(MF, (SN-1)*MF_PER_STATION+1, Math.min(SN*MF_PER_STATION,MF_SIZE), k+" motion fault group");
+        fillRange(AL, AL_BLOCK[k].start, AL_BLOCK[k].end, k+" alarm group");
+        fillRange(MF, MF_BLOCK[k].start, MF_BLOCK[k].end, k+" motion fault group");
     });
 })();
 

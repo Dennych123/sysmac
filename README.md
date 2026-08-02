@@ -39,24 +39,36 @@ secara otomatis. Jangan menyalin isi lib ke file generator, dan jangan edit
 ### Motion Sequence (urutan gerak AutoRunning)
 
 Setelah klik Generate, panel "Motion Sequence" muncul di `index.html` kalau
-ada station dengan actuator - berupa kanvas graph, bukan list linear. Klik
-solenoid buat nambah node, seret dari bulatan kuning di node ke node lain
-yang LEBIH BARU buat bikin panah dependency ("node ini nunggu node itu
-selesai"). Beberapa node boleh nunjuk ke node yang sama (paralel - jalan
-bareng), satu node boleh punya 2+ panah masuk (badge AND muncul otomatis,
-klik buat toggle ke OR - AND = nunggu semua, OR = nunggu salah satu).
-"+ Condition/bit" nambah node rujukan bit yang sudah ada (`LB300` dkk di
-section Condition, sensor, atau operand lain) sebagai sumber panah, bukan
-solenoid. Posisi node bisa diseret, itu kosmetik doang. Tiap perubahan
-struktur graph langsung regenerate ladder AutoRunning station itu.
+ada station dengan actuator. Tiap station boleh punya beberapa **varian**
+sequence ("+ Variant") - tiap varian punya Condition bit sendiri (kosongin
+= selalu aktif) dan graph node-nya sendiri, kayak pemilihan TIPE di FSM:
+cuma varian yang kondisinya true yang jalan (lihat `PATTERN 3` condition
+select di skill referensi CX-Programmer -> Sysmac).
+
+Di dalam satu varian: klik solenoid buat drop node, seret dari bulatan
+kuning di node ke node LAIN (arah bebas, asal gak muter balik jadi loop)
+buat bikin panah dependency ("node ini nunggu node itu selesai"). Beberapa
+node boleh nunjuk ke predecessor yang sama (paralel - jalan bareng), satu
+node boleh punya 2+ panah masuk (badge AND muncul otomatis, klik buat
+toggle ke OR - AND = nunggu semua, OR = nunggu salah satu). "+ Condition/bit"
+nambah node rujukan bit yang sudah ada (`LB300` dkk di section Condition,
+sensor, atau operand lain) sebagai sumber panah, bukan solenoid. Klik
+node/panah buat select (kuning), tekan **Delete/Backspace** buat hapus yang
+keselect (bersih otomatis nge-hapus panah yang nempel). Posisi node bisa
+diseret, itu kosmetik doang. Tiap perubahan struktur langsung regenerate
+ladder AutoRunning station itu.
 
 Codegen: idiom Denso TR0 cmd+confirm (`js/lib.js` -> `motionStep`) tetap
-dipakai per node; kalau sebuah node punya 2+ dependency, satu rung AND
-(`series`) atau OR (`orMany`) dibikin dulu buat gabungin jadi satu bit,
-baru bit itu jadi TR0 buat `motionStep`-nya. Node yang gak ada yang
-nunjuk ke dia (ujung cabang paralel) semuanya di-AND jadi `LB499`
-"1 cycle motion complete". Station yang gak disentuh di panel ini tetap
-dapat kerangka placeholder biasa (lihat `Batasan`).
+dipakai per node - cmd bit break-nya `ANDNOT` bit confirm node itu sendiri
+(bukan `ANDNOT` LSC), jadi cmd tetap ON sampai posisi beneran kekonfirmasi.
+Kalau sebuah node punya 2+ dependency, satu rung AND (`series`) atau OR
+(`orMany`) dibikin dulu buat gabungin jadi satu bit, baru bit itu jadi TR0
+buat `motionStep`-nya. Graph di-topological-sort di `gen_all.js` sebelum
+diproses, jadi urutan drag-connect di editor gak ngaruh ke kebenaran hasil.
+Tiap varian yang punya Condition di-gerbang `LB400 AND <condition>` duluan
+sebelum root node-nya; semua varian nge-OR ke `LB499` "1 cycle motion
+complete" bareng. Station yang gak disentuh di panel ini tetap dapat
+kerangka placeholder biasa (lihat `Batasan`).
 
 ## Struktur
 
@@ -75,10 +87,21 @@ dapat kerangka placeholder biasa (lihat `Batasan`).
 
 ## Uji yang dijalankan `test.js`
 
-1. Seluruh rantai node berjalan tanpa galat
+1. Seluruh rantai node berjalan tanpa galat, dua skenario (stub tanpa Motion
+   Sequence, dan diseed dengan graph multi-varian: linear, fork, AND-join,
+   OR-gate, condition-gate)
 2. Setiap operand pada rung terdeklarasi di program tersebut
 3. Setiap `ExternalVars` punya padanan pada tabel global
 4. Tidak ada kontak menggantung (penyebab `import failed` di Sysmac Studio)
+5. Blok array AL/MF gak pernah penuh walau actuator/AS-pair banyak (ukuran
+   dinamis, bukan lebar tetap)
+
+Selain itu ada skrip terpisah (dibangun ulang tiap sesi kerja, gak
+di-commit) yang men-dispatch event mouse/keyboard beneran (`mousedown`/
+`mousemove`/`mouseup`/`keydown`) ke elemen SVG hasil `index.html`, bukan
+manggil fungsi state-nya langsung - buat mastiin drag-connect, penolakan
+cycle, dan hapus via keyboard bener-bener jalan lewat kode yang sama yang
+dipanggil browser, bukan cuma lewat jalur pintas testing.
 
 ## Urutan import ke Sysmac Studio
 
@@ -94,10 +117,15 @@ Terbalik akan memunculkan galat
   disusun lewat panel Motion Sequence di `index.html`. Station yang belum
   disentuh tetap dapat kerangka placeholder `LB410` ke atas.
 - Motion Sequence belum mendukung overlay step-mode manual (`PB_STEP_MODE`
-  di project Denso asli) - cmd bit langsung `TR0 ANDNOT LSC`, tanpa tombol
-  step. Juga belum mendukung confirm selain solenoid+LSC (mis. servo).
+  di project Denso asli - tombol jog per step). Juga belum mendukung
+  confirm selain solenoid+LSC (mis. servo).
+- Kalau satu nama solenoid dipakai di lebih dari satu node motion (sengaja
+  atau gak), `Auto_Output` cuma nge-OR command node yang PALING TERAKHIR
+  diproses ke solenoid fisiknya - node sebelumnya yang solenoid-nya sama
+  tetap jalan motion-nya (chain-nya benar) tapi gak ikut ngedrive output.
 - Interlock pada `Individual` masih `GSB000`, harus ditulis manual
-- `Condition` unit berisi tiga slot cadangan
+- `Condition` unit berisi tiga slot cadangan (`LB300`-`LB302`) - inilah
+  yang biasa dipakai sebagai Condition bit varian Motion Sequence
 - `HMI_Input` sengaja kosong
 - Pemasangan solenoid dengan sensor memakai kemiripan kata pada komentar
 - Penetapan port fisik tetap manual melalui I/O Map
