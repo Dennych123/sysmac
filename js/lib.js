@@ -57,15 +57,17 @@ function portName(addr){
   return 'CH'+a.replace(/\./g,'_');
 }
 
-// ===== TON menempel di rung yang sudah ada: inId -> TON -> coil doneBit =====
+// ===== TON menempel di rung yang sudah ada: inId (atau [inId,...] untuk OR-merge langsung di pin In) -> TON -> coil doneBit =====
 Rung.prototype.ton=function(inId,preset,inst,doneBit){
   var ptId=this.n++;
   this.a.push('<FbdObject xsi:type="DataSource" identifier="'+preset+'"><ConnectionPointOut connectionPointOutId="'+ptId+'" /></FbdObject>');
   var qId=this.n++;
   var AD=function(tag,ord){return '<AddData><Data name="https://www.ia.omron.com/Smc IEC61131_10_Ed1_0_SmcExt1_0_Spc1_0.xsd" handleUnknown="discard"><smcext:'+tag+' order="'+ord+'" /></Data></AddData>';};
+  var ins=Array.isArray(inId)?inId:[inId];
+  var inConns=ins.map(function(x){return '<Connection refConnectionPointOutId="'+x+'" />';}).join('');
   this.a.push('<FbdObject xsi:type="Block" typeName="TON" instanceName="'+inst+'">'
    +'<InputVariables>'
-   +'<InputVariable parameterName="In"><ConnectionPointIn>'+AD('ConnectionPointInOrder',1)+'<Connection refConnectionPointOutId="'+inId+'" /></ConnectionPointIn></InputVariable>'
+   +'<InputVariable parameterName="In"><ConnectionPointIn>'+AD('ConnectionPointInOrder',1)+inConns+'</ConnectionPointIn></InputVariable>'
    +'<InputVariable parameterName="PT"><ConnectionPointIn>'+AD('ConnectionPointInOrder',2)+'<Connection refConnectionPointOutId="'+ptId+'" /></ConnectionPointIn></InputVariable>'
    +'</InputVariables>'
    +'<OutputVariables>'

@@ -161,3 +161,85 @@ SAFE_CONF	BOOL			False	False	Do not publish	SAFETY CONF
 SOL_ST1_STP5_CHK	BOOL			False	False	Do not publish	ST1 STOPPER-5 CHUCK
 SOL_ST1_STP5_UCHK	BOOL			False	False	Do not publish	ST1 STOPPER-5 UNCHUCK
 SS_AUTO_IND	BOOL			False	False	Do not publish	AUTO IND
+AL[1]	BOOL			False	False	Do not publish	Emergency stop button pressed
+AL[2]	BOOL			False	False	Do not publish	Fuse disconnected
+AL[3]	BOOL			False	False	Do not publish	Air source pressure lost
+AL[4]	BOOL			False	False	Do not publish	Safety cover or light curtain open
+AL[5]	BOOL			False	False	Do not publish	Spare, reserved for MAIN alarm group
+AL[6]	BOOL			False	False	Do not publish	Spare, reserved for MAIN alarm group
+AL[7]	BOOL			False	False	Do not publish	Spare, reserved for MAIN alarm group
+AL[8]	BOOL			False	False	Do not publish	Spare, reserved for MAIN alarm group
+AL[9]	BOOL			False	False	Do not publish	Spare, reserved for MAIN alarm group
+AL[10]	BOOL			False	False	Do not publish	Spare, reserved for MAIN alarm group
+AL[11]	BOOL			False	False	Do not publish	Dual sensor fault, both ends detected at the same time: ST1 STOPPER-5 CHUCK / ST1 STOPPER-5 UNCHUCK
+AL[12]	BOOL			False	False	Do not publish	Dual sensor fault, both ends detected at the same time: ST1 LEFT DIVIDER BACKWARD / ST1 LEFT DIVIDER FORWARD
+AL[13]	BOOL			False	False	Do not publish	Spare, reserved for ST1 alarm group
+AL[14]	BOOL			False	False	Do not publish	Spare, reserved for ST1 alarm group
+AL[15]	BOOL			False	False	Do not publish	Spare, reserved for ST1 alarm group
+AL[16]	BOOL			False	False	Do not publish	Spare, reserved for ST1 alarm group
+AL[17]	BOOL			False	False	Do not publish	Spare, reserved for ST1 alarm group
+AL[18]	BOOL			False	False	Do not publish	Spare, reserved for ST1 alarm group
+AL[19]	BOOL			False	False	Do not publish	Spare, reserved for ST1 alarm group
+AL[20]	BOOL			False	False	Do not publish	Spare, reserved for ST1 alarm group
+AL[21]	BOOL			False	False	Do not publish	Spare, reserved for ST1 alarm group
+AL[22]	BOOL			False	False	Do not publish	Spare, reserved for ST1 alarm group
+AL[23]	BOOL			False	False	Do not publish	Spare, reserved for ST1 alarm group
+AL[24]	BOOL			False	False	Do not publish	Spare, reserved for ST1 alarm group
+AL[25]	BOOL			False	False	Do not publish	Spare, reserved for ST1 alarm group
+AL[26]	BOOL			False	False	Do not publish	Spare, reserved for ST1 alarm group
+AL[27]	BOOL			False	False	Do not publish	Spare, reserved for ST1 alarm group
+AL[28]	BOOL			False	False	Do not publish	Spare, reserved for ST1 alarm group
+AL[29]	BOOL			False	False	Do not publish	Spare, reserved for ST1 alarm group
+AL[30]	BOOL			False	False	Do not publish	Spare, reserved for ST1 alarm group
+AL[31]	BOOL			False	False	Do not publish	Dual sensor fault, both ends detected at the same time: ST2 STOPPER-1 UP / ST2 STOPPER-1 DOWN
+AL[32]	BOOL			False	False	Do not publish	Spare, reserved for ST2 alarm group
+AL[33]	BOOL			False	False	Do not publish	Spare, reserved for ST2 alarm group
+AL[34]	BOOL			False	False	Do not publish	Spare, reserved for ST2 alarm group
+AL[35]	BOOL			False	False	Do not publish	Spare, reserved for ST2 alarm group
+AL[36]	BOOL			False	False	Do not publish	Spare, reserved for ST2 alarm group
+AL[37]	BOOL			False	False	Do not publish	Spare, reserved for ST2 alarm group
+AL[38]	BOOL			False	False	Do not publish	Spare, reserved for ST2 alarm group
+AL[39]	BOOL			False	False	Do not publish	Spare, reserved for ST2 alarm group
+AL[40]	BOOL			False	False	Do not publish	Spare, reserved for ST2 alarm group
+AL[41]	BOOL			False	False	Do not publish	Spare, reserved for ST2 alarm group
+AL[42]	BOOL			False	False	Do not publish	Spare, reserved for ST2 alarm group
+AL[43]	BOOL			False	False	Do not publish	Spare, reserved for ST2 alarm group
+AL[44]	BOOL			False	False	Do not publish	Spare, reserved for ST2 alarm group
+AL[45]	BOOL			False	False	Do not publish	Spare, reserved for ST2 alarm group
+AL[46]	BOOL			False	False	Do not publish	Spare, reserved for ST2 alarm group
+AL[47]	BOOL			False	False	Do not publish	Spare, reserved for ST2 alarm group
+AL[48]	BOOL			False	False	Do not publish	Spare, reserved for ST2 alarm group
+AL[49]	BOOL			False	False	Do not publish	Spare, reserved for ST2 alarm group
+AL[50]	BOOL			False	False	Do not publish	Spare, reserved for ST2 alarm group
+AL[51]	BOOL			False	False	Do not publish	Dual sensor fault, both ends detected at the same time: ST3 EJECTOR FORWARD / ST3 EJECTOR BACKWARD
+AL[52]	BOOL			False	False	Do not publish	Dual sensor fault, both ends detected at the same time: ST3 PUSHER FORWARD / ST3 PUSHER BACKWARD
+AL[53]	BOOL			False	False	Do not publish	Spare, reserved for ST3 alarm group
+AL[54]	BOOL			False	False	Do not publish	Spare, reserved for ST3 alarm group
+AL[55]	BOOL			False	False	Do not publish	Spare, reserved for ST3 alarm group
+AL[56]	BOOL			False	False	Do not publish	Spare, reserved for ST3 alarm group
+AL[57]	BOOL			False	False	Do not publish	Spare, reserved for ST3 alarm group
+AL[58]	BOOL			False	False	Do not publish	Spare, reserved for ST3 alarm group
+AL[59]	BOOL			False	False	Do not publish	Spare, reserved for ST3 alarm group
+AL[60]	BOOL			False	False	Do not publish	Spare, reserved for ST3 alarm group
+AL[61]	BOOL			False	False	Do not publish	Spare, reserved for ST3 alarm group
+AL[62]	BOOL			False	False	Do not publish	Spare, reserved for ST3 alarm group
+AL[63]	BOOL			False	False	Do not publish	Spare, reserved for ST3 alarm group
+AL[64]	BOOL			False	False	Do not publish	Spare, reserved for ST3 alarm group
+AL[65]	BOOL			False	False	Do not publish	Spare, reserved for ST3 alarm group
+AL[66]	BOOL			False	False	Do not publish	Spare, reserved for ST3 alarm group
+AL[67]	BOOL			False	False	Do not publish	Spare, reserved for ST3 alarm group
+AL[68]	BOOL			False	False	Do not publish	Spare, reserved for ST3 alarm group
+AL[69]	BOOL			False	False	Do not publish	Spare, reserved for ST3 alarm group
+AL[70]	BOOL			False	False	Do not publish	Spare, reserved for ST3 alarm group
+MF[1]	BOOL			False	False	Do not publish	Cylinder motion fault, solenoid energised but position not confirmed: ST1 STOPPER-5 CHUCK / ST1 STOPPER-5 UNCHUCK
+MF[2]	BOOL			False	False	Do not publish	Spare, reserved for ST1 motion fault group
+MF[3]	BOOL			False	False	Do not publish	Spare, reserved for ST1 motion fault group
+MF[4]	BOOL			False	False	Do not publish	Spare, reserved for ST1 motion fault group
+MF[5]	BOOL			False	False	Do not publish	Cylinder motion fault, solenoid energised but position not confirmed: ST2 STOPPER-1 UP / ST2 STOPPER-1 DOWN
+MF[6]	BOOL			False	False	Do not publish	Spare, reserved for ST2 motion fault group
+MF[7]	BOOL			False	False	Do not publish	Spare, reserved for ST2 motion fault group
+MF[8]	BOOL			False	False	Do not publish	Spare, reserved for ST2 motion fault group
+MF[9]	BOOL			False	False	Do not publish	Cylinder motion fault, solenoid energised but position not confirmed: ST3 EJECTOR FORWARD / ST3 EJECTOR BACKWARD
+MF[10]	BOOL			False	False	Do not publish	Cylinder motion fault, solenoid energised but position not confirmed: ST3 PUSHER FORWARD / ST3 PUSHER BACKWARD
+MF[11]	BOOL			False	False	Do not publish	Spare, reserved for ST3 motion fault group
+MF[12]	BOOL			False	False	Do not publish	Spare, reserved for ST3 motion fault group

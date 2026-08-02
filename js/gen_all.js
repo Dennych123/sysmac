@@ -2,11 +2,16 @@
 var groups   = flow.get("groups") || {};
 var PER_PAGE = 8;
 var T_PHPX   = "T#200MS";
+var T_MOTION = "T#500MS";
 var files = [], warnings = [];
 var GLOBALS = {};
+var ARRAY_ELEMENTS = {}; // "AL[61]" -> comment, buat baris per elemen di GlobalVariables.tsv
 
 // Nama status global mengikuti standar Denso (MSTR_RDY, bukan MSTR_READY)
 var MAIN_EXPORTS = ["PWR_ON","PLC_GOOD","AUTO_MODE","IND_MODE","NO_FAULT","HOME_POST","AUTO_RUN","CYCLE_STOP","MSTR_RDY"];
+// AL: index 1..AL_MAIN_RESERVED buat alarm MAIN, sisanya dibagi blok per station (AL_PER_STATION slot) biar index gak tabrakan antar unit
+// MF: dibagi blok per station juga (MF_PER_STATION slot), gak ada reservasi MAIN karena motion fault cuma di unit
+var AL_MAIN_RESERVED = 10, AL_PER_STATION = 20, MF_PER_STATION = 4;
 var AL_SIZE = 100, MF_SIZE = 16;
 var AL_TYPE = "ARRAY[1.."+AL_SIZE+"] OF BOOL";
 var MF_TYPE = "ARRAY[1.."+MF_SIZE+"] OF BOOL";
@@ -14,8 +19,8 @@ var MF_TYPE = "ARRAY[1.."+MF_SIZE+"] OF BOOL";
 function stripAS(n){ return n.replace(/^AS_/,""); }
 function pad(n,w){ return ("0000"+n).slice(-w); }
 function pairUp(l){ var p=[]; for(var i=0;i<l.length;i+=2){ if(l[i+1]) p.push([l[i],l[i+1]]); } return p; }
-function AL(n){ return "AL["+n+"]"; }
-function MF(n){ return "MF["+n+"]"; }
+function AL(n,cmt){ var t="AL["+n+"]"; if(cmt) ARRAY_ELEMENTS[t]=cmt; return t; }
+function MF(n,cmt){ var t="MF["+n+"]"; if(cmt) ARRAY_ELEMENTS[t]=cmt; return t; }
 
 // urutan station dinamis: apa saja yang muncul di komen
 var ukeys = Object.keys(groups).filter(function(k){ return k!=="MAIN" && groups[k].length; })
@@ -87,17 +92,21 @@ function buildUnit(stKey, devs){
     });
 
     // 6. Fault
-    var S6=[]; o=1; var fltList=[], alN=61, mfN=1;
+    // AL/MF global buat semua program, jadi tiap station dapat blok index sendiri (via SN) biar gak tabrakan bit sama station lain
+    var S6=[]; o=1; var fltList=[];
+    var alCap=Math.min(AL_MAIN_RESERVED+SN*AL_PER_STATION, AL_SIZE), alN=AL_MAIN_RESERVED+(SN-1)*AL_PER_STATION+1;
+    var mfCap=Math.min(SN*MF_PER_STATION, MF_SIZE), mfN=(SN-1)*MF_PER_STATION+1;
     asPairs.forEach(function(p,i){
-        if(alN>80) return;
-        var t=AL(alN);
-        var r=new Rung(o++, i===0?"Dual sensor fault, both ends detected at the same time":null);
+        if(alN>alCap){ warnings.push(stKey+": AL alarm block full (max "+AL_PER_STATION+" per station), dual sensor fault for "+p[0].komen+" skipped."); return; }
+        var cmt="Dual sensor fault, both ends detected at the same time: "+p[0].komen+" / "+p[1].komen;
+        var t=AL(alN,cmt);
+        var r=new Rung(o++, cmt);
         var rail=r.rail(); var c=r.ct(p[1].name,r.ct(p[0].name,rail));
         var x=r.clm(t,[c,r.ct(t,rail)]); r.rr([x]); S6.push(r.build());
         fltList.push(t); alN++;
     });
     actus.forEach(function(a,i){
-        if(mfN>MF_SIZE) return;
+        if(mfN>mfCap){ warnings.push(stKey+": MF motion-fault block full (max "+MF_PER_STATION+" per station), actuator "+a[0].komen+" skipped."); return; }
         var lscA=null,lscB=null;
         asPairs.forEach(function(p){
             if(lscA) return;
@@ -106,15 +115,15 @@ function buildUnit(stKey, devs){
             if(sc(a[0],p[0])>=2){ lscA="LSC_"+stripAS(p[0].name); lscB="LSC_"+stripAS(p[1].name); }
         });
         if(!lscA){ warnings.push(stKey+": no matching limit switch for actuator "+a[0].komen+", motion fault skipped."); return; }
-        var mf=MF(mfN), tmr="LT"+pad(200+i,3);
+        var cmt="Cylinder motion fault, solenoid energised but position not confirmed: "+a[0].komen+" / "+a[1].komen;
+        var mf=MF(mfN,cmt), tmr="LT"+pad(200+i,3);
         P(tmr,"TON","Motion timeout for "+a[0].komen);
-        // 1 rung: (SOL_M ANDNOT LSC_M) OR (SOL_R ANDNOT LSC_R) -> TON -> MF
-        var r=new Rung(o++, i===0?"Cylinder motion fault, solenoid energised but position not confirmed":null);
+        // 1 rung: (SOL_M ANDNOT LSC_M) OR (SOL_R ANDNOT LSC_R) -> TON -> MF, OR digabung langsung di pin In TON
+        var r=new Rung(o++, cmt);
         var rail=r.rail();
         var c1=r.ct(lscA,r.ct(a[0].name,rail),true);
         var c2=r.ct(lscB,r.ct(a[1].name,rail),true);
-        var merged=r.ctm("GSB000",[c1,c2]);
-        var coil=r.ton(merged,"T#500MS",tmr,mf);
+        var coil=r.ton([c1,c2],T_MOTION,tmr,mf);
         r.rr([coil]); S6.push(r.build());
         fltList.push(mf); mfN++;
     });
@@ -309,10 +318,10 @@ function buildMain(devs){
     S5.push(series(o++,[[sMstr,true]],"LB009",null));
     P("LB008","BOOL","Master on confirmed"); P("LB009","BOOL","Master off confirmed");
     var emg=[];
-    [[1,sEmg,"emergency stop button pressed"],[2,sFuse,"fuse disconnected"],
-     [3,sAir,"air source pressure lost"],[4,sSafe,"safety cover or light curtain open"]].forEach(function(x,i){
-        var t=AL(x[0]); emg.push(t);
-        var r=new Rung(o++, i===0?"Emergency stop group, latched until alarm reset":null);
+    [[1,sEmg,"Emergency stop button pressed"],[2,sFuse,"Fuse disconnected"],
+     [3,sAir,"Air source pressure lost"],[4,sSafe,"Safety cover or light curtain open"]].forEach(function(x,i){
+        var t=AL(x[0],x[2]); emg.push(t);
+        var r=new Rung(o++, i===0?"Emergency stop group, latched until alarm reset: "+x[2]:x[2]);
         var rail=r.rail(); var c=r.ct(x[1],r.ct("LB001",rail),true);
         r.rr([r.clm(t,[c,r.ct(t,rail)])]); S5.push(r.build());
     });
@@ -464,11 +473,33 @@ if(!groups.MAIN||!groups.MAIN.length) warnings.push("No MAIN devices found, ever
 files.push(buildMain(groups.MAIN||[]));
 ukeys.forEach(function(k){ files.push(buildUnit(k,groups[k])); });
 
+// Index yang direservasi tapi belum kepakai (blok MAIN dan blok tiap station) tetap diisi komen "Spare"
+// biar keliatan di tabel Global Variable itu slot cadangan, bukan ketinggalan/hilang
+(function fillSpareArrayComments(){
+    function fillRange(fn,start,end,label){
+        for(var n=start;n<=end;n++){ var t=fn(n); if(!ARRAY_ELEMENTS[t]) ARRAY_ELEMENTS[t]="Spare, reserved for "+label; }
+    }
+    fillRange(AL,1,AL_MAIN_RESERVED,"MAIN alarm group");
+    ukeys.forEach(function(k){
+        var SN=STMAP[k].n;
+        fillRange(AL, AL_MAIN_RESERVED+(SN-1)*AL_PER_STATION+1, Math.min(AL_MAIN_RESERVED+SN*AL_PER_STATION,AL_SIZE), k+" alarm group");
+        fillRange(MF, (SN-1)*MF_PER_STATION+1, Math.min(SN*MF_PER_STATION,MF_SIZE), k+" motion fault group");
+    });
+})();
+
 var gnames=Object.keys(GLOBALS).sort();
+var elNames=Object.keys(ARRAY_ELEMENTS).sort(function(a,b){
+    var ma=a.match(/^(\D+)\[(\d+)\]$/), mb=b.match(/^(\D+)\[(\d+)\]$/);
+    return ma[1]===mb[1] ? (ma[2]-mb[2]) : ma[1]<mb[1]?-1:1;
+});
+// baris array-level (AL, MF) buat paste awal ke tabel Global Variable, baris per elemen (AL[61], ...) buat isi Comment
+// setelah array di-expand di Sysmac Studio - lihat README bagian import
 var tsv="Name\tData type\tInitial value\tAT\tRetain\tConstant\tNetwork Publish\tComment\n"
       + gnames.map(function(n){ var g=GLOBALS[n];
-            return [n,g.t,"","","False","False","Do not publish",g.d].join("\t"); }).join("\n");
-files.push({ name:"GlobalVariables.tsv", xml:tsv, stats:"GLOBAL: "+gnames.length+" variable" });
+            return [n,g.t,"","","False","False","Do not publish",g.d].join("\t"); }).join("\n")
+      + (elNames.length ? "\n" + elNames.map(function(n){
+            return [n,"BOOL","","","False","False","Do not publish",ARRAY_ELEMENTS[n]].join("\t"); }).join("\n") : "");
+files.push({ name:"GlobalVariables.tsv", xml:tsv, stats:"GLOBAL: "+gnames.length+" variable, "+elNames.length+" array element comment" });
 
 var globVars=gnames.map(function(n){ return "      "+vr(n,GLOBALS[n].t,GLOBALS[n].d); });
 var blocks=files.filter(function(f){ return f.name.slice(-4)===".xml"; }).map(function(f){ return extractProgram(f.xml); }).filter(Boolean);
