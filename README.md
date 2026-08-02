@@ -2,7 +2,8 @@
 
 Generator program Omron Sysmac Studio (IEC 61131-10 XML) dari IO list,
 mengikuti standar pemrograman terstruktur PT. Denso Indonesia.
-Dipaketkan sebagai flow Node-RED dashboard.
+Dipaketkan sebagai `index.html` standalone (tanpa Node-RED) dan sebagai
+flow Node-RED dashboard.
 
 ## Alur
 
@@ -24,12 +25,16 @@ sisanya masuk ke program MAIN.
 ## Cara build
 
 ```bash
-python3 scripts/build.py    # -> flow JSON, siap di-import ke Node-RED
-node scripts/test.js        # jalankan seluruh node tanpa Node-RED, lalu validasi hasil
+python3 scripts/build_html.py   # -> index.html standalone, tinggal dibuka di browser
+python3 scripts/build.py        # -> flow JSON, siap di-import ke Node-RED
+node scripts/test.js            # jalankan seluruh node tanpa Node-RED, lalu validasi hasil
 ```
 
-`build.py` menempelkan `js/lib.js` ke setiap node generator secara otomatis.
-Jangan menyalin isi lib ke file generator.
+`index.html` (buka langsung, tidak butuh server) menempel semua logic `js/*.js`
+jadi satu file lewat `build_html.py` - tempel IO list, klik Generate, download
+hasilnya. `build.py` juga menempelkan `js/lib.js` ke setiap node generator
+secara otomatis. Jangan menyalin isi lib ke file generator, dan jangan edit
+`index.html` langsung - edit `js/*.js` lalu build ulang.
 
 ## Struktur
 
@@ -41,8 +46,10 @@ Jangan menyalin isi lib ke file generator.
 | `js/validate.js` | Kolom kosong, IN/OUT, alamat ganda |
 | `js/split.js` | Pemisahan per station |
 | `js/gen_all.js` | Pembangkit seluruh program |
-| `scripts/build.py` | Perakit flow JSON |
+| `scripts/build_html.py` | Perakit `index.html` standalone |
+| `scripts/build.py` | Perakit flow JSON Node-RED |
 | `scripts/test.js` | Uji jalan dan validasi |
+| `index.html` | Hasil build, jangan diedit langsung |
 
 ## Uji yang dijalankan `test.js`
 
