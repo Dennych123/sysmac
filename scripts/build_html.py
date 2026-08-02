@@ -165,12 +165,12 @@ function svgEl(tag, attrs) {
 function vKey(st, vIdx) { return st + '#' + vIdx; }
 
 function ensureStation(st) {
-  if (!motionState[st]) motionState[st] = [{ condition: '', nodes: [] }];
+  if (!motionState[st]) motionState[st] = [{ condition: '', comment: '', nodes: [] }];
 }
 
 function addVariant(st) {
   ensureStation(st);
-  motionState[st].push({ condition: '', nodes: [] });
+  motionState[st].push({ condition: '', comment: '', nodes: [] });
 }
 
 function removeVariant(st, vIdx) {
@@ -182,6 +182,11 @@ function removeVariant(st, vIdx) {
 function setVariantCondition(st, vIdx, text) {
   var v = motionState[st] && motionState[st][vIdx];
   if (v) v.condition = (text || '').trim();
+}
+
+function setVariantComment(st, vIdx, text) {
+  var v = motionState[st] && motionState[st][vIdx];
+  if (v) v.comment = (text || '').trim();
 }
 
 function nextPos(st, vIdx) {
@@ -199,14 +204,19 @@ function addMotionNode(st, vIdx, sol) {
   return id;
 }
 
-function addConditionNode(st, vIdx, bitName) {
+function addConditionNode(st, vIdx, bitName, comment) {
   ensureStation(st);
   bitName = (bitName || '').trim();
   if (!bitName) return null;
   if (motionState[st][vIdx].nodes.some(function (n) { return n.id === bitName; })) return null;
   var pos = nextPos(st, vIdx);
-  motionState[st][vIdx].nodes.push({ id: bitName, type: 'condition', bit: bitName, x: pos.x, y: pos.y });
+  motionState[st][vIdx].nodes.push({ id: bitName, type: 'condition', bit: bitName, comment: (comment || '').trim(), x: pos.x, y: pos.y });
   return bitName;
+}
+
+function setNodeComment(st, vIdx, id, text) {
+  var n = findNode(st, vIdx, id);
+  if (n) n.comment = (text || '').trim();
 }
 
 function nodeIndex(st, vIdx, id) {
@@ -272,7 +282,9 @@ function moveNode(st, vIdx, id, x, y) {
 
 function nodeLabel(n) {
   var t = n.type === 'condition' ? n.bit : n.sol;
-  return t.length > 15 ? t.slice(0, 13) + '..' : t;
+  t = t.length > 15 ? t.slice(0, 13) + '..' : t;
+  if (n.type === 'condition' && n.comment) t += ' *';
+  return t;
 }
 
 // ===== Import/Export JSON, buat isi graph tanpa drag-drop manual (mis. hasil AI) =====
@@ -280,11 +292,19 @@ function nodeLabel(n) {
 // dikirim ke gen_all.js lewat flow.get("motionSequences"). `after` boleh nunjuk node id lain DI
 // VARIAN YANG SAMA, atau bit apapun yang sudah ada (Condition section, sensor) - kalau bit itu
 // gak match id node manapun di JSON-nya, otomatis dibikinin node "condition" biar kegambar.
+function conditionCommentsOf(v) {
+  var out = {};
+  v.nodes.forEach(function (n) { if (n.type === 'condition' && n.comment) out[n.bit] = n.comment; });
+  return out;
+}
+
 function variantsToJSON(stKey) {
   var variants = (motionState[stKey] || []).map(function (v) {
     var motionNodes = v.nodes.filter(function (n) { return n.type === 'motion'; });
     return {
       condition: v.condition || '',
+      comment: v.comment || '',
+      conditionComments: conditionCommentsOf(v),
       nodes: motionNodes.map(function (n) { return { id: n.id, sol: n.sol, after: n.after.slice(), join: n.join }; })
     };
   });
@@ -301,7 +321,7 @@ function importSequenceJSON(stKey, jsonText) {
   for (var vi = 0; vi < parsed.length; vi++) {
     var raw = parsed[vi] || {};
     if (!Array.isArray(raw.nodes)) return 'Varian ke-' + (vi + 1) + ' butuh field "nodes" (array)';
-    var v = { condition: String(raw.condition || '').trim(), nodes: [] };
+    var v = { condition: String(raw.condition || '').trim(), comment: String(raw.comment || '').trim(), nodes: [] };
     var idx = 0;
     for (var ni = 0; ni < raw.nodes.length; ni++) {
       var n = raw.nodes[ni] || {};
@@ -317,9 +337,10 @@ function importSequenceJSON(stKey, jsonText) {
     var motionIds = {}; v.nodes.forEach(function (n) { motionIds[n.id] = true; });
     var extraBits = [];
     v.nodes.forEach(function (n) { n.after.forEach(function (ref) { if (!motionIds[ref] && extraBits.indexOf(ref) < 0) extraBits.push(ref); }); });
+    var cc = (raw.conditionComments && typeof raw.conditionComments === 'object') ? raw.conditionComments : {};
     extraBits.forEach(function (bit) {
       var pos = { x: 20 + (idx % 4) * 145, y: 20 + Math.floor(idx / 4) * 75 }; idx++;
-      v.nodes.push({ id: bit, type: 'condition', bit: bit, x: pos.x, y: pos.y });
+      v.nodes.push({ id: bit, type: 'condition', bit: bit, comment: String(cc[bit] || '').trim(), x: pos.x, y: pos.y });
     });
     newVariants.push(v);
   }
@@ -378,7 +399,7 @@ function regenerate() {
     var variants = motionState[st]
       .map(function (v) {
         var motionNodes = v.nodes.filter(function (n) { return n.type === 'motion'; });
-        return { condition: v.condition || '', nodes: motionNodes.map(function (n) {
+        return { condition: v.condition || '', comment: v.comment || '', conditionComments: conditionCommentsOf(v), nodes: motionNodes.map(function (n) {
           return { id: n.id, sol: n.sol, after: n.after.slice(), join: n.join };
         }) };
       })
@@ -442,6 +463,10 @@ function renderVariantGraph(stKey, vIdx) {
   nodes.forEach(function (n) {
     var g = svgEl('g', { transform: 'translate(' + n.x + ',' + n.y + ')' });
     var isSelNode = selected && selected.kind === 'node' && selected.stKey === stKey && selected.vIdx === vIdx && selected.id === n.id;
+
+    if (n.type === 'condition' && n.comment) {
+      var titleEl = svgEl('title'); titleEl.textContent = n.comment; g.appendChild(titleEl);
+    }
 
     var rect = svgEl('rect', { class: 'gnode-rect' + (n.type === 'condition' ? ' condition' : '') + (isSelNode ? ' selected' : ''), width: NODE_W, height: NODE_H, rx: 6 });
     rect.addEventListener('mousedown', function (ev) {
@@ -565,9 +590,12 @@ function renderMotionPanel() {
       var lbl = document.createElement('b'); lbl.textContent = 'Variant ' + (vIdx + 1) + ' - Condition:';
       var condInput = document.createElement('input'); condInput.placeholder = '(kosong = selalu aktif)'; condInput.value = variant.condition;
       condInput.addEventListener('change', function () { setVariantCondition(stKey, vIdx, condInput.value); regenerate(); });
+      var cmtLbl = document.createElement('b'); cmtLbl.textContent = 'Comment:'; cmtLbl.style.marginLeft = '8px';
+      var cmtInput = document.createElement('input'); cmtInput.placeholder = '(nama/keterangan varian, muncul di JSON+XML)'; cmtInput.value = variant.comment || ''; cmtInput.style.width = '220px';
+      cmtInput.addEventListener('change', function () { setVariantComment(stKey, vIdx, cmtInput.value); regenerate(); });
       var rmV = document.createElement('button'); rmV.className = 'rm-variant'; rmV.textContent = 'Remove variant';
       rmV.addEventListener('click', function () { removeVariant(stKey, vIdx); renderMotionPanel(); regenerate(); });
-      head.appendChild(lbl); head.appendChild(condInput); head.appendChild(rmV);
+      head.appendChild(lbl); head.appendChild(condInput); head.appendChild(cmtLbl); head.appendChild(cmtInput); head.appendChild(rmV);
       vbox.appendChild(head);
 
       var toolbar = document.createElement('div'); toolbar.className = 'graph-toolbar';
@@ -577,14 +605,30 @@ function renderMotionPanel() {
         toolbar.appendChild(btn);
       });
       var condBitInput = document.createElement('input'); condBitInput.placeholder = 'LB300 / bit lain';
+      var condCmtInput = document.createElement('input'); condCmtInput.placeholder = 'komen bit ini (opsional)'; condCmtInput.style.width = '160px';
       var condBtn = document.createElement('button'); condBtn.className = 'add-cond'; condBtn.textContent = '+ Condition/bit';
       condBtn.addEventListener('click', function () {
-        if (addConditionNode(stKey, vIdx, condBitInput.value)) { condBitInput.value = ''; renderMotionPanel(); regenerate(); }
+        if (addConditionNode(stKey, vIdx, condBitInput.value, condCmtInput.value)) {
+          condBitInput.value = ''; condCmtInput.value = ''; renderMotionPanel(); regenerate();
+        }
       });
-      toolbar.appendChild(condBitInput); toolbar.appendChild(condBtn);
+      toolbar.appendChild(condBitInput); toolbar.appendChild(condCmtInput); toolbar.appendChild(condBtn);
       vbox.appendChild(toolbar);
 
       vbox.appendChild(renderVariantGraph(stKey, vIdx));
+
+      if (selected && selected.kind === 'node' && selected.stKey === stKey && selected.vIdx === vIdx) {
+        var selNode = findNode(stKey, vIdx, selected.id);
+        if (selNode && selNode.type === 'condition') {
+          var editRow = document.createElement('div'); editRow.className = 'row';
+          var editLbl = document.createElement('b'); editLbl.textContent = 'Komen bit "' + selNode.bit + '":';
+          var editInput = document.createElement('input'); editInput.value = selNode.comment || ''; editInput.placeholder = '(opsional)'; editInput.style.width = '260px';
+          editInput.addEventListener('change', function () { setNodeComment(stKey, vIdx, selNode.id, editInput.value); regenerate(); });
+          editRow.appendChild(editLbl); editRow.appendChild(editInput);
+          vbox.appendChild(editRow);
+        }
+      }
+
       box.appendChild(vbox);
     });
 
@@ -596,7 +640,7 @@ function renderMotionPanel() {
     var jsonLabel = document.createElement('div'); jsonLabel.className = 'hint';
     jsonLabel.textContent = 'Import/Export JSON (array varian) - ganti seluruh sequence station ini:';
     var jsonTa = document.createElement('textarea');
-    jsonTa.placeholder = '[{"condition":"","nodes":[{"id":"n1","sol":"' + (names[0] || 'SOL_...') + '","after":[],"join":"AND"}]}]';
+    jsonTa.placeholder = '[{"condition":"","comment":"","nodes":[{"id":"n1","sol":"' + (names[0] || 'SOL_...') + '","after":[],"join":"AND"}]}]';
     var jsonRow = document.createElement('div'); jsonRow.className = 'row';
     var jsonMsg = document.createElement('div'); jsonMsg.className = 'json-msg';
     var importBtn = document.createElement('button'); importBtn.className = 'json-import'; importBtn.textContent = 'Import JSON';

@@ -64,7 +64,7 @@ generate AI, atau nulis/nyalin langsung). Format persis bentuk yang dikirim
 ke `gen_all.js`:
 ```json
 [
-  { "condition": "", "nodes": [
+  { "condition": "", "comment": "", "nodes": [
     { "id": "n1", "sol": "SOL_ST1_STP5_CHK", "after": [], "join": "AND" },
     { "id": "n2", "sol": "SOL_ST1_STP5_UCHK", "after": ["n1"], "join": "AND" }
   ] }
@@ -75,6 +75,36 @@ sudah dideklarasi (Condition section, sensor) - kalau bit itu gak match id
 node manapun di JSON-nya, node "condition" otomatis dibikin biar kegambar.
 Import mengganti SELURUH varian station itu; Export nulis balik state
 sekarang ke textarea (bisa disalin/disimpan).
+
+`comment` (opsional, boleh kosong) - keterangan bebas per varian ("TYPE 1 -
+lane 1&2", dst), muncul di kotak "Comment" panel UI DAN sebagai teks comment
+rung XML-nya ("Sequence variant "..." - gate: ..."). Ngisi `comment` tanpa
+ngisi `condition` tetap bikin satu gate rung sendiri (fungsinya cuma lewatin
+LB400 apa adanya) biar tetap ada tempat nempelin keterangannya di XML.
+
+Penting: `condition` cuma otomatis ke-AND ke node yang `after`-nya KOSONG
+(node root varian). Node yang `after`-nya nunjuk bit eksternal (bukan node
+lain) HARUS nyantumin sendiri bit condition itu di `after`-nya kalau memang
+mau ikut ke-gate - lihat contoh ST1 di bawah (`after: ["LB300", "PH_..."]`).
+
+**Komen per condition-bit** - tiap node "+ Condition/bit" (bit eksternal,
+kotak putus-putus di graph) boleh dikasih komen bebas (isi pas nambah node,
+atau klik node-nya buat munculin kotak edit "Komen bit ..." di bawah graph).
+Kepake buat jelasin ARTI bit itu (mis. `LB300` -> "type1 aktif") tanpa perlu
+nebak dari nama doang. Komen ke-simpan di `conditionComments` (map bit->teks)
+tiap varian pas Export JSON, dan ke-baca balik pas Import. Muncul di XML
+CUMA kalau bit itu ikut kena-materialize jadi rung (node yang dependency-nya
+2+ , alias join AND/OR) - kalau bit itu satu-satunya dependency sebuah node,
+gak ada rung yang dibikin buat dia (langsung passthrough), jadi komennya
+cuma nempel di editor/JSON, gak ikut ke XML.
+
+Bit eksternal (Condition/kondisi, `after` refs) yang direferensikan graph
+tapi belum kedeklarasi di manapun (bukan device/global asli, bukan spare
+Condition section) OTOMATIS dideklarasikan sebagai private BOOL placeholder
+biar Sysmac gak nolak "operand tidak terdeklarasi" - logic yang bener-bener
+nge-drive nilainya (kondisi, counter, dst) tetap harus ditulis manual di
+section lain. Deklarasi ini muncul cuma kalau bit itu kepake jadi kontak di
+rung beneran (root/prev satu-satunya sebuah node, atau bagian dari join).
 
 Codegen: idiom Denso TR0 cmd+confirm (`js/lib.js` -> `motionStep`) tetap
 dipakai per node - cmd bit break-nya `ANDNOT` bit confirm node itu sendiri
@@ -135,8 +165,15 @@ Terbalik akan memunculkan galat
   disusun lewat panel Motion Sequence di `index.html`. Station yang belum
   disentuh tetap dapat kerangka placeholder `LB410` ke atas.
 - Motion Sequence belum mendukung overlay step-mode manual (`PB_STEP_MODE`
-  di project Denso asli - tombol jog per step). Juga belum mendukung
-  confirm selain solenoid+LSC (mis. servo).
+  di project Denso asli - tombol jog per step).
+- Aktuator yang gak punya alamat CH fisik (servo axis, dll) bisa dimasukin
+  sebagai baris IO list "virtual" (alamat bebas asal gak bentrok, mis.
+  `VS0_00`) - jenis AS buat tiap posisi confirm, CR/SOL buat command-nya,
+  PERSIS pola pasangan cylinder biasa (`FWD`/`BWD` jadi `LEFT`/`RIGHT`, dst)
+  biar bisa masuk graph editor & `motionStep` yang sama. JANGAN taruh
+  keterangan "(virtual)" dkk di kolom komentar - itu ikut kepotong jadi
+  bagian nama simbol (genname make semua kata di komentar). Catat
+  virtual-nya di luar IO list aja (dokumentasi terpisah).
 - Kalau satu nama solenoid dipakai di lebih dari satu node motion (sengaja
   atau gak), `Auto_Output` cuma nge-OR command node yang PALING TERAKHIR
   diproses ke solenoid fisiknya - node sebelumnya yang solenoid-nya sama

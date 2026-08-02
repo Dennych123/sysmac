@@ -71,9 +71,9 @@ function buildUnit(stKey, devs){
     var actus   = pairUp(solList);
     if(solList.length%2) warnings.push(stKey+": solenoid count is odd, last output is not paired into an actuator.");
 
-    var ext=[],priv=[],glob=[],seen={};
+    var ext=[],priv=[],glob=[],seen={},pseen={};
     function G(n,t,d){ if(seen[n]) return; seen[n]=1; var v=vr(n,t,d); glob.push("      "+v); ext.push("      "+v); GLOBALS[n]={t:t||"BOOL",d:d||""}; }
-    function P(n,t,d){ priv.push("      "+vr(n,t,d)); }
+    function P(n,t,d){ if(pseen[n]) return; pseen[n]=1; priv.push("      "+vr(n,t,d)); }
     G("GSB000","BOOL","Equipment design coil, constant ON");
     MAIN_EXPORTS.forEach(function(n){ G(n,"BOOL","Machine status from main program"); });
     G("AL",AL_TYPE,"Alarm bit table"); G("MF",MF_TYPE,"Cylinder motion fault table");
@@ -255,13 +255,28 @@ function buildUnit(stKey, devs){
         var nodeIds={}; nodes.forEach(function(n){ nodeIds[n.id]=true; });
         var confirmBitOf={}, referenced={};
         function resolveBit(ref){ return nodeIds[ref] ? confirmBitOf[ref] : ref; }
+        var condComments=variant.conditionComments||{};
+        function bitTxt(ref){ return nodeIds[ref] ? ref : (condComments[ref] ? (ref+" ["+condComments[ref]+"]") : ref); }
+        // Bit eksternal (bukan node id di varian ini) dipakai langsung jadi kontak beneran di rung
+        // (motionStep/join) - kalau belum kedeklarasi di manapun (bukan device/global, bukan spare
+        // Condition section), deklarasikan sebagai private BOOL placeholder biar gak "operand tidak
+        // terdeklarasi" pas import Sysmac. Logic yang benar-benar drive bit ini tetap harus ditulis manual.
+        function declareExternal(ref){
+            if(nodeIds[ref]||GLOBALS[ref]) return;
+            P(ref,"BOOL","External condition bit for motion sequence"+(condComments[ref]?": "+condComments[ref]:"")+" - define driving logic separately");
+        }
 
         var rootBit="LB400";
-        if(variant.condition){
+        if(variant.condition) declareExternal(variant.condition);
+        if(variant.condition||variant.comment){
             var gateBit="LB"+pad(550+varN,3); varN++;
-            P(gateBit,"BOOL","Motion sequence variant active: LB400 AND "+variant.condition);
-            S10.push(series(o++,[["LB400",false],[variant.condition,false]], gateBit,
-                "Sequence variant gate: "+variant.condition));
+            var label=variant.comment?('"'+variant.comment+'" - '):"";
+            var condTxt=variant.condition?bitTxt(variant.condition):"always active";
+            P(gateBit,"BOOL","Motion sequence variant: "+label+"condition="+condTxt);
+            var gateConds=[["LB400",false]];
+            if(variant.condition) gateConds.push([variant.condition,false]);
+            S10.push(series(o++,gateConds, gateBit,
+                "Sequence variant "+label+"gate: "+condTxt));
             rootBit=gateBit;
         }
 
@@ -279,6 +294,7 @@ function buildUnit(stKey, devs){
                 }
                 return true;
             });
+            after.forEach(function(ref){ if(!nodeIds[ref]) declareExternal(ref); });
 
             var prevBit;
             if(!after.length){
@@ -289,7 +305,9 @@ function buildUnit(stKey, devs){
                 var joinBit="LB"+pad(500+joinN,3); joinN++;
                 P(joinBit,"BOOL",(node.join==="OR"?"Any of":"All of")+" "+after.length+" condition(s) before "+dev.komen);
                 var bits=after.map(resolveBit);
-                var jcmt="Join ("+(node.join==="OR"?"OR":"AND")+") before motion "+(stepCount+1)+": "+dev.komen;
+                var commented=after.filter(function(ref){ return !nodeIds[ref] && condComments[ref]; });
+                var jcmt="Join ("+(node.join==="OR"?"OR":"AND")+") before motion "+(stepCount+1)+": "+dev.komen+
+                    (commented.length ? " ["+commented.map(bitTxt).join(", ")+"]" : "");
                 if(node.join==="OR") S10.push(orMany(o++, bits, joinBit, jcmt));
                 else S10.push(series(o++, bits.map(function(b){return [b,false];}), joinBit, jcmt));
                 prevBit=joinBit;
