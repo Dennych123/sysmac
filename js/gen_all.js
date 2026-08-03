@@ -103,10 +103,10 @@ function buildUnit(stKey, devs){
     // 4. Timers
     var S4=[]; o=1;
     phpx.forEach(function(d,i){
-        var lOn="LB"+pad(200+i*2,3), lOff="LB"+pad(201+i*2,3);
+        var lOn=d.name+"_ON", lOff=d.name+"_OFF";
         var tOn="LT"+pad(100+i*2,3), tOff="LT"+pad(101+i*2,3);
         P(tOn,"TON","On delay timer for "+d.komen); P(tOff,"TON","Off delay timer for "+d.komen);
-        P(lOn,"BOOL",d.komen+" confirmed present"); P(lOff,"BOOL",d.komen+" confirmed absent");
+        G(lOn,"BOOL",d.komen+" confirmed present"); G(lOff,"BOOL",d.komen+" confirmed absent");
         S4.push(ton(o++,[d.name,false],T_PHPX,tOn,lOn, i===0?"Photo sensor debounce, on and off delay":null));
         S4.push(ton(o++,[d.name,true],T_PHPX,tOff,lOff,null));
     });

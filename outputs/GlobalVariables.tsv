@@ -214,20 +214,50 @@ PB_MC_STOP	BOOL			False	False	Do not publish	MACHINE STOP
 PB_MSTR_ON	BOOL			False	False	Do not publish	MASTER ON
 PB_SCN_ENB	BOOL			False	False	Do not publish	SCAN ENABLE
 PH_ST1_INS_FLW_OUT	BOOL			False	False	Do not publish	ST1 INSERT FLOW OUT
+PH_ST1_INS_FLW_OUT_OFF	BOOL			False	False	Do not publish	ST1 INSERT FLOW OUT confirmed absent
+PH_ST1_INS_FLW_OUT_ON	BOOL			False	False	Do not publish	ST1 INSERT FLOW OUT confirmed present
 PH_ST1_SHT1_FULL	BOOL			False	False	Do not publish	ST1  SHUTTER-1 FULL
+PH_ST1_SHT1_FULL_OFF	BOOL			False	False	Do not publish	ST1  SHUTTER-1 FULL confirmed absent
+PH_ST1_SHT1_FULL_ON	BOOL			False	False	Do not publish	ST1  SHUTTER-1 FULL confirmed present
 PH_ST1_SHT2_FULL	BOOL			False	False	Do not publish	ST1  SHUTTER-2 FULL
+PH_ST1_SHT2_FULL_OFF	BOOL			False	False	Do not publish	ST1  SHUTTER-2 FULL confirmed absent
+PH_ST1_SHT2_FULL_ON	BOOL			False	False	Do not publish	ST1  SHUTTER-2 FULL confirmed present
 PH_ST1_SHT3_FULL	BOOL			False	False	Do not publish	ST1  SHUTTER-3 FULL
+PH_ST1_SHT3_FULL_OFF	BOOL			False	False	Do not publish	ST1  SHUTTER-3 FULL confirmed absent
+PH_ST1_SHT3_FULL_ON	BOOL			False	False	Do not publish	ST1  SHUTTER-3 FULL confirmed present
 PH_ST1_SHT4_FULL	BOOL			False	False	Do not publish	ST1  SHUTTER-4 FULL
+PH_ST1_SHT4_FULL_OFF	BOOL			False	False	Do not publish	ST1  SHUTTER-4 FULL confirmed absent
+PH_ST1_SHT4_FULL_ON	BOOL			False	False	Do not publish	ST1  SHUTTER-4 FULL confirmed present
 PH_ST2_INS_FLW_OUT	BOOL			False	False	Do not publish	ST2 INSERT FLOW OUT
+PH_ST2_INS_FLW_OUT_OFF	BOOL			False	False	Do not publish	ST2 INSERT FLOW OUT confirmed absent
+PH_ST2_INS_FLW_OUT_ON	BOOL			False	False	Do not publish	ST2 INSERT FLOW OUT confirmed present
 PH_ST3_SHT1_EXS	BOOL			False	False	Do not publish	ST3  SHUTTER-1 EXIST
+PH_ST3_SHT1_EXS_OFF	BOOL			False	False	Do not publish	ST3  SHUTTER-1 EXIST confirmed absent
+PH_ST3_SHT1_EXS_ON	BOOL			False	False	Do not publish	ST3  SHUTTER-1 EXIST confirmed present
 PH_ST3_SHT1_FLW_OUT	BOOL			False	False	Do not publish	ST3  SHUTTER-1 FLOW OUT
+PH_ST3_SHT1_FLW_OUT_OFF	BOOL			False	False	Do not publish	ST3  SHUTTER-1 FLOW OUT confirmed absent
+PH_ST3_SHT1_FLW_OUT_ON	BOOL			False	False	Do not publish	ST3  SHUTTER-1 FLOW OUT confirmed present
 PH_ST3_SHT2_EXS	BOOL			False	False	Do not publish	ST3  SHUTTER-2 EXIST
+PH_ST3_SHT2_EXS_OFF	BOOL			False	False	Do not publish	ST3  SHUTTER-2 EXIST confirmed absent
+PH_ST3_SHT2_EXS_ON	BOOL			False	False	Do not publish	ST3  SHUTTER-2 EXIST confirmed present
 PH_ST3_SHT2_FLW_OUT	BOOL			False	False	Do not publish	ST3  SHUTTER-2 FLOW OUT
+PH_ST3_SHT2_FLW_OUT_OFF	BOOL			False	False	Do not publish	ST3  SHUTTER-2 FLOW OUT confirmed absent
+PH_ST3_SHT2_FLW_OUT_ON	BOOL			False	False	Do not publish	ST3  SHUTTER-2 FLOW OUT confirmed present
 PH_ST3_SHT3_EXS	BOOL			False	False	Do not publish	ST3  SHUTTER-3 EXIST
+PH_ST3_SHT3_EXS_OFF	BOOL			False	False	Do not publish	ST3  SHUTTER-3 EXIST confirmed absent
+PH_ST3_SHT3_EXS_ON	BOOL			False	False	Do not publish	ST3  SHUTTER-3 EXIST confirmed present
 PH_ST3_SHT3_FLW_OUT	BOOL			False	False	Do not publish	ST3  SHUTTER-3 FLOW OUT
+PH_ST3_SHT3_FLW_OUT_OFF	BOOL			False	False	Do not publish	ST3  SHUTTER-3 FLOW OUT confirmed absent
+PH_ST3_SHT3_FLW_OUT_ON	BOOL			False	False	Do not publish	ST3  SHUTTER-3 FLOW OUT confirmed present
 PH_ST3_SHT4_EXS	BOOL			False	False	Do not publish	ST3  SHUTTER-4 EXIST
+PH_ST3_SHT4_EXS_OFF	BOOL			False	False	Do not publish	ST3  SHUTTER-4 EXIST confirmed absent
+PH_ST3_SHT4_EXS_ON	BOOL			False	False	Do not publish	ST3  SHUTTER-4 EXIST confirmed present
 PH_ST3_SHT4_FLW_OUT	BOOL			False	False	Do not publish	ST3  SHUTTER-4 FLOW OUT
+PH_ST3_SHT4_FLW_OUT_OFF	BOOL			False	False	Do not publish	ST3  SHUTTER-4 FLOW OUT confirmed absent
+PH_ST3_SHT4_FLW_OUT_ON	BOOL			False	False	Do not publish	ST3  SHUTTER-4 FLOW OUT confirmed present
 PH_ST3_SHT_FULL	BOOL			False	False	Do not publish	ST3  SHUTTER FULL
+PH_ST3_SHT_FULL_OFF	BOOL			False	False	Do not publish	ST3  SHUTTER FULL confirmed absent
+PH_ST3_SHT_FULL_ON	BOOL			False	False	Do not publish	ST3  SHUTTER FULL confirmed present
 PL411_1M	BOOL			False	False	Do not publish	Lamp, ST1 STOPPER-5 CHUCK
 PL411_1R	BOOL			False	False	Do not publish	Lamp, ST1 STOPPER-5 UNCHUCK
 PL411_2M	BOOL			False	False	Do not publish	Lamp, ST1 LEFT DIVIDER BACKWARD
