@@ -177,13 +177,38 @@ const seeded = runPipeline({ motionSequences: { ST1: [
 const okSeeded = validate('seeded', seeded.files);
 
 // AutoRunning wajib punya semua 7 rung "Motion N" (5 varian-1 + 2 varian-2), rung Join AND dan OR,
-// rung gate variant ("Sequence variant gate: LB300"), dan gak jatuh ke placeholder stub lama.
+// dan varian ber-condition (LB300) wajib pakai PATTERN 3 select+latch (sample-at-cycle-start rung +
+// latch bit LB402 sendiri, vIdx=1 -> LB401+1), bukan placeholder stub lama.
 const st1 = seeded.files.find(f=>f.name==='Prg010_ST1.xml');
 const hasAllMotions = st1 && [1,2,3,4,5,6,7].every(n => new RegExp('Motion '+n+': ').test(st1.xml));
 const hasJoins = st1 && /Join \(AND\)/.test(st1.xml) && /Join \(OR\)/.test(st1.xml);
-const hasVariantGate = st1 && /Sequence variant gate: LB300/.test(st1.xml);
-const usedRealSequence = hasAllMotions && hasJoins && hasVariantGate && !/Motion steps to be written here/.test(st1.xml);
-console.log(usedRealSequence ? 'MOTION SEQUENCE OK: ST1 pakai 2 varian (fork+AND+OR+condition-gate), bukan stub'
+const hasSample = st1 && /Sample condition at cycle start, condition=LB300/.test(st1.xml);
+const hasLatch = st1 && /Variant select-latch .*: LB300/.test(st1.xml) && /<Variable name="LB402">/.test(st1.xml);
+const usedRealSequence = hasAllMotions && hasJoins && hasSample && hasLatch && !/Motion steps to be written here/.test(st1.xml);
+console.log(usedRealSequence ? 'MOTION SEQUENCE OK: ST1 pakai 2 varian (fork+AND+OR+condition select-latch), bukan stub'
                               : 'MOTION SEQUENCE GAGAL: ST1 masih stub atau graph gak lengkap kepakai');
 
-if(!okStub || !noMfFull || !okSeeded || !usedRealSequence) process.exit(1);
+// Skenario 3: conditionDefs - Condition section dinamis, bukan 3 slot cadangan generik. LB300 = OR
+// dari 2 AND-group (persis pola Denso PATTERN 3 dari screenshot: "(A AND B ANDNOT C) OR (D AND E)"),
+// LB301 = 1 AND-group doang, ikut makein LB300 sebagai salah satu term-nya (referensi silang antar
+// Condition, buktiin urutan declare gak masalah).
+console.log('\n=== Skenario conditionDefs (Condition section dinamis, OR-of-AND-groups) ===');
+const seededCond = runPipeline({ conditionDefs: { ST1: [
+    { name: 'P&P Take Out Lowering Auto Start Condition', groups: [
+        [['LB206',false],['LB211',false],['LB1000',true],['LB175',false]],
+        [['LB202',false],['LB203',false]],
+    ] },
+    { name: 'Lowering Insert Auto Start Condition', groups: [
+        [['LB206',false],['LB211',false],['LB300',false]],
+    ] },
+] } });
+const okSeededCond = validate('conditionDefs', seededCond.files);
+const st1c = seededCond.files.find(f=>f.name==='Prg010_ST1.xml');
+const hasNamedConds = st1c && /<Variable name="LB300">.*?P&amp;P Take Out Lowering Auto Start Condition/.test(st1c.xml.replace(/\n/g,''));
+const hasOrOfAnd = st1c && /P&amp;P Take Out Lowering Auto Start Condition/.test(st1c.xml) && /Lowering Insert Auto Start Condition/.test(st1c.xml);
+const noOldSpareStub = st1c && !/Unit motion conditions, spare slots to be defined per product type/.test(st1c.xml);
+const usedConditionDefs = hasNamedConds && hasOrOfAnd && noOldSpareStub;
+console.log(usedConditionDefs ? 'CONDITION DEFS OK: bit bernama + OR-of-AND-groups kepakai, bukan 3 spare generik'
+                               : 'CONDITION DEFS GAGAL: masih fallback ke spare generik atau nama gak nyantol');
+
+if(!okStub || !noMfFull || !okSeeded || !usedRealSequence || !okSeededCond || !usedConditionDefs) process.exit(1);

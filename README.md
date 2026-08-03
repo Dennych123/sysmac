@@ -36,6 +36,40 @@ hasilnya. `build.py` juga menempelkan `js/lib.js` ke setiap node generator
 secara otomatis. Jangan menyalin isi lib ke file generator, dan jangan edit
 `index.html` langsung - edit `js/*.js` lalu build ulang.
 
+### Condition (bit bernama, tanpa batas 3)
+
+Panel "Condition" muncul buat tiap station setelah klik Generate. Dulu
+Condition section cuma punya 3 slot cadangan generik (`LB300`-`LB302`,
+gerbangnya sama semua - `LB105 AND LB160 AND AUTO_MODE`). Sekarang tiap
+station boleh punya sejumlah bit Condition **bernama**, masing-masing bit
+= OR dari beberapa **OR group**, tiap group = AND dari beberapa **term**
+(bit + tombol AND/NOT buat toggle negate) - persis pola Denso PATTERN 3 di
+project asli (`P&P Take Out Lowering Auto Start Condition` = groupA OR
+groupB, tiap group AND beberapa sensor/status bit). "+ Condition" nambah
+bit baru, "+ OR group" nambah kombinasi syarat baru, "+ term" nambah
+syarat di dalam satu group. Term boleh nunjuk bit Condition LAIN di station
+yang sama (referensi silang - condition ke-2 boleh makein bit condition
+ke-1 sebagai salah satu term-nya), sensor, atau bit apapun; kalau belum
+kedeklarasi di manapun otomatis dibikinin placeholder biar gak error pas
+import (logic yang beneran drive bit itu tetap ditulis manual). Bit boleh
+diberi nama alamat sendiri (kosongin field "Bit" = auto `LB300`, `LB301`,
+dst sesuai urutan). Station yang gak disentuh tetap dapat 3 slot cadangan
+generik lama, zero regresi.
+
+**Import/Export JSON**, sama polanya kayak Motion Sequence:
+```json
+[
+  { "name": "P&P Take Out Lowering Auto Start Condition", "bit": "", "groups": [
+    [ {"bit":"LB206","neg":false}, {"bit":"LB211","neg":false}, {"bit":"LB1000","neg":true}, {"bit":"LB175","neg":false} ],
+    [ {"bit":"LB202","neg":false}, {"bit":"LB203","neg":false} ]
+  ] }
+]
+```
+Import mengganti SELURUH Condition station itu. Comparator/counter block
+(`=`, `TST` dkk, kayak "Data Ok For Auto Running" di project asli) BUKAN
+bagian fitur ini - kalau butuh bit hasil perbandingan, tulis manual lalu
+rujuk namanya sebagai term biasa (sama kayak bit eksternal lainnya).
+
 ### Motion Sequence (urutan gerak AutoRunning)
 
 Setelah klik Generate, panel "Motion Sequence" muncul di `index.html` kalau
@@ -113,12 +147,20 @@ Kalau sebuah node punya 2+ dependency, satu rung AND (`series`) atau OR
 (`orMany`) dibikin dulu buat gabungin jadi satu bit, baru bit itu jadi TR0
 buat `motionStep`-nya. Graph di-topological-sort di `gen_all.js` sebelum
 diproses, jadi urutan drag-connect di editor gak ngaruh ke kebenaran hasil.
-Tiap varian yang punya Condition di-gerbang `LB400 AND <condition>` duluan
-sebelum root node-nya; semua varian nge-OR ke `LB499` "1 cycle motion
-complete" bareng. Station yang gak disentuh di panel ini tetap dapat
-kerangka placeholder biasa (lihat `Batasan`). Import JSON nolak `"join"`
-yang bukan persis `"AND"`/`"OR"` (mis. typo `"or"`) - error, bukan
-kesilent-defaultkan ke AND.
+Tiap varian yang punya Condition dipilih pakai pola Denso PATTERN 3
+select+latch (bukan gerbang pass-through biasa): sekali di cycle start
+(`LB400`), kondisi-nya di-sample (`LB400 AND <condition>`), lalu di-LATCH
+ke bit sendiri (`LB401`, `LB402`, dst - satu per varian ber-condition) yang
+saling ANDNOT (mutual exclusion - varian lain gak bisa ikut ke-latch kalau
+salah satu udah menang) dan reset otomatis begitu `LB400` drop (cycle
+selesai/CYCLE_STOP). Root node varian itu jadi nempel ke bit LATCH-nya,
+bukan hasil sample mentah - jadi kalau condition-nya flicker di tengah
+cycle, motion yang lagi jalan gak ikut keputus. Varian tanpa Condition
+tetap ke `LB400` langsung (gak ikut mutual exclusion). Semua varian nge-OR
+ke `LB499` "1 cycle motion complete" bareng. Station yang gak disentuh di
+panel ini tetap dapat kerangka placeholder biasa (lihat `Batasan`). Import
+JSON nolak `"join"` yang bukan persis `"AND"`/`"OR"` (mis. typo `"or"`) -
+error, bukan kesilent-defaultkan ke AND.
 
 Pencocokan solenoid <-> limit switch (`findLsc`, dipakai buat motion fault
 dan `motionStep`) dicatat di `msg.payload.lscAudit` (satu baris per match,
@@ -131,7 +173,7 @@ kecek manual - kepercayaan cocoknya lemah, gampang salah pasang device mirip.
 
 | Berkas | Isi |
 |---|---|
-| `js/lib.js` | Pembangun XML: `Rung`, `series`, `latch`, `ls2`, `merge2`, `chunkNot`, `ton`, `Rung.ton`, `portName`, `vr`, `sect`, `prog` |
+| `js/lib.js` | Pembangun XML: `Rung`, `series`, `orMany`, `latch`, `orOfAnds`, `ls2`, `merge2`, `chunkNot`, `ton`, `Rung.ton`, `portName`, `vr`, `sect`, `prog` |
 | `js/parse.js` | TSV menjadi array perangkat |
 | `js/genname.js` | Jenis dan komentar menjadi nama simbol |
 | `js/validate.js` | Kolom kosong, IN/OUT, alamat ganda |
@@ -144,9 +186,11 @@ kecek manual - kepercayaan cocoknya lemah, gampang salah pasang device mirip.
 
 ## Uji yang dijalankan `test.js`
 
-1. Seluruh rantai node berjalan tanpa galat, dua skenario (stub tanpa Motion
-   Sequence, dan diseed dengan graph multi-varian: linear, fork, AND-join,
-   OR-gate, condition-gate)
+1. Seluruh rantai node berjalan tanpa galat, tiga skenario (stub tanpa
+   Motion Sequence, diseed dengan graph multi-varian: linear, fork,
+   AND-join, OR-gate, condition select-latch; dan diseed dengan
+   Condition section dinamis: bit bernama, OR-of-AND-groups, referensi
+   silang antar Condition)
 2. Setiap operand pada rung terdeklarasi di program tersebut
 3. Setiap `ExternalVars` punya padanan pada tabel global
 4. Tidak ada kontak menggantung (penyebab `import failed` di Sysmac Studio)

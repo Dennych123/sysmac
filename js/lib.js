@@ -15,6 +15,9 @@ function series(o,conds,out,cmt,outNeg,edge){var r=new Rung(o,cmt);var cur=r.rai
 function orMany(o,bits,out,cmt){var r=new Rung(o,cmt);var rail=r.rail();var ids=bits.map(function(b){return r.ct(b,rail);});var x=r.clm(out,ids);r.rr([x]);return r.build();}
 // self-latch: (OR trigs OR bit) AND blocks -> bit
 function latch(o,trigs,bit,blocks,cmt){var r=new Rung(o,cmt);var rail=r.rail();var ids=trigs.map(function(t){return r.ct(t[0],rail,t[1]);});ids.push(r.ct(bit,rail));blocks=blocks||[];if(!blocks.length){var x=r.clm(bit,ids);r.rr([x]);return r.build();}var cur=r.ctm(blocks[0][0],ids,blocks[0][1]);for(var i=1;i<blocks.length;i++)cur=r.ct(blocks[i][0],cur,blocks[i][1]);var y=r.cl(bit,cur);r.rr([y]);return r.build();}
+// groups = [[[operand,negated],...], ...] -> tiap group AND-series jadi 1 cabang, semua cabang OR -> 1 coil
+// (Condition section: satu bit boleh dinyalain lewat beberapa kombinasi syarat berbeda)
+function orOfAnds(o,groups,out,cmt){var r=new Rung(o,cmt);var rail=r.rail();var ends=groups.map(function(g){var cur=rail;g.forEach(function(c){cur=r.ct(c[0],cur,c[1]);});return cur;});var x=ends.length>1?r.clm(out,ends):r.cl(out,ends[0]);r.rr([x]);return r.build();}
 // dual-aux confirm Denso (3 rung)
 function dualAux(o,sa,aa,sb,ab,out,cmt){return series(o,[[sa,false]],aa,cmt)+series(o+1,[[sb,false]],ab)+series(o+2,[[aa,false],[ab,false]],out);}
 // LS Combination 2 posisi (2 rung)

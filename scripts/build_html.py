@@ -38,6 +38,17 @@ HTML = '''<!doctype html>
   .file textarea{height:140px;margin-top:6px;font-size:10px;white-space:pre;overflow:auto}
 
   #motionPanel{display:none;margin:10px 0}
+  #conditionPanel{display:none;margin:10px 0}
+  .cond-group-box{border:1px dashed #ccc;border-radius:4px;padding:6px;margin:6px 0;display:flex;flex-wrap:wrap;align-items:center;gap:4px}
+  .cond-or-label{font-weight:bold;color:#e67e22;font-size:11px;margin-right:4px}
+  .cond-term{display:inline-flex;align-items:center;background:#eef;border-radius:3px;padding:2px 2px 2px 4px;font-family:Consolas,monospace;font-size:11px;gap:3px}
+  .cond-neg{background:#2196f3;color:#fff;padding:2px 6px;margin:0;font-size:9px;border-radius:3px}
+  .cond-neg.active{background:#c0392b}
+  .cond-neg:hover{opacity:0.85}
+  .cond-term-bit{padding:0 2px}
+  .cond-rm-term{background:#999;color:#fff;padding:1px 6px;margin:0;font-size:10px;border-radius:3px}
+  .cond-rm-term:hover{background:#777}
+  .cond-term-input{font-family:Consolas,monospace;font-size:11px;padding:3px 5px;border:1px solid #ccc;border-radius:3px;width:130px}
   .station-box{border:1px solid #ddd;border-radius:4px;padding:8px;margin-bottom:14px}
   .station-title{font-weight:bold;margin-bottom:6px}
   .variant-box{border:1px solid #eee;border-radius:4px;padding:6px;margin-bottom:10px;background:#fdfdfd}
@@ -89,6 +100,18 @@ HTML = '''<!doctype html>
 <div><button id="genBtn">Generate Program</button></div>
 <div id="err"></div>
 
+<h2>Condition (opsional)</h2>
+<p class="hint">Tiap station boleh punya sejumlah bit Condition BERNAMA (gak dibatasin 3 slot lama) -
+tiap bit = OR dari beberapa kombinasi AND-syarat ("+ OR group", "+ term" per group, klik badge
+AND/NOT buat toggle negate) - persis pola Denso PATTERN 3 (mis. bit "P&amp;P Take Out Lowering Auto
+Start Condition" = grupA OR grupB). Bit boleh ngerujuk bit Condition LAIN (referensi silang, mis.
+condition ke-2 makein bit condition ke-1 sebagai salah satu term), sensor, atau bit apapun yang
+sudah ada - kalau belum kedeklarasi, otomatis dibikinin placeholder biar gak error pas import.
+Station yang gak disentuh tetap dapat 3 slot cadangan generik lama. Kotak <b>Import/Export JSON</b>
+di bawah - format: array condition
+<code>[{"name":"","bit":"","groups":[[{"bit":"LB206","neg":false}]]}]</code>.</p>
+<div id="conditionPanel"></div>
+
 <h2>Motion Sequence (AutoRunning, opsional)</h2>
 <p class="hint">Tiap station boleh punya beberapa VARIAN sequence ("+ Variant"), masing-masing punya
 Condition bit sendiri (kosongin = selalu aktif) - kayak pemilihan TIPE di FSM: cuma varian yang
@@ -136,7 +159,7 @@ function actuatorNamesForStation(devices) {
     .filter(Boolean);
 }
 
-var errEl, resEl, statsEl, warnEl, motionPanelEl;
+var errEl, resEl, statsEl, warnEl, motionPanelEl, conditionPanelEl;
 var flowStore = {};
 var lastSplitMsg = null;
 
@@ -148,6 +171,7 @@ var lastSplitMsg = null;
 //   motion node's `after` references it, gen_all.js's resolveBit() falls through to using that
 //   string as a literal external operand. Condition nodes are stripped before sending to gen_all.js.
 var motionState = {};
+var conditionState = {}; // key station -> [{name,bit,groups:[[{bit,neg},...],...]},...]
 var motionCounters = {}; // key "station#variantIdx" -> next motion node number
 var svgRefs = {};        // key "station#variantIdx" -> current svg element
 var dragState = null;
@@ -363,6 +387,73 @@ function importSequenceJSON(stKey, jsonText) {
   return null;
 }
 
+// ===== Condition section: bit bernama, tiap bit = OR dari beberapa AND-group (PATTERN 3 Denso) =====
+// Station yang gak disentuh (conditionState[st] kosong/gak ada) tetap dapat 3 slot cadangan generik
+// lama - lihat gen_all.js section 8. Beda dari Motion Sequence: gak ada topologi graph/chaining,
+// cuma daftar bit -> daftar OR-group -> daftar AND-term (bit + NOT), jadi list editor biasa cukup.
+function ensureConditionStation(st) { if (!conditionState[st]) conditionState[st] = []; }
+
+function addConditionDef(st) { ensureConditionStation(st); conditionState[st].push({ name: '', bit: '', groups: [[]] }); }
+
+function removeConditionDef(st, di) { if (conditionState[st]) conditionState[st].splice(di, 1); }
+
+function setConditionDefName(st, di, text) { var d = conditionState[st] && conditionState[st][di]; if (d) d.name = (text || '').trim(); }
+
+function setConditionDefBit(st, di, text) { var d = conditionState[st] && conditionState[st][di]; if (d) d.bit = (text || '').trim(); }
+
+function addOrGroup(st, di) { var d = conditionState[st] && conditionState[st][di]; if (d) d.groups.push([]); }
+
+function removeOrGroup(st, di, gi) { var d = conditionState[st] && conditionState[st][di]; if (d) d.groups.splice(gi, 1); }
+
+function addTerm(st, di, gi, bitName) {
+  bitName = (bitName || '').trim();
+  var d = conditionState[st] && conditionState[st][di];
+  if (!d || !bitName) return false;
+  d.groups[gi].push({ bit: bitName, neg: false });
+  return true;
+}
+
+function removeTerm(st, di, gi, ti) { var d = conditionState[st] && conditionState[st][di]; if (d) d.groups[gi].splice(ti, 1); }
+
+function toggleTermNeg(st, di, gi, ti) { var d = conditionState[st] && conditionState[st][di]; if (d) { var t = d.groups[gi][ti]; t.neg = !t.neg; } }
+
+function conditionDefsToJSON(stKey) {
+  return JSON.stringify((conditionState[stKey] || []).map(function (d) {
+    return {
+      name: d.name || '', bit: d.bit || '',
+      groups: d.groups.map(function (g) { return g.map(function (t) { return { bit: t.bit, neg: !!t.neg }; }); })
+    };
+  }), null, 2);
+}
+
+function importConditionJSON(stKey, jsonText) {
+  var parsed;
+  try { parsed = JSON.parse(jsonText); }
+  catch (e) { return 'JSON gak valid: ' + e.message; }
+  if (!Array.isArray(parsed)) return 'JSON harus array condition: [{"name":"","bit":"","groups":[[{"bit":"LB1","neg":false}]]}]';
+
+  var defs = [];
+  for (var i = 0; i < parsed.length; i++) {
+    var raw = parsed[i] || {};
+    if (!Array.isArray(raw.groups) || !raw.groups.length) return 'Condition ke-' + (i + 1) + ' butuh field "groups" (array, minimal 1 OR-group)';
+    var groups = [];
+    for (var gi = 0; gi < raw.groups.length; gi++) {
+      var rg = raw.groups[gi];
+      if (!Array.isArray(rg)) return 'Condition ke-' + (i + 1) + ' group ke-' + (gi + 1) + ' harus array term';
+      var terms = [];
+      for (var ti = 0; ti < rg.length; ti++) {
+        var rt = rg[ti] || {};
+        if (!rt.bit) return 'Condition ke-' + (i + 1) + ' group ke-' + (gi + 1) + ' term ke-' + (ti + 1) + ' butuh "bit"';
+        terms.push({ bit: String(rt.bit), neg: !!rt.neg });
+      }
+      groups.push(terms);
+    }
+    defs.push({ name: String(raw.name || '').trim(), bit: String(raw.bit || '').trim(), groups: groups });
+  }
+  conditionState[stKey] = defs;
+  return null;
+}
+
 function renderResults(payload) {
   resEl.innerHTML = '';
   statsEl.textContent = payload.stats;
@@ -408,6 +499,20 @@ function regenerate() {
       })
       .filter(function (v) { return v.nodes.length; });
     if (variants.length) flowStore.motionSequences[st] = variants;
+  });
+  flowStore.conditionDefs = {};
+  Object.keys(conditionState).forEach(function (st) {
+    var defs = (conditionState[st] || [])
+      .map(function (d) {
+        return {
+          name: d.name || '', bit: d.bit || '',
+          groups: d.groups.filter(function (g) { return g.length; }).map(function (g) {
+            return g.map(function (t) { return { bit: t.bit, neg: !!t.neg }; });
+          })
+        };
+      })
+      .filter(function (d) { return d.groups.length; });
+    if (defs.length) flowStore.conditionDefs[st] = defs;
   });
   try {
     // Salinan wrapper baru tiap panggil - gen_all.js nge-reassign msg.payload di baris terakhirnya,
@@ -665,16 +770,120 @@ function renderMotionPanel() {
   motionPanelEl.style.display = any ? 'block' : 'none';
 }
 
+function renderConditionPanel() {
+  conditionPanelEl.innerHTML = '';
+  if (!lastSplitMsg) { conditionPanelEl.style.display = 'none'; return; }
+  var groups = lastSplitMsg.payload;
+  var stations = Object.keys(groups).filter(function (k) { return k !== 'MAIN' && groups[k].length; });
+  if (!stations.length) { conditionPanelEl.style.display = 'none'; return; }
+
+  stations.forEach(function (stKey) {
+    ensureConditionStation(stKey);
+
+    var box = document.createElement('div'); box.className = 'station-box';
+    var title = document.createElement('div'); title.className = 'station-title'; title.textContent = stKey;
+    box.appendChild(title);
+    if (!conditionState[stKey].length) {
+      var hint = document.createElement('div'); hint.className = 'hint';
+      hint.textContent = 'Belum ada Condition custom - pakai 3 slot cadangan generik (LB300-LB302).';
+      box.appendChild(hint);
+    }
+
+    conditionState[stKey].forEach(function (def, di) {
+      var dbox = document.createElement('div'); dbox.className = 'variant-box';
+
+      var head = document.createElement('div'); head.className = 'variant-head';
+      var nameLbl = document.createElement('b'); nameLbl.textContent = 'Condition ' + (di + 1) + ' - Name:';
+      var nameInput = document.createElement('input'); nameInput.placeholder = 'mis. P&P Take Out Lowering Auto Start Condition'; nameInput.value = def.name; nameInput.style.width = '260px';
+      nameInput.addEventListener('change', function () { setConditionDefName(stKey, di, nameInput.value); regenerate(); });
+      var bitLbl = document.createElement('b'); bitLbl.textContent = 'Bit:'; bitLbl.style.marginLeft = '8px';
+      var bitInput = document.createElement('input'); bitInput.placeholder = '(kosong = auto LB30' + di + ')'; bitInput.value = def.bit;
+      bitInput.addEventListener('change', function () { setConditionDefBit(stKey, di, bitInput.value); regenerate(); });
+      var rmD = document.createElement('button'); rmD.className = 'rm-variant'; rmD.textContent = 'Remove condition';
+      rmD.addEventListener('click', function () { removeConditionDef(stKey, di); renderConditionPanel(); regenerate(); });
+      head.appendChild(nameLbl); head.appendChild(nameInput); head.appendChild(bitLbl); head.appendChild(bitInput); head.appendChild(rmD);
+      dbox.appendChild(head);
+
+      def.groups.forEach(function (group, gi) {
+        var gbox = document.createElement('div'); gbox.className = 'cond-group-box';
+        if (gi > 0) { var orLbl = document.createElement('div'); orLbl.className = 'cond-or-label'; orLbl.textContent = 'OR'; gbox.appendChild(orLbl); }
+
+        group.forEach(function (term, ti) {
+          var trow = document.createElement('span'); trow.className = 'cond-term';
+          var negBtn = document.createElement('button'); negBtn.className = 'cond-neg' + (term.neg ? ' active' : ''); negBtn.textContent = term.neg ? 'NOT' : 'AND';
+          negBtn.title = 'klik buat toggle NOT';
+          negBtn.addEventListener('click', function () { toggleTermNeg(stKey, di, gi, ti); renderConditionPanel(); regenerate(); });
+          var termLbl = document.createElement('span'); termLbl.className = 'cond-term-bit'; termLbl.textContent = term.bit;
+          var rmT = document.createElement('button'); rmT.className = 'cond-rm-term'; rmT.textContent = 'x';
+          rmT.addEventListener('click', function () { removeTerm(stKey, di, gi, ti); renderConditionPanel(); regenerate(); });
+          trow.appendChild(negBtn); trow.appendChild(termLbl); trow.appendChild(rmT);
+          gbox.appendChild(trow);
+        });
+
+        var termInput = document.createElement('input'); termInput.placeholder = 'nama bit (mis. LB206)'; termInput.className = 'cond-term-input';
+        var addTBtn = document.createElement('button'); addTBtn.className = 'avail-btn'; addTBtn.textContent = '+ term';
+        addTBtn.addEventListener('click', function () {
+          if (addTerm(stKey, di, gi, termInput.value)) { termInput.value = ''; renderConditionPanel(); regenerate(); }
+        });
+        gbox.appendChild(termInput); gbox.appendChild(addTBtn);
+
+        if (def.groups.length > 1) {
+          var rmG = document.createElement('button'); rmG.className = 'cond-rm-term'; rmG.textContent = 'hapus grup';
+          rmG.addEventListener('click', function () { removeOrGroup(stKey, di, gi); renderConditionPanel(); regenerate(); });
+          gbox.appendChild(rmG);
+        }
+        dbox.appendChild(gbox);
+      });
+
+      var addGBtn = document.createElement('button'); addGBtn.className = 'avail-btn'; addGBtn.textContent = '+ OR group';
+      addGBtn.addEventListener('click', function () { addOrGroup(stKey, di); renderConditionPanel(); regenerate(); });
+      dbox.appendChild(addGBtn);
+
+      box.appendChild(dbox);
+    });
+
+    var addDBtn = document.createElement('button'); addDBtn.className = 'add-variant'; addDBtn.textContent = '+ Condition';
+    addDBtn.addEventListener('click', function () { addConditionDef(stKey); renderConditionPanel(); });
+    box.appendChild(addDBtn);
+
+    var jsonBox = document.createElement('div'); jsonBox.className = 'json-io';
+    var jsonLabel = document.createElement('div'); jsonLabel.className = 'hint';
+    jsonLabel.textContent = 'Import/Export JSON (array condition) - ganti seluruh Condition section station ini:';
+    var jsonTa = document.createElement('textarea');
+    jsonTa.placeholder = '[{"name":"","bit":"","groups":[[{"bit":"LB206","neg":false}]]}]';
+    var jsonRow = document.createElement('div'); jsonRow.className = 'row';
+    var jsonMsg = document.createElement('div'); jsonMsg.className = 'json-msg';
+    var importBtn = document.createElement('button'); importBtn.className = 'json-import'; importBtn.textContent = 'Import JSON';
+    importBtn.addEventListener('click', function () {
+      var err = importConditionJSON(stKey, jsonTa.value);
+      if (err) { jsonMsg.className = 'json-msg err'; jsonMsg.textContent = err; return; }
+      jsonMsg.className = 'json-msg ok'; jsonMsg.textContent = 'Imported.';
+      renderConditionPanel(); regenerate();
+    });
+    var exportBtn = document.createElement('button'); exportBtn.className = 'json-export'; exportBtn.textContent = 'Export JSON';
+    exportBtn.addEventListener('click', function () { jsonTa.value = conditionDefsToJSON(stKey); jsonMsg.className = 'json-msg'; jsonMsg.textContent = ''; });
+    jsonRow.appendChild(importBtn); jsonRow.appendChild(exportBtn);
+    jsonBox.appendChild(jsonLabel); jsonBox.appendChild(jsonTa); jsonBox.appendChild(jsonRow); jsonBox.appendChild(jsonMsg);
+    box.appendChild(jsonBox);
+
+    conditionPanelEl.appendChild(box);
+  });
+
+  conditionPanelEl.style.display = 'block';
+}
+
 function runFullPipeline() {
   errEl.textContent = ''; resEl.innerHTML = ''; statsEl.textContent = ''; warnEl.textContent = '';
   flowStore = {};
   lastSplitMsg = null;
   motionState = {};
+  conditionState = {};
   motionCounters = {};
   svgRefs = {};
   dragState = null;
   selected = null;
   renderMotionPanel();
+  renderConditionPanel();
 
   try {
     var msg = { payload: document.getElementById('ioText').value };
@@ -690,6 +899,7 @@ function runFullPipeline() {
   }
 
   renderMotionPanel();
+  renderConditionPanel();
   regenerate();
 }
 
@@ -698,6 +908,7 @@ resEl = document.getElementById('results');
 statsEl = document.getElementById('stats');
 warnEl = document.getElementById('warn');
 motionPanelEl = document.getElementById('motionPanel');
+conditionPanelEl = document.getElementById('conditionPanel');
 document.getElementById('genBtn').addEventListener('click', runFullPipeline);
 document.addEventListener('mousemove', onDocMouseMove);
 document.addEventListener('mouseup', onDocMouseUp);

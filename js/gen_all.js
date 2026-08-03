@@ -178,16 +178,41 @@ function buildUnit(stKey, devs){
     S7.push(series(o++,[["LB100",false],["LB160",false]],"LB105",null));
     P("LB100","BOOL","All actuators at origin position"); P("LB105","BOOL","Unit returned to home position");
 
-    // 8. Condition
+    // 8. Condition : lewat panel web, tiap station boleh punya sejumlah bit Condition BERNAMA,
+    // masing-masing = OR dari beberapa kombinasi AND-syarat (groups) - persis pola Denso PATTERN 3
+    // (mis. LB300 "P&P Take Out Lowering Auto Start Condition" = (grupA) OR (grupB)). Station yang
+    // belum disetel lewat panel tetap dapat 3 slot cadangan generik lama (LB300-LB302), zero regresi.
     var S8=[]; o=1;
-    ["LB300","LB301","LB302"].forEach(function(b,i){
-        P(b,"BOOL","Unit motion condition "+(i+1)+", spare, to be defined per product type");
-        S8.push(series(o++,[["LB105",false],["LB160",false],["AUTO_MODE",false]],b,
-            i===0?"Unit motion conditions, spare slots to be defined per product type":null));
-    });
-    var r9=new Rung(o++,null); var rl9=r9.rail();
-    var x9=r9.clm("LB309",[r9.ct("LB300",rl9),r9.ct("LB301",rl9),r9.ct("LB302",rl9)]);
-    r9.rr([x9]); S8.push(r9.build());
+    var condDefs=((flow.get("conditionDefs")||{})[stKey])||[];
+    var condBits=[];
+    if(condDefs.length){
+        condBits=condDefs.map(function(def,i){ return def.bit||("LB"+pad(300+i,3)); });
+        // pass 1: deklarasikan semua bit Condition bernama dulu (biar referensi silang antar
+        // Condition, mis. LB301 makein LB300, gak ke-declare-external-placeholder duluan)
+        condDefs.forEach(function(def,i){ P(condBits[i],"BOOL",def.name||("Unit motion condition "+(i+1))); });
+        // pass 2: bikin rung OR-of-AND-groups tiap Condition, deklarasikan bit syarat eksternal yang belum kekenal
+        condDefs.forEach(function(def,i){
+            var groups=(def.groups&&def.groups.length)?def.groups:[[["LB105",false],["LB160",false],["AUTO_MODE",false]]];
+            groups.forEach(function(g){ g.forEach(function(c){ if(!GLOBALS[c[0]]) P(c[0],"BOOL","External condition term for "+condBits[i]+" - define driving logic separately"); }); });
+            S8.push(orOfAnds(o++, groups, condBits[i], i===0?"Unit motion conditions":(def.name||null)));
+        });
+    } else {
+        condBits=["LB300","LB301","LB302"];
+        condBits.forEach(function(b,i){
+            P(b,"BOOL","Unit motion condition "+(i+1)+", spare, to be defined per product type");
+            S8.push(series(o++,[["LB105",false],["LB160",false],["AUTO_MODE",false]],b,
+                i===0?"Unit motion conditions, spare slots to be defined per product type":null));
+        });
+    }
+    var doneBit="LB309";
+    if(condBits.length===1){
+        S8.push(series(o++,[[condBits[0],false]],doneBit,"One cycle motion condition established"));
+    } else {
+        var r9=new Rung(o++,null); var rl9=r9.rail();
+        var x9=r9.clm(doneBit,condBits.map(function(b){return r9.ct(b,rl9);}));
+        r9.rr([x9]); S8.push(r9.build());
+    }
+    P(doneBit,"BOOL","One cycle motion condition established");
     P("LB309","BOOL","One cycle motion condition established");
 
     // 9. Individual
@@ -254,7 +279,7 @@ function buildUnit(stKey, devs){
         return out;
     }
 
-    variants.forEach(function(variant){
+    variants.forEach(function(variant,vIdx){
         var nodes=topoSort(variant.nodes||[]);
         var nodeIds={}; nodes.forEach(function(n){ nodeIds[n.id]=true; });
         var confirmBitOf={}, referenced={};
@@ -271,17 +296,33 @@ function buildUnit(stKey, devs){
         }
 
         var rootBit="LB400";
-        if(variant.condition) declareExternal(variant.condition);
-        if(variant.condition||variant.comment){
+        var label=variant.comment?('"'+variant.comment+'" - '):"";
+        if(variant.condition){
+            // PATTERN 3 Denso: sample kondisi SEKALI pas cycle start, latch pilihan varian ini
+            // (mutual exclusion ANDNOT varian lain yang juga punya condition), biar kondisi yang
+            // sempat flicker di tengah cycle gak bikin motion-nya keputus. Latch reset otomatis pas
+            // LB400 drop (cycle selesai/di-stop) - LB400 sendiri udah reset di LB499/CYCLE_STOP.
+            declareExternal(variant.condition);
+            var condTxt=bitTxt(variant.condition);
             var gateBit="LB"+pad(550+varN,3); varN++;
-            var label=variant.comment?('"'+variant.comment+'" - '):"";
-            var condTxt=variant.condition?bitTxt(variant.condition):"always active";
-            P(gateBit,"BOOL","Motion sequence variant: "+label+"condition="+condTxt);
-            var gateConds=[["LB400",false]];
-            if(variant.condition) gateConds.push([variant.condition,false]);
-            S10.push(series(o++,gateConds, gateBit,
-                "Sequence variant "+label+"gate: "+condTxt));
-            rootBit=gateBit;
+            P(gateBit,"BOOL","Cycle-start sample: LB400 AND "+condTxt);
+            S10.push(series(o++,[["LB400",false],[variant.condition,false]], gateBit,
+                "Sample condition at cycle start, "+label+"condition="+condTxt));
+            var latchBit="LB"+pad(401+vIdx,3);
+            var resetBlocks=[["LB400",false]].concat(
+                variants.map(function(v,j){ return j; })
+                    .filter(function(j){ return j!==vIdx && variants[j].condition; })
+                    .map(function(j){ return ["LB"+pad(401+j,3),true]; })
+            );
+            P(latchBit,"BOOL","Variant selected & latched for this cycle"+(variant.comment?(": "+variant.comment):""));
+            S10.push(latch(o++,[[gateBit,false]],latchBit,resetBlocks,
+                "Variant select-latch "+label+"(mutual exclusion vs other condition-gated variants): "+condTxt));
+            rootBit=latchBit;
+        } else if(variant.comment){
+            var gateBit2="LB"+pad(550+varN,3); varN++;
+            P(gateBit2,"BOOL","Motion sequence variant: "+label+"always active");
+            S10.push(series(o++,[["LB400",false]], gateBit2, "Sequence variant "+label+"gate: always active"));
+            rootBit=gateBit2;
         }
 
         var variantEndBits=[];
