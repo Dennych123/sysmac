@@ -191,15 +191,18 @@ console.log(usedRealSequence ? 'MOTION SEQUENCE OK: ST1 pakai 2 varian (fork+AND
 // Skenario 3: conditionDefs - Condition section dinamis, bukan 3 slot cadangan generik. LB300 = OR
 // dari 2 AND-group (persis pola Denso PATTERN 3 dari screenshot: "(A AND B ANDNOT C) OR (D AND E)"),
 // LB301 = 1 AND-group doang, ikut makein LB300 sebagai salah satu term-nya (referensi silang antar
-// Condition, buktiin urutan declare gak masalah).
+// Condition, buktiin urutan declare gak masalah). Term dikirim sebagai OBJECT {bit,neg} - PERSIS
+// bentuk yang beneran dikirim build_html.py (conditionDefsToJSON/regenerate), BUKAN [bit,neg] array
+// pair - kepakean object-shape ini nemuin bug asli (gen_all.js awalnya expect array pair, c[0]/c[1]
+// di object jadi undefined, semua term keluar sebagai operand "undefined" pas diimport user).
 console.log('\n=== Skenario conditionDefs (Condition section dinamis, OR-of-AND-groups) ===');
 const seededCond = runPipeline({ conditionDefs: { ST1: [
     { name: 'P&P Take Out Lowering Auto Start Condition', groups: [
-        [['LB206',false],['LB211',false],['LB1000',true],['LB175',false]],
-        [['LB202',false],['LB203',false]],
+        [{bit:'LB206',neg:false},{bit:'LB211',neg:false},{bit:'LB1000',neg:true},{bit:'LB175',neg:false}],
+        [{bit:'LB202',neg:false},{bit:'LB203',neg:false}],
     ] },
     { name: 'Lowering Insert Auto Start Condition', groups: [
-        [['LB206',false],['LB211',false],['LB300',false]],
+        [{bit:'LB206',neg:false},{bit:'LB211',neg:false},{bit:'LB300',neg:false}],
     ] },
 ] } });
 const okSeededCond = validate('conditionDefs', seededCond.files);
@@ -207,8 +210,14 @@ const st1c = seededCond.files.find(f=>f.name==='Prg010_ST1.xml');
 const hasNamedConds = st1c && /<Variable name="LB300">.*?P&amp;P Take Out Lowering Auto Start Condition/.test(st1c.xml.replace(/\n/g,''));
 const hasOrOfAnd = st1c && /P&amp;P Take Out Lowering Auto Start Condition/.test(st1c.xml) && /Lowering Insert Auto Start Condition/.test(st1c.xml);
 const noOldSpareStub = st1c && !/Unit motion conditions, spare slots to be defined per product type/.test(st1c.xml);
-const usedConditionDefs = hasNamedConds && hasOrOfAnd && noOldSpareStub;
-console.log(usedConditionDefs ? 'CONDITION DEFS OK: bit bernama + OR-of-AND-groups kepakai, bukan 3 spare generik'
-                               : 'CONDITION DEFS GAGAL: masih fallback ke spare generik atau nama gak nyantol');
+// Kritis: cek TIAP term-nya beneran muncul sebagai operand aslinya di rung, bukan cuma nama Condition-nya
+// doang. Kalau shape-mismatch kejadian lagi, operand bakal jadi literal "undefined" - dicek eksplisit gak boleh ada.
+const termNames = ['LB206','LB211','LB1000','LB175','LB202','LB203'];
+const hasAllTermOperands = st1c && termNames.every(function(b){ return new RegExp('operand="'+b+'"').test(st1c.xml); });
+const noUndefinedOperand = st1c && !/operand="undefined"/.test(st1c.xml) && !/<Variable name="undefined">/.test(st1c.xml);
+const usedConditionDefs = hasNamedConds && hasOrOfAnd && noOldSpareStub && hasAllTermOperands && noUndefinedOperand;
+console.log(usedConditionDefs ? 'CONDITION DEFS OK: bit bernama + OR-of-AND-groups kepakai (term operand bener, bukan "undefined")'
+                               : 'CONDITION DEFS GAGAL: masih fallback ke spare generik, nama gak nyantol, atau term jadi "undefined"');
+if(!hasAllTermOperands || !noUndefinedOperand) console.log('  term operands found:', [...(st1c ? st1c.xml.matchAll(/operand="([^"]+)"/g) : [])].map(m=>m[1]).filter(o=>!/^(LB105|LB160|AUTO_MODE)$/.test(o)).join(', '));
 
 if(!okStub || !noMfFull || !okSeeded || !usedRealSequence || !okSeededCond || !usedConditionDefs) process.exit(1);

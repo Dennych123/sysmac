@@ -193,6 +193,9 @@ function buildUnit(stKey, devs){
         // pass 2: bikin rung OR-of-AND-groups tiap Condition, deklarasikan bit syarat eksternal yang belum kekenal
         condDefs.forEach(function(def,i){
             var groups=(def.groups&&def.groups.length)?def.groups:[[["LB105",false],["LB160",false],["AUTO_MODE",false]]];
+            // Normalisasi bentuk term - JSON/panel web ngirim {bit,neg} (readable), orOfAnds & sisa
+            // lib.js makein convention [operand,negated] pair (sama kayak series()/latch() dkk).
+            groups=groups.map(function(g){ return g.map(function(t){ return Array.isArray(t) ? t : [t.bit, !!t.neg]; }); });
             groups.forEach(function(g){ g.forEach(function(c){ if(!GLOBALS[c[0]]) P(c[0],"BOOL","External condition term for "+condBits[i]+" - define driving logic separately"); }); });
             S8.push(orOfAnds(o++, groups, condBits[i], i===0?"Unit motion conditions":(def.name||null)));
         });
