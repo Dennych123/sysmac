@@ -326,6 +326,9 @@ function importSequenceJSON(stKey, jsonText) {
     for (var ni = 0; ni < raw.nodes.length; ni++) {
       var n = raw.nodes[ni] || {};
       if (!n.id || !n.sol) return 'Varian ke-' + (vi + 1) + ' node ke-' + (ni + 1) + ' butuh "id" dan "sol"';
+      if (n.join !== undefined && n.join !== 'AND' && n.join !== 'OR') {
+        return 'Varian ke-' + (vi + 1) + ' node "' + n.id + '": "join" harus persis "AND" atau "OR" (ketemu ' + JSON.stringify(n.join) + ')';
+      }
       var pos = { x: 20 + (idx % 4) * 145, y: 20 + Math.floor(idx / 4) * 75 }; idx++;
       v.nodes.push({
         id: String(n.id), type: 'motion', sol: String(n.sol),

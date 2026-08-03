@@ -19,7 +19,7 @@ IO list (TSV)  ->  Parse  ->  Generate Name  ->  Validate  ->  Split per Station
 ```
 
 Kolom IO list: `Alamat | Jenis | IN/OUT | Komentar`, dipisah TAB.
-Komentar yang memuat `ST1` / `ST2` / `ST3` masuk ke program unit,
+Komentar yang memuat `ST<n>` (`ST1`, `ST2`, ..., gak dibatasin 3) masuk ke program unit,
 sisanya masuk ke program MAIN.
 
 ## Cara build
@@ -116,7 +116,16 @@ diproses, jadi urutan drag-connect di editor gak ngaruh ke kebenaran hasil.
 Tiap varian yang punya Condition di-gerbang `LB400 AND <condition>` duluan
 sebelum root node-nya; semua varian nge-OR ke `LB499` "1 cycle motion
 complete" bareng. Station yang gak disentuh di panel ini tetap dapat
-kerangka placeholder biasa (lihat `Batasan`).
+kerangka placeholder biasa (lihat `Batasan`). Import JSON nolak `"join"`
+yang bukan persis `"AND"`/`"OR"` (mis. typo `"or"`) - error, bukan
+kesilent-defaultkan ke AND.
+
+Pencocokan solenoid <-> limit switch (`findLsc`, dipakai buat motion fault
+dan `motionStep`) dicatat di `msg.payload.lscAudit` (satu baris per match,
+"<komentar device> -> <LSC>, score <n>") - kecek beneran matching-nya siapa
+ke siapa, jangan cuma percaya "gak ada warning". Match dengan score pas-pasan
+(2, cuma 2 kata komentar yang sama) otomatis juga masuk `warnings` biar
+kecek manual - kepercayaan cocoknya lemah, gampang salah pasang device mirip.
 
 ## Struktur
 

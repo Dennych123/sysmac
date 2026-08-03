@@ -3,7 +3,7 @@ var groups   = flow.get("groups") || {};
 var PER_PAGE = 8;
 var T_PHPX   = "T#200MS";
 var T_MOTION = "T#500MS";
-var files = [], warnings = [];
+var files = [], warnings = [], lscAudit = [];
 var GLOBALS = {};
 var ARRAY_ELEMENTS = {}; // "AL[61]" -> comment, buat baris per elemen di GlobalVariables.tsv
 
@@ -23,6 +23,10 @@ function findLsc(dev,asPairs){
             if(s>=2 && s>bestScore){ bestScore=s; best="LSC_"+stripAS(asDev.name); }
         });
     });
+    if(best){
+        lscAudit.push(dev.komen+" -> "+best+" (score "+bestScore+")");
+        if(bestScore===2) warnings.push('LSC match for "'+dev.komen+'" -> "'+best+'" is low-confidence (score 2, only 2 shared comment words) - verify manually.');
+    }
     return best;
 }
 function pairUp(l){ var p=[]; for(var i=0;i<l.length;i+=2){ if(l[i+1]) p.push([l[i],l[i+1]]); } return p; }
@@ -655,5 +659,6 @@ files.unshift({ name:"AllPrograms.xml", xml:progMulti("AllPrograms",blocks,globV
                 stats:"COMBINED: "+blocks.length+" program and "+gnames.length+" global variable in one file" });
 
 msg.payload={ files:files, warnings:warnings.join("\n"), unitCount:ukeys.length,
-              stats:files.map(function(f){return f.stats;}).join("\n") };
+              stats:files.map(function(f){return f.stats;}).join("\n"),
+              lscAudit:lscAudit.join("\n") };
 return msg;

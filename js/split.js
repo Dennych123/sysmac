@@ -2,7 +2,7 @@
 var devices = msg.payload || [];
 var groups = { MAIN: [] };
 devices.forEach(function(d){
-    var m = (d.komen||"").toUpperCase().match(/\bST\s?([123])\b/);
+    var m = (d.komen||"").toUpperCase().match(/\bST\s?(\d+)\b/);
     var key = m ? ("ST"+m[1]) : "MAIN";
     if(!groups[key]) groups[key]=[];
     groups[key].push(d);
