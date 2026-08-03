@@ -1,0 +1,173 @@
+{
+  "communities": {
+    "0": [
+      "js_lib_latch",
+      "js_lib_merge2",
+      "js_lib_motionstep",
+      "js_lib_ormany",
+      "js_lib_rung",
+      "js_lib_rung_build",
+      "js_lib_rung_cl",
+      "js_lib_rung_clm",
+      "js_lib_rung_ct",
+      "js_lib_rung_ctm",
+      "js_lib_rung_rail",
+      "js_lib_rung_rr",
+      "js_lib_rung_ton",
+      "js_lib_ton"
+    ],
+    "1": [
+      "scripts_test",
+      "scripts_test_byid",
+      "scripts_test_flowjson",
+      "scripts_test_fs",
+      "scripts_test_okseeded",
+      "scripts_test_okstub",
+      "scripts_test_outdir",
+      "scripts_test_path",
+      "scripts_test_run",
+      "scripts_test_runpipeline",
+      "scripts_test_seeded",
+      "scripts_test_st1",
+      "scripts_test_stub",
+      "scripts_test_validate"
+    ],
+    "2": [
+      "js_gen_all",
+      "js_gen_all_al",
+      "js_gen_all_buildmain",
+      "js_gen_all_buildunit",
+      "js_gen_all_extractprogram",
+      "js_gen_all_fillrange",
+      "js_gen_all_findlsc",
+      "js_gen_all_mf",
+      "js_gen_all_pad",
+      "js_gen_all_pairup",
+      "js_gen_all_progmulti",
+      "js_gen_all_stripas"
+    ],
+    "3": [
+      "js_lib",
+      "js_lib_chunknot",
+      "js_lib_dualaux",
+      "js_lib_esc",
+      "js_lib_ls2",
+      "js_lib_portname",
+      "js_lib_prog",
+      "js_lib_sect",
+      "js_lib_series",
+      "js_lib_vr"
+    ],
+    "4": [
+      "js_genname",
+      "js_genname_buildname",
+      "js_genname_prefixfor",
+      "js_genname_shortenword",
+      "js_genname_std"
+    ],
+    "5": [
+      "scripts_build",
+      "scripts_build_fn",
+      "scripts_build_tpl"
+    ],
+    "6": [
+      "js_parse"
+    ],
+    "7": [
+      "js_split"
+    ],
+    "8": [
+      "js_validate"
+    ],
+    "9": [
+      "scripts_build_html"
+    ]
+  },
+  "cohesion": {
+    "0": 0.4175824175824176,
+    "1": 0.15384615384615385,
+    "2": 0.30303030303030304,
+    "3": 0.3111111111111111,
+    "4": 0.5,
+    "5": 0.6666666666666666,
+    "6": 1.0,
+    "7": 1.0,
+    "8": 1.0,
+    "9": 1.0
+  },
+  "gods": [
+    {
+      "id": "js_lib_rung",
+      "label": "Rung()",
+      "degree": 9
+    },
+    {
+      "id": "js_lib_series",
+      "label": "series()",
+      "degree": 9
+    },
+    {
+      "id": "js_gen_all_buildunit",
+      "label": "buildUnit()",
+      "degree": 8
+    },
+    {
+      "id": "js_lib_latch",
+      "label": "latch()",
+      "degree": 8
+    },
+    {
+      "id": "js_lib_merge2",
+      "label": "merge2()",
+      "degree": 7
+    },
+    {
+      "id": "js_lib_motionstep",
+      "label": "motionStep()",
+      "degree": 7
+    },
+    {
+      "id": "js_lib_ormany",
+      "label": "orMany()",
+      "degree": 6
+    },
+    {
+      "id": "js_lib_ton",
+      "label": "ton()",
+      "degree": 6
+    },
+    {
+      "id": "js_gen_all_buildmain",
+      "label": "buildMain()",
+      "degree": 4
+    },
+    {
+      "id": "js_lib_esc",
+      "label": "esc()",
+      "degree": 4
+    }
+  ],
+  "surprises": [],
+  "questions": [
+    {
+      "type": "bridge_node",
+      "question": "Why does `buildUnit()` connect `gen_all.js` to `Rung`?",
+      "why": "High betweenness centrality (0.096) - this node is a cross-community bridge."
+    },
+    {
+      "type": "bridge_node",
+      "question": "Why does `series()` connect `lib.js` to `Rung`?",
+      "why": "High betweenness centrality (0.042) - this node is a cross-community bridge."
+    },
+    {
+      "type": "bridge_node",
+      "question": "Why does `buildMain()` connect `gen_all.js` to `Rung`?",
+      "why": "High betweenness centrality (0.040) - this node is a cross-community bridge."
+    },
+    {
+      "type": "isolated_nodes",
+      "question": "What connects `fs`, `path`, `flowJson` to the rest of the system?",
+      "why": "10 weakly-connected nodes found - possible documentation gaps or missing edges."
+    }
+  ]
+}
