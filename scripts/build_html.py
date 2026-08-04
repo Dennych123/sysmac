@@ -696,7 +696,10 @@ function renderMotionPanel() {
 
       var head = document.createElement('div'); head.className = 'variant-head';
       var lbl = document.createElement('b'); lbl.textContent = 'Variant ' + (vIdx + 1) + ' - Condition:';
-      var condInput = document.createElement('input'); condInput.placeholder = '(kosong = selalu aktif)'; condInput.value = variant.condition;
+      // Isi bit Condition section (LB300, LB301, ...), BUKAN coil latch varian-nya (LB401, LB402, ...) -
+      // coil latch dibikin otomatis oleh generator; kalau diketik coil-nya sendiri, generator remap
+      // balik ke LB30x + kasih warning (latch gak bisa nge-trigger dirinya sendiri).
+      var condInput = document.createElement('input'); condInput.placeholder = '(kosong = selalu aktif, mis. LB300)'; condInput.title = 'Bit Condition section (LB300, LB301, ...) yang nge-select varian ini. Jangan diisi LB401/LB402 - itu coil latch yang dibikin otomatis.'; condInput.value = variant.condition;
       condInput.addEventListener('change', function () { setVariantCondition(stKey, vIdx, condInput.value); regenerate(); });
       var cmtLbl = document.createElement('b'); cmtLbl.textContent = 'Comment:'; cmtLbl.style.marginLeft = '8px';
       var cmtInput = document.createElement('input'); cmtInput.placeholder = '(nama/keterangan varian, muncul di JSON+XML)'; cmtInput.value = variant.comment || ''; cmtInput.style.width = '220px';

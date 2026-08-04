@@ -126,6 +126,17 @@ function validate(label, files) {
     return bad===0 && dang===0;
 }
 
+// ---- bongkar 1 rung (dicari lewat komennya) jadi list objek {type,op,neg,ins,out} ----
+// Buat ngecek TOPOLOGI rung, bukan cuma "operand-nya ada": di rung latch, titik sambung seal
+// (nyambung balik ke rail? ke output kontak yang mana?) itu yang nentuin latch-nya bener atau
+// gak pernah reset - dan itu gak keliatan sama sekali dari daftar operand.
+function rungObjs(xml, cmtRe) {
+    const m = xml.match(new RegExp('<Rung[^>]*>(?:(?!</Rung>)[\\s\\S])*?' + cmtRe + '[\\s\\S]*?</Rung>'));
+    if (!m) return [];
+    return [...m[0].matchAll(/xsi:type="(Contact|Coil)"( negated="true")? operand="([^"]*)"><ConnectionPointIn>((?:<Connection refConnectionPointOutId="\d+" \/>)*)<\/ConnectionPointIn><ConnectionPointOut connectionPointOutId="(\d+)"/g)]
+        .map(o => ({ type:o[1], op:o[3], neg:!!o[2], ins:[...o[4].matchAll(/"(\d+)"/g)].map(x=>x[1]), out:o[5] }));
+}
+
 // ---- pipeline: parse -> genname -> validate -> split -> generate, flow context bisa diseed ----
 // (motionSequences diisi manual di sini buat simulasikan apa yang bakal disetel user lewat
 // UI "Motion Sequence" di index.html sebelum klik Regenerate)
@@ -154,6 +165,34 @@ const noMfFull = !/MF motion-fault block full/.test(stub.warnings||'');
 console.log(noMfFull ? 'MF BLOCK OK: semua actuator ST1 kebagian slot (block dinamis)'
                       : 'MF BLOCK GAGAL: masih ada actuator yang gak kebagian slot');
 
+// START MOTION PROCESS - cek TITIK SAMBUNG seal-nya, bukan cuma daftar operand (Autorun.cxr):
+//   LB400_A: seal LB400_A dari RAIL, ketemu jalur trigger (LB309 -/LB499 -/CYCLE_STOP) tepat di
+//            input AUTO_RUN -> LB499/CYCLE_STOP cuma nge-block start, gak mutus seal; yang mutus
+//            cuma AUTO_RUN drop / LB400_B nyala. Kalau seal-nya kesambung di input LB499 (bekas
+//            latch() generik), LB499 ikut mutus seal -> pasangan LB400_A/LB400_B salah reset.
+//   LB400_B: seal LB400_B dari RAIL paralel (LB499 AND LB400), LB400_A jadi GATE di ujung ->
+//            LB400_B ikut drop pas LB400_A drop. Kalau seal-nya nyambung setelah LB499 dan
+//            LB400_A ikut ke-bypass seal, LB400_B nyangkut nyala.
+const stubSt1 = stub.files.find(f=>f.name==='Prg010_ST1.xml');
+const objA = rungObjs(stubSt1.xml, 'Start motion process: unit seal auto motion start');
+const fA = op => objA.filter(o=>o.op===op);
+const aSeal=fA('LB400_A')[0], aCoil=objA.find(o=>o.type==='Coil'&&o.op==='LB400_A');
+const aCyc=fA('CYCLE_STOP')[0], aAuto=fA('AUTO_RUN')[0], aDone=fA('LB400_B')[0];
+const sealAOk = !!(aSeal && aCoil && aCyc && aAuto && aDone) && aSeal.type==='Contact'
+    && aSeal.ins.join()==='1' && aCyc.neg && aDone.neg
+    && aAuto.ins.length===2 && aAuto.ins.includes(aSeal.out) && aAuto.ins.includes(aCyc.out)
+    && aDone.ins.join()===aAuto.out && aCoil.ins.join()===aDone.out;
+const objB = rungObjs(stubSt1.xml, 'Start motion process: unit seal motion completed');
+const fB = op => objB.filter(o=>o.op===op);
+const bSeal=fB('LB400_B')[0], bCoil=objB.find(o=>o.type==='Coil'&&o.op==='LB400_B');
+const b400=fB('LB400')[0], bGate=fB('LB400_A')[0];
+const sealBOk = !!(bSeal && bCoil && b400 && bGate) && bSeal.type==='Contact'
+    && bSeal.ins.join()==='1' && bGate.ins.length===2
+    && bGate.ins.includes(bSeal.out) && bGate.ins.includes(b400.out)
+    && bCoil.ins.join()===bGate.out;
+console.log((sealAOk && sealBOk) ? 'START MOTION SEAL OK: LB400_A seal masuk di AUTO_RUN, LB400_B seal dari rail + gate LB400_A'
+                                 : 'START MOTION SEAL GAGAL: titik sambung seal LB400_A/LB400_B salah posisi');
+
 // Skenario 2: motionSequences bentuk baru - LIST OF VARIANTS per station, tiap varian punya
 // condition gate opsional + graph sendiri (PATTERN 3 condition-select).
 // Variant 1 (ST1, tanpa condition = selalu aktif): linear + fork (n1/n3 paralel dari LB400) +
@@ -177,14 +216,22 @@ const seeded = runPipeline({ motionSequences: { ST1: [
 const okSeeded = validate('seeded', seeded.files);
 
 // AutoRunning wajib punya semua 7 rung "Motion N" (5 varian-1 + 2 varian-2), rung Join AND dan OR,
-// dan varian ber-condition (LB300) wajib pakai PATTERN 3 select+latch (sample-at-cycle-start rung +
-// latch bit LB402 sendiri, vIdx=1 -> LB401+1), bukan placeholder stub lama.
+// dan varian ber-condition (LB300) wajib pakai PATTERN 3 mutual-exclusion group DALAM 1 RUNG:
+// LB400 gerbang bareng di depan, lalu (LB300 OR seal LB401) nge-OR ke coil LB401 sendiri (varian
+// ber-condition PERTAMA = LB401, terlepas dari posisi mentahnya di array variants) - bukan rung
+// sample terpisah, bukan placeholder stub lama.
 const st1 = seeded.files.find(f=>f.name==='Prg010_ST1.xml');
 const hasAllMotions = st1 && [1,2,3,4,5,6,7].every(n => new RegExp('Motion '+n+': ').test(st1.xml));
 const hasJoins = st1 && /Join \(AND\)/.test(st1.xml) && /Join \(OR\)/.test(st1.xml);
-const hasSample = st1 && /Sample condition at cycle start, condition=LB300/.test(st1.xml);
-const hasLatch = st1 && /Variant select-latch .*: LB300/.test(st1.xml) && /<Variable name="LB402">/.test(st1.xml);
-const usedRealSequence = hasAllMotions && hasJoins && hasSample && hasLatch && !/Motion steps to be written here/.test(st1.xml);
+const mxRungMatch = st1 && st1.xml.match(/<Rung[^>]*>(?:(?!<\/Rung>)[\s\S])*?Unit motion condition running \(mutual exclusion\)[\s\S]*?<\/Rung>/);
+const mxRung = mxRungMatch ? mxRungMatch[0] : '';
+const hasLatch = /Unit motion condition running \(mutual exclusion\).*LB300/.test(mxRung) && /<Variable name="LB401">/.test(st1.xml);
+// Satu rung: LB400 gerbang di depan operand LB300 (bukan rung sample terpisah), dan coil LB401
+// punya 2 connection masuk (LB300 DAN seal LB401 sendiri, OR-merge langsung ke coil).
+const gateOrder = /operand="LB400"[\s\S]*?operand="LB300"/.test(mxRung);
+const oneRung = !/Sample condition at cycle start/.test(st1.xml);
+const sealsIntoCoil = /<LdObject xsi:type="Coil"[^>]*operand="LB401"[^>]*><ConnectionPointIn>(?:<Connection[^>]*\/>){2}<\/ConnectionPointIn>/.test(mxRung);
+const usedRealSequence = hasAllMotions && hasJoins && hasLatch && gateOrder && oneRung && sealsIntoCoil && !/Motion steps to be written here/.test(st1.xml);
 console.log(usedRealSequence ? 'MOTION SEQUENCE OK: ST1 pakai 2 varian (fork+AND+OR+condition select-latch), bukan stub'
                               : 'MOTION SEQUENCE GAGAL: ST1 masih stub atau graph gak lengkap kepakai');
 
@@ -220,4 +267,31 @@ console.log(usedConditionDefs ? 'CONDITION DEFS OK: bit bernama + OR-of-AND-grou
                                : 'CONDITION DEFS GAGAL: masih fallback ke spare generik, nama gak nyantol, atau term jadi "undefined"');
 if(!hasAllTermOperands || !noUndefinedOperand) console.log('  term operands found:', [...(st1c ? st1c.xml.matchAll(/operand="([^"]+)"/g) : [])].map(m=>m[1]).filter(o=>!/^(LB105|LB160|AUTO_MODE)$/.test(o)).join(', '));
 
-if(!okStub || !noMfFull || !okSeeded || !usedRealSequence || !okSeededCond || !usedConditionDefs) process.exit(1);
+// Skenario 4: condition varian diketik SAMA kayak coil mutual-exclusion-nya sendiri (LB401/LB402) -
+// kasus data-entry yang bikin "LB401 nge-hold LB401": trigger dan seal bit yang sama, latch-nya gak
+// akan pernah bisa nyala dari luar. Harus auto-remap ke bit Condition section (LB300, LB301, ...)
+// plus warning, bukan digambar apa adanya.
+console.log('\n=== Skenario condition = coil-nya sendiri (harus auto-remap ke LB300/LB301) ===');
+const seededTypo = runPipeline({ motionSequences: { ST1: [
+    { condition: 'LB401', nodes: [ { id:'a1', sol:'CR_ST1_LFT_DIV_FWD', after:[], join:'AND' } ] },
+    { condition: 'LB402', nodes: [ { id:'b1', sol:'CR_ST1_LFT_DIV_BWD', after:[], join:'AND' } ] },
+] } });
+const okSeededTypo = validate('condition-typo', seededTypo.files);
+const st1t = seededTypo.files.find(f=>f.name==='Prg010_ST1.xml');
+const mxObjs = rungObjs(st1t.xml, 'Unit motion condition running \\(mutual exclusion\\)');
+const mxGate = mxObjs.find(o=>o.op==='LB400');
+// Kontak yang nyambung langsung ke output gate LB400 = trigger + seal tiap baris. Harus persis
+// 4 (2 baris x [trigger LB30x, seal LB40x]) - trigger-nya LB300/LB301, seal-nya LB401/LB402,
+// dan LB401/LB402 GAK BOLEH muncul dua kali di situ (itu tanda dia jadi trigger-nya sendiri).
+const mxHead = mxGate ? mxObjs.filter(o=>o.type==='Contact' && o.ins.join()===mxGate.out).map(o=>o.op) : [];
+const cnt = op => mxHead.filter(x=>x===op).length;
+const remapped = mxHead.length===4 && cnt('LB300')===1 && cnt('LB301')===1 && cnt('LB401')===1 && cnt('LB402')===1;
+const warnedRemap = /remapped to LB300/.test(seededTypo.warnings||'') && /remapped to LB301/.test(seededTypo.warnings||'');
+const remapDeclared = /<Variable name="LB300">/.test(st1t.xml) && /<Variable name="LB301">/.test(st1t.xml);
+const typoOk = remapped && warnedRemap && remapDeclared;
+console.log(typoOk ? 'CONDITION REMAP OK: trigger jadi LB300/LB301 (bukan LB401 nge-hold LB401), ada warning + deklarasi'
+                   : 'CONDITION REMAP GAGAL: trigger mutual-exclusion masih coil-nya sendiri atau gak kedeklarasi');
+if(!typoOk) console.log('  kontak di output gate LB400:', mxHead.join(', '));
+
+if(!okStub || !noMfFull || !sealAOk || !sealBOk || !okSeeded || !usedRealSequence
+   || !okSeededCond || !usedConditionDefs || !okSeededTypo || !typoOk) process.exit(1);

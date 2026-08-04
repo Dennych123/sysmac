@@ -75,9 +75,13 @@ function buildUnit(stKey, devs){
     var actus   = pairUp(solList);
     if(solList.length%2) warnings.push(stKey+": solenoid count is odd, last output is not paired into an actuator.");
 
-    var ext=[],priv=[],glob=[],seen={},pseen={};
-    function G(n,t,d){ if(seen[n]) return; seen[n]=1; var v=vr(n,t,d); glob.push("      "+v); ext.push("      "+v); GLOBALS[n]={t:t||"BOOL",d:d||""}; }
-    function P(n,t,d){ if(pseen[n]) return; pseen[n]=1; priv.push("      "+vr(n,t,d)); }
+    var ext=[],priv=[],glob=[],seen={},pseen={},nameCI={};
+    // Sysmac Studio nolak 2 variable yang beda cuma di huruf besar/kecil (mis. "LB232" vs "lb232")
+    // sebagai "name already used" - simbol private/external eksternal (mis. bit condition yang
+    // diketik user via node "+ Condition/bit") bisa kebetulan nabrak bit auto-generated (mis.
+    // interlock Individual). Dedup case-insensitive di sini, nama pertama yang menang.
+    function G(n,t,d){ var k=n.toUpperCase(); if(nameCI[k]) return; nameCI[k]=n; seen[n]=1; var v=vr(n,t,d); glob.push("      "+v); ext.push("      "+v); GLOBALS[n]={t:t||"BOOL",d:d||""}; }
+    function P(n,t,d){ var k=n.toUpperCase(); if(nameCI[k]) return; nameCI[k]=n; pseen[n]=1; priv.push("      "+vr(n,t,d)); }
     G("GSB000","BOOL","Equipment design coil, constant ON");
     MAIN_EXPORTS.forEach(function(n){ G(n,"BOOL","Machine status from main program"); });
     G("AL",AL_TYPE,"Alarm bit table"); G("MF",MF_TYPE,"Cylinder motion fault table");
@@ -253,10 +257,39 @@ function buildUnit(stKey, devs){
     // Urutan gerak diambil dari flow.get("motionSequences")[stKey] (diisi di web UI index.html
     // sebelum generate ulang). Station yang belum dikonfigurasi tetap pakai placeholder lama.
     var S10=[]; o=1;
-    P("LB400","BOOL","Automatic motion start"); P("LB400_A","BOOL","Unit is running");
-    S10.push(latch(o++,[["AUTO_RUN",false]],"LB400",[["LB309",false],["LB499",true],["CYCLE_STOP",true]],
-        "Automatic motion start, sequencing is handled inside this unit"));
-    S10.push(series(o++,[["LB400",false]],"LB400_A",null));
+    P("LB400","BOOL","Automatic motion start");
+    P("LB400_A","BOOL","Unit seal, auto motion start");
+    P("LB400_B","BOOL","Unit seal, motion completed");
+    // START MOTION PROCESS (Denso Autorun.cxr). POSISI SEAL yang bikin pasangan LB400_A/LB400_B ini
+    // bener - salah taruh titik sambung seal-nya bikin ladder yang keliatan mirip tapi gak pernah
+    // reset / gak pernah latch:
+    //   LB400_A = (LB309 ANDNOT LB499 ANDNOT CYCLE_STOP  OR  seal LB400_A) AND AUTO_RUN ANDNOT LB400_B
+    // seal LB400_A nyambung balik ke INPUT AUTO_RUN (bukan ke input LB499) - jadi LB499/CYCLE_STOP
+    // cuma nge-block START, bukan mutus seal; yang mutus seal cuma AUTO_RUN drop atau LB400_B nyala.
+    //   LB400_B = (LB499 AND LB400  OR  seal LB400_B) AND LB400_A
+    // seal LB400_B nyambung balik ke LEFT RAIL (paralel LB499+LB400), dan LB400_A ada di UJUNG
+    // sebagai gate - jadi begitu LB400_A drop (karena LB400_B tadi nyala), LB400_B ikut drop dan
+    // pasangannya balik idle bareng - gak perlu blok reset terpisah. Rung LB400_B baca LB400 dari
+    // scan SEBELUMNYA (rung yang ngedefine LB400 jalan setelah ini) - disengaja, sama kayak Autorun.cxr.
+    (function(){
+        var rA=new Rung(o++,"Start motion process: unit seal auto motion start");
+        var railA=rA.rail();
+        var trigA=rA.ct("CYCLE_STOP",rA.ct("LB499",rA.ct("LB309",railA),true),true);
+        var sealA=rA.ct("LB400_A",railA);
+        var curA=rA.ct("LB400_B",rA.ctm("AUTO_RUN",[trigA,sealA]),true);
+        rA.rr([rA.cl("LB400_A",curA)]);
+        S10.push(rA.build());
+    })();
+    (function(){
+        var rB=new Rung(o++,"Start motion process: unit seal motion completed");
+        var railB=rB.rail();
+        var trigB=rB.ct("LB400",rB.ct("LB499",railB));
+        var sealB=rB.ct("LB400_B",railB);
+        rB.rr([rB.cl("LB400_B",rB.ctm("LB400_A",[trigB,sealB]))]);
+        S10.push(rB.build());
+    })();
+    S10.push(orMany(o++,["LB400_A","LB320"],"LB400",
+        "Autorun condition running: auto motion start"));
 
     // motionSequences[stKey] = daftar VARIAN sequence: [{condition, nodes:[{id,sol,after,join},...]}].
     // Tiap varian punya graph sendiri, digerbangi opsional oleh bit Condition (mis. LB300 - PATTERN 3
@@ -282,6 +315,55 @@ function buildUnit(stKey, devs){
         return out;
     }
 
+    // PATTERN 3 Denso "Autorun Condition Running": semua varian ber-condition digabung jadi SATU
+    // rung mutual-exclusion (satu network, N baris kondisi, N coil sejajar di 1 RightPowerRail) -
+    // bukan rung terpisah per varian. LB400 gerbang bareng di depan tiap baris: (condition OR
+    // seal-diri) ANDNOT latch varian lain yang juga ber-condition -> coil LB40x sendiri. LB400 di
+    // depan seal loop juga, jadi tiap latch otomatis reset pas LB400 drop (cycle selesai/di-stop).
+    // Nomor coil LB401, LB402, ... mengikuti urutan KE-BERAPA di antara varian ber-condition (ci),
+    // BUKAN posisi mentah vIdx di array variants penuh - kalau ada varian tanpa condition sebelum
+    // varian ber-condition pertama, vIdx bakal geser (mis. LB402 buat condition pertama, bukan
+    // LB401) padahal user ngarepin condition ke-1 = LB401, condition ke-2 = LB402, dst berurutan.
+    var latchBitOf={}, condTrigOf={};
+    var condIdx=variants.map(function(v,j){ return j; }).filter(function(j){ return variants[j].condition; });
+    var condLatchBits=condIdx.map(function(vIdx,ci){ return "LB"+pad(401+ci,3); });
+    if(condIdx.length){
+        // Kontak trigger tiap baris mutual-exclusion HARUS bit Condition section (LB300, LB301, ...),
+        // bukan coil latch-nya sendiri: baris ke-ci itu "(LB30x OR seal LB40x) ANDNOT latch lain ->
+        // LB40x". Kalau trigger-nya diketik sama kayak coil-nya (mis. condition "LB401" di baris yang
+        // coil-nya juga LB401), yang kegambar jadi "LB401 nge-hold LB401" - trigger dan seal bit yang
+        // sama, latch-nya gak akan pernah bisa nyala dari luar (dan kontaknya ke-render pake komen
+        // COIL-nya karena dedup nameCI nge-skip P() buat condition-nya). Ini selalu salah data-entry,
+        // jadi di-remap otomatis ke bit Condition ke-ci (pakai bit asli dari Condition section station
+        // ini kalau ada, kalau gak LB300+ci), skip bit yang udah kepake varian lain, plus warning.
+        var usedConds={}; condIdx.forEach(function(j){ usedConds[variants[j].condition]=true; });
+        function freeCondBit(ci){
+            var cands=[condBits[ci]||("LB"+pad(300+ci,3))];
+            for(var k=0;k<100;k++) cands.push("LB"+pad(300+k,3));
+            for(var i=0;i<cands.length;i++) if(cands[i] && !usedConds[cands[i]]) return cands[i];
+            return "LB"+pad(300+ci,3);
+        }
+        var mxBranches=condIdx.map(function(vIdx,ci){
+            var v=variants[vIdx];
+            var latchBit=condLatchBits[ci];
+            latchBitOf[vIdx]=latchBit;
+            var trigBit=v.condition;
+            if(condLatchBits.indexOf(trigBit)>=0){
+                var fixed=freeCondBit(ci); usedConds[fixed]=true;
+                warnings.push(stKey+': motion sequence variant condition "'+trigBit+'" is the same as one of its own mutual-exclusion coils ('+condLatchBits.join(", ")+') - a latch cannot be triggered by itself, so it was remapped to '+fixed+'. Define the driving logic for '+fixed+' in the Condition section.');
+                trigBit=fixed;
+            }
+            condTrigOf[vIdx]=trigBit;
+            P(latchBit,"BOOL","Variant selected & latched for this cycle"+(v.comment?(": "+v.comment):""));
+            if(!GLOBALS[trigBit]) P(trigBit,"BOOL","External condition bit for motion sequence variant select - define driving logic separately");
+            var others=condLatchBits.filter(function(b,j){ return j!==ci; }).map(function(b){ return [b,true]; });
+            return { trigs:[[trigBit,false]], bit:latchBit, blocks:others };
+        });
+        var condTxts=condIdx.map(function(vIdx){ return condTrigOf[vIdx]; }).join(", ");
+        S10.push(mutexGroup(o++,["LB400",false],mxBranches,
+            "Unit motion condition running (mutual exclusion): "+condTxts));
+    }
+
     variants.forEach(function(variant,vIdx){
         var nodes=topoSort(variant.nodes||[]);
         var nodeIds={}; nodes.forEach(function(n){ nodeIds[n.id]=true; });
@@ -301,26 +383,12 @@ function buildUnit(stKey, devs){
         var rootBit="LB400";
         var label=variant.comment?('"'+variant.comment+'" - '):"";
         if(variant.condition){
-            // PATTERN 3 Denso: sample kondisi SEKALI pas cycle start, latch pilihan varian ini
-            // (mutual exclusion ANDNOT varian lain yang juga punya condition), biar kondisi yang
-            // sempat flicker di tengah cycle gak bikin motion-nya keputus. Latch reset otomatis pas
-            // LB400 drop (cycle selesai/di-stop) - LB400 sendiri udah reset di LB499/CYCLE_STOP.
-            declareExternal(variant.condition);
-            var condTxt=bitTxt(variant.condition);
-            var gateBit="LB"+pad(550+varN,3); varN++;
-            P(gateBit,"BOOL","Cycle-start sample: LB400 AND "+condTxt);
-            S10.push(series(o++,[["LB400",false],[variant.condition,false]], gateBit,
-                "Sample condition at cycle start, "+label+"condition="+condTxt));
-            var latchBit="LB"+pad(401+vIdx,3);
-            var resetBlocks=[["LB400",false]].concat(
-                variants.map(function(v,j){ return j; })
-                    .filter(function(j){ return j!==vIdx && variants[j].condition; })
-                    .map(function(j){ return ["LB"+pad(401+j,3),true]; })
-            );
-            P(latchBit,"BOOL","Variant selected & latched for this cycle"+(variant.comment?(": "+variant.comment):""));
-            S10.push(latch(o++,[[gateBit,false]],latchBit,resetBlocks,
-                "Variant select-latch "+label+"(mutual exclusion vs other condition-gated variants): "+condTxt));
-            rootBit=latchBit;
+            // Coil-nya udah dibikin di rung mutual-exclusion gabungan sebelum loop ini (lihat
+            // latchBitOf di atas) - di sini tinggal declare external condition bit-nya kalau perlu.
+            // Pakai condTrigOf: bisa beda dari variant.condition kalau tadi di-remap (trigger diketik
+            // sama kayak coil latch-nya sendiri).
+            declareExternal(condTrigOf[vIdx]||variant.condition);
+            rootBit=latchBitOf[vIdx];
         } else if(variant.comment){
             var gateBit2="LB"+pad(550+varN,3); varN++;
             P(gateBit2,"BOOL","Motion sequence variant: "+label+"always active");
@@ -365,7 +433,11 @@ function buildUnit(stKey, devs){
             var cmdBit="LB"+pad(410+stepCount*2,3), confirmBit="LB"+pad(411+stepCount*2,3);
             P(cmdBit,"BOOL","Automatic command, "+dev.komen); P(confirmBit,"BOOL","Automatic complete, "+dev.komen);
             S10.push(motionStep(o++, prevBit, node.sol, lsc, cmdBit, confirmBit, "Motion "+(stepCount+1)+": "+dev.komen));
-            cmdBitOf[node.sol]=cmdBit; confirmBitOf[node.id]=confirmBit; stepCount++;
+            // Akumulasi, JANGAN overwrite - satu solenoid fisik bisa dikomando dari node di lebih
+            // dari 1 varian mutual-exclusion (mis. "single seal" vs "double seal" pakai aktuator
+            // sama) - semua cmdBit-nya wajib nyampe ke AutoOutput, bukan cuma varian yang belakangan.
+            (cmdBitOf[node.sol]=cmdBitOf[node.sol]||[]).push(cmdBit);
+            confirmBitOf[node.id]=confirmBit; stepCount++;
         });
         nodes.forEach(function(n){ if(confirmBitOf[n.id]!==undefined && !referenced[n.id]) variantEndBits.push(confirmBitOf[n.id]); });
 
@@ -401,9 +473,13 @@ function buildUnit(stKey, devs){
         var firstOut=true;
         actus.forEach(function(a,i){
             [[a[0],indM[i]],[a[1],indR[i]]].forEach(function(pair){
-                var dev=pair[0], indBit=pair[1], autoBit=cmdBitOf[dev.name]||null;
-                S11.push(merge2(o++, autoBit||indBit, autoBit?indBit:null, dev.name,
-                    firstOut?"Automatic and individual command merged to solenoid":null));
+                var dev=pair[0], indBit=pair[1];
+                // cmdBitOf[dev.name] bisa lebih dari 1 (dikomando dari beberapa varian mutual-
+                // exclusion yang beda) - semua wajib di-OR ke solenoid, bukan cuma salah satu.
+                var allBits=(cmdBitOf[dev.name]||[]).concat([indBit]);
+                var cmt=firstOut?"Automatic and individual command merged to solenoid":null;
+                S11.push(allBits.length>1 ? orMany(o++, allBits, dev.name, cmt)
+                                           : series(o++,[[allBits[0],false]],dev.name,cmt));
                 firstOut=false;
             });
         });
@@ -442,7 +518,7 @@ function buildUnit(stKey, devs){
         S14.push(series(o++,[[x[0],false]],GB+"_"+x[1], i===0?"Unit status broadcast to other programs":null));
     });
     G(GB+"_09","BOOL",stKey+" unit is stopped");
-    S14.push(series(o++,[["LB400_A",true]],GB+"_09",null));
+    S14.push(series(o++,[["LB400",true]],GB+"_09",null));
 
     var secs=[sect("Station_Input",1,S1),sect("Device_Input",2,S2),sect("HMI_Input",3,S3),sect("Timers",4,S4),
       sect("LS_Combination",5,S5),sect("Fault",6,S6),sect("Preparation",7,S7),sect("Condition",8,S8),
@@ -456,9 +532,9 @@ function buildUnit(stKey, devs){
 function buildMain(devs){
     var inputs  = devs.filter(function(d){return d.io==="IN";});
     var outputs = devs.filter(function(d){return d.io==="OUT";});
-    var ext=[],priv=[],glob=[],seen={};
-    function G(n,t,d){ if(seen[n]) return; seen[n]=1; var v=vr(n,t,d); glob.push("      "+v); ext.push("      "+v); GLOBALS[n]={t:t||"BOOL",d:d||""}; }
-    function P(n,t,d){ priv.push("      "+vr(n,t,d)); }
+    var ext=[],priv=[],glob=[],seen={},pseen={},nameCI={};
+    function G(n,t,d){ var k=n.toUpperCase(); if(nameCI[k]) return; nameCI[k]=n; seen[n]=1; var v=vr(n,t,d); glob.push("      "+v); ext.push("      "+v); GLOBALS[n]={t:t||"BOOL",d:d||""}; }
+    function P(n,t,d){ var k=n.toUpperCase(); if(nameCI[k]) return; nameCI[k]=n; pseen[n]=1; priv.push("      "+vr(n,t,d)); }
     G("GSB000","BOOL","Equipment design coil, constant ON");
     G("GSB001","BOOL","Equipment design coil, constant OFF");
     MAIN_EXPORTS.forEach(function(n){ G(n,"BOOL","Machine status broadcast to all units"); });

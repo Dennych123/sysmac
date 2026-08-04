@@ -15,6 +15,26 @@ function series(o,conds,out,cmt,outNeg,edge){var r=new Rung(o,cmt);var cur=r.rai
 function orMany(o,bits,out,cmt){var r=new Rung(o,cmt);var rail=r.rail();var ids=bits.map(function(b){return r.ct(b,rail);});var x=r.clm(out,ids);r.rr([x]);return r.build();}
 // self-latch: (OR trigs OR bit) AND blocks -> bit
 function latch(o,trigs,bit,blocks,cmt){var r=new Rung(o,cmt);var rail=r.rail();var ids=trigs.map(function(t){return r.ct(t[0],rail,t[1]);});ids.push(r.ct(bit,rail));blocks=blocks||[];if(!blocks.length){var x=r.clm(bit,ids);r.rr([x]);return r.build();}var cur=r.ctm(blocks[0][0],ids,blocks[0][1]);for(var i=1;i<blocks.length;i++)cur=r.ct(blocks[i][0],cur,blocks[i][1]);var y=r.cl(bit,cur);r.rr([y]);return r.build();}
+// mutual-exclusion group: SATU rung, satu kontak gate dipakai bareng (mis. LB400), tiap branches[i]
+// = {trigs:[[op,neg],...], bit:coilBit, blocks:[[op,neg],...]} jadi cabang paralel dari gate ->
+// (OR trigs OR seal-diri sendiri) -> AND blocks (interlock ANDNOT branch lain) -> coil sendiri.
+// Semua coil nyambung ke SATU RightPowerRail (banyak ConnectionPointIn) - persis network Denso
+// "Autorun Condition Running" (LB400 di kiri, N baris kondisi mutual exclusion, N coil sejajar).
+function mutexGroup(o,gate,branches,cmt){
+    var r=new Rung(o,cmt); var rail=r.rail();
+    var start=gate?r.ct(gate[0],rail,gate[1]):rail;
+    var coilRefs=branches.map(function(br){
+        var ids=(br.trigs||[]).map(function(t){return r.ct(t[0],start,t[1]);});
+        ids.push(r.ct(br.bit,start));
+        var blocks=br.blocks||[];
+        if(!blocks.length) return r.clm(br.bit,ids);
+        var cur=r.ctm(blocks[0][0],ids,blocks[0][1]);
+        for(var i=1;i<blocks.length;i++) cur=r.ct(blocks[i][0],cur,blocks[i][1]);
+        return r.cl(br.bit,cur);
+    });
+    r.rr(coilRefs);
+    return r.build();
+}
 // groups = [[[operand,negated],...], ...] -> tiap group AND-series jadi 1 cabang, semua cabang OR -> 1 coil
 // (Condition section: satu bit boleh dinyalain lewat beberapa kombinasi syarat berbeda)
 function orOfAnds(o,groups,out,cmt){var r=new Rung(o,cmt);var rail=r.rail();var ends=groups.map(function(g){var cur=rail;g.forEach(function(c){cur=r.ct(c[0],cur,c[1]);});return cur;});var x=ends.length>1?r.clm(out,ends):r.cl(out,ends[0]);r.rr([x]);return r.build();}
