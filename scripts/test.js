@@ -221,7 +221,7 @@ const okSeeded = validate('seeded', seeded.files);
 // ber-condition PERTAMA = LB401, terlepas dari posisi mentahnya di array variants) - bukan rung
 // sample terpisah, bukan placeholder stub lama.
 const st1 = seeded.files.find(f=>f.name==='Prg010_ST1.xml');
-const hasAllMotions = st1 && [1,2,3,4,5,6,7].every(n => new RegExp('Motion '+n+': ').test(st1.xml));
+const hasAllMotions = st1 && [1,2,3,4,5,6,7].every(n => new RegExp('Motion '+n+'[ \\[]').test(st1.xml));
 const hasJoins = st1 && /Join \(AND\)/.test(st1.xml) && /Join \(OR\)/.test(st1.xml);
 const mxRungMatch = st1 && st1.xml.match(/<Rung[^>]*>(?:(?!<\/Rung>)[\s\S])*?Unit motion condition running \(mutual exclusion\)[\s\S]*?<\/Rung>/);
 const mxRung = mxRungMatch ? mxRungMatch[0] : '';

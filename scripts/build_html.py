@@ -16,81 +16,107 @@ HTML = '''<!doctype html>
 <meta charset="utf-8">
 <title>Sysmac Program Generator</title>
 <style>
-  body{font-family:Segoe UI,Arial,sans-serif;max-width:980px;margin:20px auto;padding:0 12px;color:#222}
-  h1{font-size:18px}
-  h2{font-size:14px;margin:18px 0 4px}
-  textarea{width:100%;box-sizing:border-box;font-family:Consolas,monospace;font-size:12px}
+  :root{--fg:#1c2430;--muted:#5c6673;--line:#dde1e7;--card:#fff;--bg:#f4f6f8;--accent:#2563eb;--accent-dk:#1d4ed8;--radius:8px}
+  *{box-sizing:border-box}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;max-width:1040px;margin:24px auto;padding:0 16px;color:var(--fg);background:var(--bg);line-height:1.45}
+  h1{font-size:19px;font-weight:600;margin:0 0 4px}
+  h2{font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:.03em;color:var(--muted);margin:22px 0 6px;padding-bottom:4px;border-bottom:1px solid var(--line)}
+  textarea{width:100%;box-sizing:border-box;font-family:Consolas,Menlo,monospace;font-size:12px;border:1px solid var(--line);border-radius:6px;padding:8px}
   #ioText{height:220px}
-  button{padding:8px 16px;font-size:13px;cursor:pointer;background:#2196f3;color:#fff;border:none;border-radius:4px;margin-top:8px}
-  button:hover{background:#1976d2}
-  button.dl{background:#2c3e50;padding:4px 10px;margin:0}
-  button.dl:hover{background:#1a242f}
-  .hint{font-size:11px;color:#666;margin:4px 0}
-  #err{white-space:pre-wrap;color:#c0392b;font-family:Consolas,monospace;font-size:12px;margin-top:12px}
-  #stats{white-space:pre-wrap;color:#2c3e50;font-family:Consolas,monospace;font-size:11px;margin-top:12px}
-  #warn{white-space:pre-wrap;color:#c0392b;font-family:Consolas,monospace;font-size:11px}
-  .single{background:#e8f4fd;border:1px solid #2196f3;border-radius:4px;padding:10px;margin:14px 0}
-  .single .t{font-weight:bold;margin-bottom:2px}
-  .single .d{font-size:11px;color:#555;margin-bottom:8px}
-  .file{margin-bottom:12px;border:1px solid #ddd;border-radius:4px;padding:8px}
+  button{padding:8px 16px;font-size:13px;cursor:pointer;background:var(--accent);color:#fff;border:none;border-radius:6px;margin-top:8px;transition:background .12s}
+  button:hover{background:var(--accent-dk)}
+  button.dl{background:#37424f;padding:4px 10px;margin:0}
+  button.dl:hover{background:#232a33}
+  .hint{font-size:11px;color:var(--muted);margin:4px 0}
+  #err{white-space:pre-wrap;color:#b91c1c;font-family:Consolas,monospace;font-size:12px;margin-top:10px}
+  #stats{white-space:pre-wrap;color:var(--fg);font-family:Consolas,monospace;font-size:11px;margin-top:12px;background:var(--card);border:1px solid var(--line);border-radius:6px;padding:10px}
+
+  .warn-box{display:none;background:#fff8e6;border:1px solid #f0c36d;border-left:4px solid #e6a817;border-radius:6px;padding:10px 12px;margin-top:10px}
+  .warn-box b{color:#8a5a00;font-size:12px}
+  #warn{white-space:pre-wrap;color:#7a4a00;font-family:Consolas,monospace;font-size:11px;margin-top:4px}
+
+  .settings-row{display:flex;flex-wrap:wrap;gap:14px;margin:6px 0}
+  .settings-row label{font-size:11px;color:var(--muted);display:flex;flex-direction:column;gap:3px}
+  .settings-row input{font-family:Consolas,monospace;font-size:12px;padding:6px 8px;border:1px solid var(--line);border-radius:6px;width:130px}
+  .stname-panel{display:none;flex-wrap:wrap;gap:10px;margin:8px 0}
+  .stname-lbl{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted);background:var(--card);border:1px solid var(--line);border-radius:6px;padding:5px 8px}
+  .stname-lbl b{color:var(--fg);font-family:Consolas,monospace}
+  .stname-input{font-family:Segoe UI,Arial,sans-serif;font-size:12px;padding:4px 6px;border:1px solid var(--line);border-radius:4px;width:160px}
+
+  .single{background:#eef4ff;border:1px solid #bcd3f9;border-radius:var(--radius);padding:12px 14px;margin:14px 0}
+  .single .t{font-weight:600;margin-bottom:2px}
+  .single .d{font-size:11px;color:var(--muted);margin-bottom:8px}
+  details.per-program{margin-top:10px}
+  details.per-program>summary{cursor:pointer;font-size:12px;color:var(--muted);padding:6px 2px;list-style:none}
+  details.per-program>summary::-webkit-details-marker{display:none}
+  details.per-program>summary::before{content:"▸ ";color:var(--accent)}
+  details.per-program[open]>summary::before{content:"▾ "}
+  .file{margin-bottom:12px;border:1px solid var(--line);border-radius:6px;padding:8px;background:var(--card)}
   .file .row{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap}
   .file b{font-family:Consolas,monospace}
   .file textarea{height:140px;margin-top:6px;font-size:10px;white-space:pre;overflow:auto}
 
   #motionPanel{display:none;margin:10px 0}
   #conditionPanel{display:none;margin:10px 0}
-  .cond-group-box{border:1px dashed #ccc;border-radius:4px;padding:6px;margin:6px 0;display:flex;flex-wrap:wrap;align-items:center;gap:4px}
-  .cond-or-label{font-weight:bold;color:#e67e22;font-size:11px;margin-right:4px}
-  .cond-term{display:inline-flex;align-items:center;background:#eef;border-radius:3px;padding:2px 2px 2px 4px;font-family:Consolas,monospace;font-size:11px;gap:3px}
-  .cond-neg{background:#2196f3;color:#fff;padding:2px 6px;margin:0;font-size:9px;border-radius:3px}
-  .cond-neg.active{background:#c0392b}
+  .cond-group-box{border:1px dashed #c7ccd4;border-radius:6px;padding:6px;margin:6px 0;display:flex;flex-wrap:wrap;align-items:center;gap:4px}
+  .cond-or-label{font-weight:bold;color:#c2670a;font-size:11px;margin-right:4px}
+  .cond-term{display:inline-flex;align-items:center;background:#eef2ff;border-radius:4px;padding:2px 2px 2px 4px;font-family:Consolas,monospace;font-size:11px;gap:3px}
+  .cond-neg{background:var(--accent);color:#fff;padding:2px 6px;margin:0;font-size:9px;border-radius:3px}
+  .cond-neg.active{background:#b91c1c}
   .cond-neg:hover{opacity:0.85}
   .cond-term-bit{padding:0 2px}
-  .cond-rm-term{background:#999;color:#fff;padding:1px 6px;margin:0;font-size:10px;border-radius:3px}
-  .cond-rm-term:hover{background:#777}
-  .cond-term-input{font-family:Consolas,monospace;font-size:11px;padding:3px 5px;border:1px solid #ccc;border-radius:3px;width:130px}
-  .station-box{border:1px solid #ddd;border-radius:4px;padding:8px;margin-bottom:14px}
-  .station-title{font-weight:bold;margin-bottom:6px}
-  .variant-box{border:1px solid #eee;border-radius:4px;padding:6px;margin-bottom:10px;background:#fdfdfd}
+  .cond-rm-term{background:#9aa3ad;color:#fff;padding:1px 6px;margin:0;font-size:10px;border-radius:3px}
+  .cond-rm-term:hover{background:#7c848d}
+  .cond-term-input{font-family:Consolas,monospace;font-size:11px;padding:3px 5px;border:1px solid var(--line);border-radius:4px;width:130px}
+  .station-box{border:2px solid #b7c0cc;border-radius:var(--radius);padding:10px 12px;margin-bottom:16px;background:var(--card);box-shadow:0 1px 3px rgba(20,30,50,.06)}
+  .station-title{font-weight:600;font-size:13px;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid var(--line)}
+  .variant-box{border:1px solid var(--line);border-radius:6px;padding:8px;margin-bottom:10px;background:#fbfcfd}
   .variant-head{display:flex;align-items:center;gap:6px;margin-bottom:6px;flex-wrap:wrap}
-  .variant-head b{font-size:11px;color:#555}
-  .variant-head input{font-family:Consolas,monospace;font-size:11px;padding:4px 6px;border:1px solid #ccc;border-radius:3px;width:140px}
-  .variant-head .rm-variant{background:#c0392b;padding:3px 8px;margin:0;font-size:10px}
-  .variant-head .rm-variant:hover{background:#922b21}
-  .add-variant{background:#2c3e50;padding:5px 10px;font-size:11px}
-  .add-variant:hover{background:#1a242f}
+  .variant-head b{font-size:11px;color:var(--muted)}
+  .variant-head input{font-family:Consolas,monospace;font-size:11px;padding:4px 6px;border:1px solid var(--line);border-radius:4px;width:140px}
+  .variant-head .rm-variant{background:#b91c1c;padding:3px 8px;margin:0;font-size:10px}
+  .variant-head .rm-variant:hover{background:#8f1717}
+  .add-variant{background:#37424f;padding:5px 10px;font-size:11px}
+  .add-variant:hover{background:#232a33}
   .graph-toolbar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:6px}
-  .avail-btn{background:#eee;color:#222;padding:4px 8px;margin:0;font-size:11px;font-family:Consolas,monospace}
-  .avail-btn:hover{background:#ddd}
-  .graph-toolbar input{font-family:Consolas,monospace;font-size:11px;padding:4px 6px;border:1px solid #ccc;border-radius:3px}
-  .graph-toolbar .add-cond{background:#8e44ad;padding:4px 10px;margin:0;font-size:11px}
-  .graph-toolbar .add-cond:hover{background:#6c3483}
-  svg.graph-canvas{border:1px solid #ccc;border-radius:4px;background:#fbfbfb;display:block;max-width:100%}
-  .gnode-rect{fill:#2196f3;stroke:#1565c0;stroke-width:1;cursor:move}
-  .gnode-rect.condition{fill:#8e44ad;stroke:#5b2c6f;stroke-dasharray:4,2}
+  .avail-btn{background:#eceff3;color:var(--fg);padding:4px 8px;margin:0;font-size:11px;font-family:Consolas,monospace}
+  .avail-btn:hover{background:#dde2e8}
+  .graph-toolbar input{font-family:Consolas,monospace;font-size:11px;padding:4px 6px;border:1px solid var(--line);border-radius:4px}
+  .graph-toolbar .add-cond{background:#7c3aed;padding:4px 10px;margin:0;font-size:11px}
+  .graph-toolbar .add-cond:hover{background:#6527c9}
+  svg.graph-canvas{border:1px solid var(--line);border-radius:6px;background:#fbfbfc;display:block;max-width:100%}
+  .gnode-rect{fill:var(--accent);stroke:var(--accent-dk);stroke-width:1;cursor:move}
+  .gnode-rect.condition{fill:#7c3aed;stroke:#5b21b6;stroke-dasharray:4,2}
   .gnode-rect.selected{stroke:#f1c40f;stroke-width:3}
   .gnode-text{fill:#fff;font-size:9px;font-family:Consolas,monospace}
-  .gnode-del{fill:#c0392b;cursor:pointer}
+  .gnode-del{fill:#b91c1c;cursor:pointer}
   .gnode-del-text{fill:#fff;font-size:9px;text-anchor:middle;font-family:Consolas,monospace}
   .gnode-handle{fill:#f1c40f;stroke:#333;stroke-width:1;cursor:crosshair}
-  .gedge-line{stroke:#666;stroke-width:2;cursor:pointer}
-  .gedge-line:hover{stroke:#c0392b}
+  .gedge-line{stroke:#8a93a0;stroke-width:2;cursor:pointer}
+  .gedge-line:hover{stroke:#b91c1c}
   .gedge-line.selected{stroke:#f1c40f;stroke-width:3}
-  .gtemp-line{stroke:#2196f3;stroke-width:2;stroke-dasharray:4,2}
+  .gtemp-line{stroke:var(--accent);stroke-width:2;stroke-dasharray:4,2}
   .gjoin-badge{cursor:pointer}
   .gjoin-badge rect{fill:#333}
   .gjoin-badge text{fill:#fff;font-size:8px;text-anchor:middle;font-family:Consolas,monospace}
-  .json-io{border-top:1px dashed #ccc;margin-top:8px;padding-top:8px}
-  .json-io textarea{height:90px;font-size:10px}
+  details.json-io{border-top:1px dashed var(--line);margin-top:8px;padding-top:6px}
+  details.json-io>summary{cursor:pointer;font-size:11px;color:var(--muted);list-style:none;padding:2px 0}
+  details.json-io>summary::-webkit-details-marker{display:none}
+  details.json-io>summary::before{content:"▸ ";color:var(--accent)}
+  details.json-io[open]>summary::before{content:"▾ "}
+  .json-io textarea{height:90px;font-size:10px;margin-top:6px}
   .json-io .row{display:flex;gap:6px;margin-top:4px}
   .json-io button{font-size:11px;padding:5px 10px;margin:0}
-  .json-io .json-import{background:#27ae60}
-  .json-io .json-import:hover{background:#1e8449}
-  .json-io .json-export{background:#2c3e50}
-  .json-io .json-export:hover{background:#1a242f}
+  .json-io .json-import{background:#1e8449}
+  .json-io .json-import:hover{background:#166638}
+  .json-io .json-export{background:#37424f}
+  .json-io .json-export:hover{background:#232a33}
   .json-io .json-msg{font-size:10px;margin-top:4px;white-space:pre-wrap}
   .json-io .json-msg.ok{color:#1e8449}
-  .json-io .json-msg.err{color:#c0392b}
+  .json-io .json-msg.err{color:#b91c1c}
+  details.project-json{border:1px solid var(--line);border-radius:6px;padding:8px 10px;margin:10px 0;background:var(--card)}
+  details.project-json>summary{font-size:12px;font-weight:600;color:var(--fg)}
+  .project-json textarea{height:160px}
 </style>
 </head>
 <body>
@@ -99,6 +125,29 @@ HTML = '''<!doctype html>
 <textarea id="ioText" placeholder="CH000_00&#9;PB&#9;IN&#9;NOT EMERGENCY STOP"></textarea>
 <div><button id="genBtn">Generate Program</button></div>
 <div id="err"></div>
+<div id="warnBox" class="warn-box"><b>Warning</b><div id="warn"></div></div>
+
+<h2>Pengaturan (opsional)</h2>
+<p class="hint">Timer default berlaku ke semua station - format harus <code>T#&lt;angka&gt;&lt;unit&gt;</code>
+(mis. <code>T#200MS</code>, <code>T#1S</code>), salah format dibalikin ke default + warning. Nama
+station (opsional) ikut ke komentar program yang di-generate (mis. <code>LB400_A</code>/<code>LB400_B</code>).</p>
+<div class="settings-row">
+  <label>Timer debounce PH/PX <input id="timerPhpx" placeholder="T#200MS"></label>
+  <label>Timer motion-fault <input id="timerMotion" placeholder="T#500MS"></label>
+</div>
+<div id="stationNamesPanel" class="stname-panel"></div>
+
+<details class="json-io project-json">
+  <summary>Project JSON (Import/Export SEMUA - IO list, Motion Sequence, Condition, nama station, timer default sekaligus)</summary>
+  <p class="hint">Simpan/pulihkan seluruh kerjaan sekali tempel, gak perlu per-station. Import langsung
+  jalanin Generate ulang pakai IO list di dalamnya, GANTI seluruh project yang lagi ke-buka.</p>
+  <textarea id="projectJsonTa" placeholder='{"io":"CH0_00\\tPB\\tIN\\t...","stationNames":{"ST1":"Conveyor Feed"},"timerDefaults":{"phpx":"T#200MS","motion":"T#500MS"},"motionSequences":{"ST1":[...]},"conditionDefs":{"ST1":[...]}}'></textarea>
+  <div class="row">
+    <button id="projectImportBtn" class="json-import">Import Project JSON</button>
+    <button id="projectExportBtn" class="json-export">Export Project JSON</button>
+  </div>
+  <div id="projectJsonMsg" class="json-msg"></div>
+</details>
 
 <h2>Condition (opsional)</h2>
 <p class="hint">Tiap station boleh punya sejumlah bit Condition BERNAMA (gak dibatasin 3 slot lama) -
@@ -128,7 +177,6 @@ gak wajib drag-drop manual.</p>
 
 <div id="results"></div>
 <div id="stats"></div>
-<div id="warn"></div>
 
 <script>
 var PARSE_JS    = __PARSE_JS__;
@@ -159,9 +207,23 @@ function actuatorNamesForStation(devices) {
     .filter(Boolean);
 }
 
-var errEl, resEl, statsEl, warnEl, motionPanelEl, conditionPanelEl;
+// Object.keys(groups) ngikutin urutan device pertama kali MUNCUL di IO list, bukan urutan angka ST -
+// kalau IO list-nya nulis ST3 duluan baru ST1, panel bakal kegambar ST3 duluan. Sort numerik di sini.
+function sortStations(keys) {
+  return keys.slice().sort(function (a, b) {
+    return (parseInt(a.replace(/\D/g, ''), 10) || 0) - (parseInt(b.replace(/\D/g, ''), 10) || 0);
+  });
+}
+
+var errEl, resEl, statsEl, warnEl, warnBoxEl, motionPanelEl, conditionPanelEl, stationNamesPanelEl, timerPhpxEl, timerMotionEl;
 var flowStore = {};
 var lastSplitMsg = null;
+var stationNames = {}; // key station -> nama bebas (opsional), ngikut ke komen program (LB400_A/B dkk)
+// renderMotionPanel/renderConditionPanel/renderResults nge-rebuild DOM-nya total (innerHTML='') tiap
+// ada interaksi apapun (regenerate() dipanggil hampir di semua event) - <details> baru selalu closed
+// kalau gak dijagain manual, jadi state open/closed disimpen di sini, LUAR elemen DOM-nya sendiri.
+var jsonBoxOpen = {}; // key "motion:ST1" / "cond:ST1" -> bool
+var perProgramOpen = false;
 
 // ===== Motion Sequence graph state =====
 // motionState[station] = [ variant, ... ]
@@ -458,6 +520,7 @@ function renderResults(payload) {
   resEl.innerHTML = '';
   statsEl.textContent = payload.stats;
   warnEl.textContent = payload.warnings || '';
+  warnBoxEl.style.display = payload.warnings ? 'block' : 'none';
 
   if (payload.files.length) {
     var single = document.createElement('div');
@@ -471,6 +534,14 @@ function renderResults(payload) {
     resEl.appendChild(single);
   }
 
+  // Per-program file (MAIN, tiap station, GlobalVariables.tsv) - kotaknya makan tempat (tiap satu
+  // punya textarea gede), disembunyiin default di balik <details>. AllPrograms.xml single-download
+  // di atas udah cukup buat kebanyakan kasus.
+  var details = document.createElement('details'); details.className = 'per-program';
+  if (perProgramOpen) details.open = true;
+  details.addEventListener('toggle', function () { perProgramOpen = details.open; });
+  var summary = document.createElement('summary'); summary.textContent = 'Download per program (' + payload.files.length + ' file)';
+  details.appendChild(summary);
   payload.files.forEach(function (f) {
     var div = document.createElement('div');
     div.className = 'file';
@@ -482,8 +553,9 @@ function renderResults(payload) {
     row.appendChild(b); row.appendChild(btn);
     var ta = document.createElement('textarea'); ta.readOnly = true; ta.value = f.xml;
     div.appendChild(row); div.appendChild(ta);
-    resEl.appendChild(div);
+    details.appendChild(div);
   });
+  resEl.appendChild(details);
 }
 
 function regenerate() {
@@ -514,6 +586,8 @@ function regenerate() {
       .filter(function (d) { return d.groups.length; });
     if (defs.length) flowStore.conditionDefs[st] = defs;
   });
+  flowStore.stationNames = stationNames;
+  flowStore.timerDefaults = { phpx: timerPhpxEl ? timerPhpxEl.value : '', motion: timerMotionEl ? timerMotionEl.value : '' };
   try {
     // Salinan wrapper baru tiap panggil - gen_all.js nge-reassign msg.payload di baris terakhirnya,
     // kalau lastSplitMsg dipakai langsung, groups di dalamnya keganti hasil generate pas dipanggil lagi.
@@ -678,7 +752,7 @@ function renderMotionPanel() {
   motionPanelEl.innerHTML = '';
   if (!lastSplitMsg) { motionPanelEl.style.display = 'none'; return; }
   var groups = lastSplitMsg.payload;
-  var stations = Object.keys(groups).filter(function (k) { return k !== 'MAIN' && groups[k].length; });
+  var stations = sortStations(Object.keys(groups).filter(function (k) { return k !== 'MAIN' && groups[k].length; }));
   var any = false;
 
   stations.forEach(function (stKey) {
@@ -688,7 +762,7 @@ function renderMotionPanel() {
     ensureStation(stKey);
 
     var box = document.createElement('div'); box.className = 'station-box';
-    var title = document.createElement('div'); title.className = 'station-title'; title.textContent = stKey;
+    var title = document.createElement('div'); title.className = 'station-title'; title.textContent = stKey + (stationNames[stKey] ? ' - ' + stationNames[stKey] : '');
     box.appendChild(title);
 
     motionState[stKey].forEach(function (variant, vIdx) {
@@ -747,9 +821,12 @@ function renderMotionPanel() {
     addVBtn.addEventListener('click', function () { addVariant(stKey); renderMotionPanel(); });
     box.appendChild(addVBtn);
 
-    var jsonBox = document.createElement('div'); jsonBox.className = 'json-io';
-    var jsonLabel = document.createElement('div'); jsonLabel.className = 'hint';
-    jsonLabel.textContent = 'Import/Export JSON (array varian) - ganti seluruh sequence station ini:';
+    var jsonKey = 'motion:' + stKey;
+    var jsonBox = document.createElement('details'); jsonBox.className = 'json-io';
+    if (jsonBoxOpen[jsonKey]) jsonBox.open = true;
+    jsonBox.addEventListener('toggle', function () { jsonBoxOpen[jsonKey] = jsonBox.open; });
+    var jsonLabel = document.createElement('summary');
+    jsonLabel.textContent = 'Import/Export JSON (array varian)';
     var jsonTa = document.createElement('textarea');
     jsonTa.placeholder = '[{"condition":"","comment":"","nodes":[{"id":"n1","sol":"' + (names[0] || 'SOL_...') + '","after":[],"join":"AND"}]}]';
     var jsonRow = document.createElement('div'); jsonRow.className = 'row';
@@ -777,14 +854,14 @@ function renderConditionPanel() {
   conditionPanelEl.innerHTML = '';
   if (!lastSplitMsg) { conditionPanelEl.style.display = 'none'; return; }
   var groups = lastSplitMsg.payload;
-  var stations = Object.keys(groups).filter(function (k) { return k !== 'MAIN' && groups[k].length; });
+  var stations = sortStations(Object.keys(groups).filter(function (k) { return k !== 'MAIN' && groups[k].length; }));
   if (!stations.length) { conditionPanelEl.style.display = 'none'; return; }
 
   stations.forEach(function (stKey) {
     ensureConditionStation(stKey);
 
     var box = document.createElement('div'); box.className = 'station-box';
-    var title = document.createElement('div'); title.className = 'station-title'; title.textContent = stKey;
+    var title = document.createElement('div'); title.className = 'station-title'; title.textContent = stKey + (stationNames[stKey] ? ' - ' + stationNames[stKey] : '');
     box.appendChild(title);
     if (!conditionState[stKey].length) {
       var hint = document.createElement('div'); hint.className = 'hint';
@@ -849,9 +926,12 @@ function renderConditionPanel() {
     addDBtn.addEventListener('click', function () { addConditionDef(stKey); renderConditionPanel(); });
     box.appendChild(addDBtn);
 
-    var jsonBox = document.createElement('div'); jsonBox.className = 'json-io';
-    var jsonLabel = document.createElement('div'); jsonLabel.className = 'hint';
-    jsonLabel.textContent = 'Import/Export JSON (array condition) - ganti seluruh Condition section station ini:';
+    var jsonKey = 'cond:' + stKey;
+    var jsonBox = document.createElement('details'); jsonBox.className = 'json-io';
+    if (jsonBoxOpen[jsonKey]) jsonBox.open = true;
+    jsonBox.addEventListener('toggle', function () { jsonBoxOpen[jsonKey] = jsonBox.open; });
+    var jsonLabel = document.createElement('summary');
+    jsonLabel.textContent = 'Import/Export JSON (array condition)';
     var jsonTa = document.createElement('textarea');
     jsonTa.placeholder = '[{"name":"","bit":"","groups":[[{"bit":"LB206","neg":false}]]}]';
     var jsonRow = document.createElement('div'); jsonRow.className = 'row';
@@ -875,8 +955,86 @@ function renderConditionPanel() {
   conditionPanelEl.style.display = 'block';
 }
 
+function renderStationNamesPanel() {
+  stationNamesPanelEl.innerHTML = '';
+  if (!lastSplitMsg) { stationNamesPanelEl.style.display = 'none'; return; }
+  var groups = lastSplitMsg.payload;
+  var stations = sortStations(Object.keys(groups).filter(function (k) { return k !== 'MAIN' && groups[k].length; }));
+  if (!stations.length) { stationNamesPanelEl.style.display = 'none'; return; }
+  stations.forEach(function (stKey) {
+    var lbl = document.createElement('label'); lbl.className = 'stname-lbl';
+    var b = document.createElement('b'); b.textContent = stKey;
+    var input = document.createElement('input'); input.className = 'stname-input';
+    input.placeholder = 'nama (opsional, mis. Conveyor Feed)';
+    input.value = stationNames[stKey] || '';
+    input.addEventListener('change', function () {
+      stationNames[stKey] = input.value.trim();
+      renderMotionPanel(); renderConditionPanel(); regenerate();
+    });
+    lbl.appendChild(b); lbl.appendChild(input);
+    stationNamesPanelEl.appendChild(lbl);
+  });
+  stationNamesPanelEl.style.display = 'flex';
+}
+
+// ===== Project JSON: SEMUA state (IO list + motionSequences + conditionDefs + nama station + timer
+// default) jadi satu blob - format field motionSequences/conditionDefs SAMA PERSIS bentuk yang
+// dipakai per-station box, cuma dibungkus per stKey biar satu file nyimpen semuanya sekaligus. =====
+function exportProjectJSON() {
+  var motionSequences = {};
+  Object.keys(motionState).forEach(function (st) {
+    var arr = JSON.parse(variantsToJSON(st));
+    if (arr.some(function (v) { return v.nodes.length; })) motionSequences[st] = arr;
+  });
+  var conditionDefs = {};
+  Object.keys(conditionState).forEach(function (st) {
+    var arr = JSON.parse(conditionDefsToJSON(st));
+    if (arr.some(function (d) { return d.groups.length; })) conditionDefs[st] = arr;
+  });
+  return JSON.stringify({
+    io: document.getElementById('ioText').value,
+    stationNames: stationNames,
+    timerDefaults: { phpx: timerPhpxEl ? timerPhpxEl.value : '', motion: timerMotionEl ? timerMotionEl.value : '' },
+    motionSequences: motionSequences,
+    conditionDefs: conditionDefs
+  }, null, 2);
+}
+
+function importProjectJSON(jsonText) {
+  var parsed;
+  try { parsed = JSON.parse(jsonText); }
+  catch (e) { return 'JSON gak valid: ' + e.message; }
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    return 'JSON harus object: {"io":"","stationNames":{},"timerDefaults":{},"motionSequences":{},"conditionDefs":{}}';
+  }
+  if (typeof parsed.io !== 'string' || !parsed.io.trim()) return 'Field "io" (IO list, string) wajib ada dan gak boleh kosong';
+
+  document.getElementById('ioText').value = parsed.io;
+  runFullPipeline(); // parse+split+generate dulu biar station-nya kekenal sebelum import motion/condition per-station
+  if (errEl.textContent) return 'Generate IO list dari project JSON gagal: ' + errEl.textContent;
+
+  stationNames = {};
+  Object.keys(parsed.stationNames || {}).forEach(function (k) { stationNames[k] = String(parsed.stationNames[k] || '').trim(); });
+  if (timerPhpxEl) timerPhpxEl.value = (parsed.timerDefaults && parsed.timerDefaults.phpx) || '';
+  if (timerMotionEl) timerMotionEl.value = (parsed.timerDefaults && parsed.timerDefaults.motion) || '';
+
+  var errs = [];
+  Object.keys(parsed.motionSequences || {}).forEach(function (st) {
+    var err = importSequenceJSON(st, JSON.stringify(parsed.motionSequences[st]));
+    if (err) errs.push('motionSequences.' + st + ': ' + err);
+  });
+  Object.keys(parsed.conditionDefs || {}).forEach(function (st) {
+    var err = importConditionJSON(st, JSON.stringify(parsed.conditionDefs[st]));
+    if (err) errs.push('conditionDefs.' + st + ': ' + err);
+  });
+
+  renderMotionPanel(); renderConditionPanel(); renderStationNamesPanel();
+  regenerate();
+  return errs.length ? errs.join('\\n') : null;
+}
+
 function runFullPipeline() {
-  errEl.textContent = ''; resEl.innerHTML = ''; statsEl.textContent = ''; warnEl.textContent = '';
+  errEl.textContent = ''; resEl.innerHTML = ''; statsEl.textContent = ''; warnEl.textContent = ''; warnBoxEl.style.display = 'none';
   flowStore = {};
   lastSplitMsg = null;
   motionState = {};
@@ -887,6 +1045,7 @@ function runFullPipeline() {
   selected = null;
   renderMotionPanel();
   renderConditionPanel();
+  renderStationNamesPanel();
 
   try {
     var msg = { payload: document.getElementById('ioText').value };
@@ -903,6 +1062,7 @@ function runFullPipeline() {
 
   renderMotionPanel();
   renderConditionPanel();
+  renderStationNamesPanel();
   regenerate();
 }
 
@@ -910,9 +1070,25 @@ errEl = document.getElementById('err');
 resEl = document.getElementById('results');
 statsEl = document.getElementById('stats');
 warnEl = document.getElementById('warn');
+warnBoxEl = document.getElementById('warnBox');
 motionPanelEl = document.getElementById('motionPanel');
 conditionPanelEl = document.getElementById('conditionPanel');
+stationNamesPanelEl = document.getElementById('stationNamesPanel');
+timerPhpxEl = document.getElementById('timerPhpx');
+timerMotionEl = document.getElementById('timerMotion');
+timerPhpxEl.addEventListener('change', function () { if (lastSplitMsg) regenerate(); });
+timerMotionEl.addEventListener('change', function () { if (lastSplitMsg) regenerate(); });
 document.getElementById('genBtn').addEventListener('click', runFullPipeline);
+document.getElementById('projectExportBtn').addEventListener('click', function () {
+  document.getElementById('projectJsonTa').value = exportProjectJSON();
+  var m = document.getElementById('projectJsonMsg'); m.className = 'json-msg'; m.textContent = '';
+});
+document.getElementById('projectImportBtn').addEventListener('click', function () {
+  var m = document.getElementById('projectJsonMsg');
+  var err = importProjectJSON(document.getElementById('projectJsonTa').value);
+  if (err) { m.className = 'json-msg err'; m.textContent = err; return; }
+  m.className = 'json-msg ok'; m.textContent = 'Imported.';
+});
 document.addEventListener('mousemove', onDocMouseMove);
 document.addEventListener('mouseup', onDocMouseUp);
 document.addEventListener('keydown', onDocKeyDown);

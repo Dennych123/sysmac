@@ -176,7 +176,9 @@ MF	ARRAY[1..16] OF BOOL			False	False	Do not publish	Cylinder motion fault table
 MSTR_RDY	BOOL			False	False	Do not publish	Machine status from main program
 NOT_EMG_STOP	BOOL			False	False	Do not publish	NOT EMERGENCY STOP
 NO_FAULT	BOOL			False	False	Do not publish	Machine status from main program
-PB410_RTN	BOOL			False	False	Do not publish	Process home return button
+PB004_01	BOOL			False	False	Do not publish	Process home return button
+PB004_02	BOOL			False	False	Do not publish	Process home return button
+PB004_03	BOOL			False	False	Do not publish	Process home return button
 PB410_STG	BOOL			False	False	Do not publish	Individual staging button
 PB411_1M	BOOL			False	False	Do not publish	Individual button, ST1 LEFT DIVIDER BACKWARD
 PB411_1R	BOOL			False	False	Do not publish	Individual button, ST1 LEFT DIVIDER FORWARD
@@ -196,11 +198,9 @@ PB411_8M	BOOL			False	False	Do not publish	Individual button, ST1 DANDORI  TYPE-
 PB411_8R	BOOL			False	False	Do not publish	Individual button, ST1 DANDORI  TYPE-2 UNLOCK
 PB412_1M	BOOL			False	False	Do not publish	Individual button, ST1 PART FEEDER-1 START
 PB412_1R	BOOL			False	False	Do not publish	Individual button, ST1 PART FEEDER-2 START
-PB420_RTN	BOOL			False	False	Do not publish	Process home return button
 PB420_STG	BOOL			False	False	Do not publish	Individual staging button
 PB421_1M	BOOL			False	False	Do not publish	Individual button, ST2  STOPPER-1 UP
 PB421_1R	BOOL			False	False	Do not publish	Individual button, ST2  STOPPER-1 DOWN
-PB430_RTN	BOOL			False	False	Do not publish	Process home return button
 PB430_STG	BOOL			False	False	Do not publish	Individual staging button
 PB431_1M	BOOL			False	False	Do not publish	Individual button, ST3  EJECTOR FORWARD
 PB431_1R	BOOL			False	False	Do not publish	Individual button, ST3  EJECTOR BACKWARD

@@ -36,6 +36,36 @@ hasilnya. `build.py` juga menempelkan `js/lib.js` ke setiap node generator
 secara otomatis. Jangan menyalin isi lib ke file generator, dan jangan edit
 `index.html` langsung - edit `js/*.js` lalu build ulang.
 
+### Pengaturan (nama station, timer default)
+
+Setelah Generate, tiap station dapat kotak nama bebas (opsional, mis. "ST1
+Conveyor Feed") - ngikut ke komentar program yang di-generate (`LB400_A`/
+`LB400_B`: "ST1 Conveyor Feed, Automatic motion start seal"). Timer
+debounce PH/PX (`T#200MS`) dan motion-fault (`T#500MS`) juga bisa disetel
+di sini, berlaku buat SEMUA station - format harus persis `T#<angka><unit>`
+(`MS`/`S`/`M`/`H`, mis. `T#150MS`), salah format dibalikin ke default +
+warning (nilainya ditempel langsung jadi XML attribute tanpa escape, jadi
+divalidasi ketat).
+
+### Project JSON (simpan/pulihkan semua sekaligus)
+
+Kotak "Project JSON" (di bawah Pengaturan) nyimpen/mulihin SATU project
+utuh - IO list, Motion Sequence semua station, Condition semua station,
+nama station, timer default - dalam satu blob, gak perlu export per-station
+satu-satu. Import langsung generate ulang pakai IO list di dalamnya dan
+GANTI seluruh project yang lagi kebuka. Format:
+```json
+{
+  "io": "CH0_00\tPB\tIN\t...",
+  "stationNames": {"ST1": "Conveyor Feed"},
+  "timerDefaults": {"phpx": "T#200MS", "motion": "T#500MS"},
+  "motionSequences": {"ST1": [...]},
+  "conditionDefs": {"ST1": [...]}
+}
+```
+`motionSequences`/`conditionDefs` tiap station-nya persis format array yang
+sama kayak kotak JSON per-station (lihat bawah) - cuma dibungkus per `stKey`.
+
 ### Condition (bit bernama, tanpa batas 3)
 
 Panel "Condition" muncul buat tiap station setelah klik Generate. Dulu
@@ -232,8 +262,13 @@ Terbalik akan memunculkan galat
   diproses ke solenoid fisiknya - node sebelumnya yang solenoid-nya sama
   tetap jalan motion-nya (chain-nya benar) tapi gak ikut ngedrive output.
 - Interlock pada `Individual` masih `GSB000`, harus ditulis manual
-- `Condition` unit berisi tiga slot cadangan (`LB300`-`LB302`) - inilah
-  yang biasa dipakai sebagai Condition bit varian Motion Sequence
+- `Condition` unit yang gak disetel lewat panel tetap fallback ke tiga slot
+  cadangan generik (`LB300`-`LB302`) - lihat bagian Condition di atas buat
+  bikin bit bernama sendiri
 - `HMI_Input` sengaja kosong
 - Pemasangan solenoid dengan sensor memakai kemiripan kata pada komentar
 - Penetapan port fisik tetap manual melalui I/O Map
+- Tombol staging Individual (`PB4<SN>0_STG`) masih ikutin pola lama
+  (nomor station di TENGAH nama); tombol home-return udah diganti ke
+  `PB004_<SN dua digit>` (mis. `PB004_01` buat ST1) - kalau butuh convention
+  serupa buat STG, kasih tau nomor ID-nya

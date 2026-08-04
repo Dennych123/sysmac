@@ -1,10 +1,20 @@
 // ===== Generate program XML per station + main, jumlah unit dinamis =====
 var groups   = flow.get("groups") || {};
 var PER_PAGE = 8;
-var T_PHPX   = "T#200MS";
-var T_MOTION = "T#500MS";
 var files = [], warnings = [], lscAudit = [];
 var GLOBALS = {};
+// Timer default (debounce PH/PX, motion-fault) bisa disetel lewat web UI - format harus "T#<angka><unit>"
+// (MS/S/M/H), soalnya nilainya ditempel LANGSUNG jadi XML attribute tanpa escape (lihat lib.js ton()) -
+// input sembarangan bisa ngerusak XML, jadi divalidasi ketat, salah format jatuh ke default + warning.
+var timerDefaults = flow.get("timerDefaults") || {};
+function validTimer(v, fallback, label){
+    v=(v||"").trim();
+    if(!v) return fallback;
+    if(!/^T#\d+(\.\d+)?(MS|S|M|H)$/i.test(v)){ warnings.push('Timer default '+label+' "'+v+'" invalid format (expected e.g. T#200MS), using default '+fallback+'.'); return fallback; }
+    return v.toUpperCase();
+}
+var T_PHPX   = validTimer(timerDefaults.phpx, "T#200MS", "PH/PX debounce");
+var T_MOTION = validTimer(timerDefaults.motion, "T#500MS", "motion fault");
 var ARRAY_ELEMENTS = {}; // "AL[61]" -> comment, buat baris per elemen di GlobalVariables.tsv
 
 // Nama status global mengikuti standar Denso (MSTR_RDY, bukan MSTR_READY)
@@ -67,6 +77,8 @@ var MF_TYPE = "ARRAY[1.."+MF_SIZE+"] OF BOOL";
 // ============================================================ UNIT
 function buildUnit(stKey, devs){
     var inf=STMAP[stKey], GB=inf.gb, SN=inf.n;
+    var stName=((flow.get("stationNames")||{})[stKey]||"").trim();
+    var stLabel=stKey+(stName?(" "+stName):"");
     var inputs  = devs.filter(function(d){return d.io==="IN";});
     var outputs = devs.filter(function(d){return d.io==="OUT";});
     var phpx    = inputs.filter(function(d){return d.jenis==="PH"||d.jenis==="PX";});
@@ -229,11 +241,11 @@ function buildUnit(stKey, devs){
                     "Individual cycle running","Process home return command"][i]);
     });
     G("PB4"+SN+"0_STG","BOOL","Individual staging button");
-    G("PB4"+SN+"0_RTN","BOOL","Process home return button");
+    G("PB004_"+pad(SN,2),"BOOL","Process home return button");
     S9.push(series(o++,[["IND_MODE",false],["NO_FAULT",false],["MSTR_RDY",false]],"LB310","Individual operation permitted"));
     S9.push(series(o++,[["LB310",false],["LB134",false],["LB139",false]],"LB319",null));
     S9.push(latch(o++,[["PB4"+SN+"0_STG",false]],"LB320",[["LB319",false],["LB309",false]],null));
-    S9.push(series(o++,[["PB4"+SN+"0_RTN",false],["LB319",false]],"LB339","Return all actuators to home position"));
+    S9.push(series(o++,[["PB004_"+pad(SN,2),false],["LB319",false]],"LB339","Return all actuators to home position"));
     var indM=[], indR=[];
     actus.forEach(function(a,i){
         var pg=1+Math.floor(i/PER_PAGE), nn=(i%PER_PAGE)+1;
@@ -258,8 +270,8 @@ function buildUnit(stKey, devs){
     // sebelum generate ulang). Station yang belum dikonfigurasi tetap pakai placeholder lama.
     var S10=[]; o=1;
     P("LB400","BOOL","Automatic motion start");
-    P("LB400_A","BOOL","Unit seal, auto motion start");
-    P("LB400_B","BOOL","Unit seal, motion completed");
+    P("LB400_A","BOOL",stLabel+", Automatic motion start seal");
+    P("LB400_B","BOOL",stLabel+", Automatic motion complete seal");
     // START MOTION PROCESS (Denso Autorun.cxr). POSISI SEAL yang bikin pasangan LB400_A/LB400_B ini
     // bener - salah taruh titik sambung seal-nya bikin ladder yang keliatan mirip tapi gak pernah
     // reset / gak pernah latch:
@@ -354,7 +366,7 @@ function buildUnit(stKey, devs){
                 trigBit=fixed;
             }
             condTrigOf[vIdx]=trigBit;
-            P(latchBit,"BOOL","Variant selected & latched for this cycle"+(v.comment?(": "+v.comment):""));
+            P(latchBit,"BOOL",v.comment||trigBit);
             if(!GLOBALS[trigBit]) P(trigBit,"BOOL","External condition bit for motion sequence variant select - define driving logic separately");
             var others=condLatchBits.filter(function(b,j){ return j!==ci; }).map(function(b){ return [b,true]; });
             return { trigs:[[trigBit,false]], bit:latchBit, blocks:others };
@@ -382,6 +394,9 @@ function buildUnit(stKey, devs){
 
         var rootBit="LB400";
         var label=variant.comment?('"'+variant.comment+'" - '):"";
+        // Dipakein di komen "Motion N" biar keliatan itu langkah punya varian yang mana - "Motion N"
+        // doang ambigu kalau lebih dari 1 varian (nomornya global se-station, bukan per-varian).
+        var variantLabel=variant.comment||variant.condition||("Variant "+(vIdx+1));
         if(variant.condition){
             // Coil-nya udah dibikin di rung mutual-exclusion gabungan sebelum loop ini (lihat
             // latchBitOf di atas) - di sini tinggal declare external condition bit-nya kalau perlu.
@@ -432,7 +447,7 @@ function buildUnit(stKey, devs){
 
             var cmdBit="LB"+pad(410+stepCount*2,3), confirmBit="LB"+pad(411+stepCount*2,3);
             P(cmdBit,"BOOL","Automatic command, "+dev.komen); P(confirmBit,"BOOL","Automatic complete, "+dev.komen);
-            S10.push(motionStep(o++, prevBit, node.sol, lsc, cmdBit, confirmBit, "Motion "+(stepCount+1)+": "+dev.komen));
+            S10.push(motionStep(o++, prevBit, node.sol, lsc, cmdBit, confirmBit, "Motion "+(stepCount+1)+" ["+variantLabel+"]: "+dev.komen));
             // Akumulasi, JANGAN overwrite - satu solenoid fisik bisa dikomando dari node di lebih
             // dari 1 varian mutual-exclusion (mis. "single seal" vs "double seal" pakai aktuator
             // sama) - semua cmdBit-nya wajib nyampe ke AutoOutput, bukan cuma varian yang belakangan.
