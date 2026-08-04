@@ -223,7 +223,7 @@ const okSeeded = validate('seeded', seeded.files);
 const st1 = seeded.files.find(f=>f.name==='Prg010_ST1_Conveyor_Feed.xml');
 const properName = st1 && /<Program name="Prg010_ST1_Conveyor_Feed">/.test(st1.xml) && /ST1 Conveyor Feed/.test(st1.xml);
 console.log('station name in file name + Program attr + broadcast comments:', properName);
-const hasAllMotions = st1 && [1,2,3,4,5,6,7].every(n => new RegExp('Motion '+n+'[ \\[]').test(st1.xml));
+const hasAllMotions = st1 && [1,2,3,4,5,6,7].every(n => new RegExp('Motion '+n+'\\b').test(st1.xml));
 const hasJoins = st1 && /Join \(AND\)/.test(st1.xml) && /Join \(OR\)/.test(st1.xml);
 const mxRungMatch = st1 && st1.xml.match(/<Rung[^>]*>(?:(?!<\/Rung>)[\s\S])*?Unit motion condition running \(mutual exclusion\)[\s\S]*?<\/Rung>/);
 const mxRung = mxRungMatch ? mxRungMatch[0] : '';
@@ -233,7 +233,17 @@ const hasLatch = /Unit motion condition running \(mutual exclusion\).*LB300/.tes
 const gateOrder = /operand="LB400"[\s\S]*?operand="LB300"/.test(mxRung);
 const oneRung = !/Sample condition at cycle start/.test(st1.xml);
 const sealsIntoCoil = /<LdObject xsi:type="Coil"[^>]*operand="LB401"[^>]*><ConnectionPointIn>(?:<Connection[^>]*\/>){2}<\/ConnectionPointIn>/.test(mxRung);
-const usedRealSequence = properName && hasAllMotions && hasJoins && hasLatch && gateOrder && oneRung && sealsIntoCoil && !/Motion steps to be written here/.test(st1.xml);
+// LB499 rung dipindah ke ATAS LB400 (evaluationOrder="1", dan posisinya di XML sebelum rung LB400).
+const lb499Pos = st1 ? st1.xml.indexOf('1 cycle motion complete') : -1;
+const lb400Pos = st1 ? st1.xml.indexOf('Autorun condition running: auto motion start') : -1;
+const lb499First = lb499Pos >= 0 && lb400Pos >= 0 && lb499Pos < lb400Pos;
+const lb499EvalOrder1 = /evaluationOrder="1">[\s\S]{0,300}?1 cycle motion complete/.test(st1.xml);
+console.log('LB499 rung above LB400 (position + evaluationOrder=1):', lb499First, lb499EvalOrder1);
+// Format komen: "[label] Motion N: ..." (label DULUAN, bukan "Motion N [label]: ...")
+const commentFormatOk = st1 && /\[[^\]]+\] Motion 1: /.test(st1.xml);
+console.log('Motion comment format "[label] Motion N: ...":', commentFormatOk);
+const usedRealSequence = properName && hasAllMotions && hasJoins && hasLatch && gateOrder && oneRung && sealsIntoCoil &&
+  lb499First && lb499EvalOrder1 && commentFormatOk && !/Motion steps to be written here/.test(st1.xml);
 console.log(usedRealSequence ? 'MOTION SEQUENCE OK: ST1 pakai 2 varian (fork+AND+OR+condition select-latch), bukan stub'
                               : 'MOTION SEQUENCE GAGAL: ST1 masih stub atau graph gak lengkap kepakai');
 

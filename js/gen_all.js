@@ -455,7 +455,7 @@ function buildUnit(stKey, devs){
 
             var cmdBit="LB"+pad(410+stepCount*2,3), confirmBit="LB"+pad(411+stepCount*2,3);
             P(cmdBit,"BOOL","Automatic command, "+dev.komen); P(confirmBit,"BOOL","Automatic complete, "+dev.komen);
-            S10.push(motionStep(o++, prevBit, node.sol, lsc, cmdBit, confirmBit, "Motion "+(stepCount+1)+" ["+variantLabel+"]: "+dev.komen));
+            S10.push(motionStep(o++, prevBit, node.sol, lsc, cmdBit, confirmBit, "["+variantLabel+"] Motion "+(stepCount+1)+": "+dev.komen));
             // Akumulasi, JANGAN overwrite - satu solenoid fisik bisa dikomando dari node di lebih
             // dari 1 varian mutual-exclusion (mis. "single seal" vs "double seal" pakai aktuator
             // sama) - semua cmdBit-nya wajib nyampe ke AutoOutput, bukan cuma varian yang belakangan.
@@ -475,6 +475,7 @@ function buildUnit(stKey, devs){
         }
     });
 
+    var preLB499Count=S10.length;
     P("LB499","BOOL","Automatic operation complete");
     if(variantDoneBits.length===1){
         S10.push(series(o++,[[variantDoneBits[0],false]],"LB499","1 cycle motion complete"));
@@ -489,6 +490,12 @@ function buildUnit(stKey, devs){
         S10.push(series(o++,[["LB400",false],["LB105",false]],"LB409","Motion steps to be written here using LB410 onwards, or configure a motion sequence in the web UI"));
         S10.push(series(o++,[["LB409",false]],"LB499",null));
     }
+    // LB499 dipindah ke rung PALING ATAS AutoRunning (di atas LB400) - valid, PLC scan siklik jadi
+    // rung boleh nunjuk bit yang baru di-compute rung LAIN di bawahnya (kepakein nilai scan
+    // sebelumnya). evaluationOrder di-renumber ulang 1..N ngikutin urutan array yang baru, biar
+    // urutan tampil di Sysmac Studio (yang ngikutin evaluationOrder, bukan cuma posisi di XML) bener.
+    S10.unshift.apply(S10, S10.splice(preLB499Count));
+    S10 = S10.map(function(rungXml,idx){ return rungXml.replace(/evaluationOrder="\d+"/, 'evaluationOrder="'+(idx+1)+'"'); });
 
     // 11. Auto_Output
     var S11=[]; o=1;
