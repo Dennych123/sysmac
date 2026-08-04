@@ -42,6 +42,10 @@ HTML = '''<!doctype html>
   .stname-lbl{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted);background:var(--card);border:1px solid var(--line);border-radius:6px;padding:5px 8px}
   .stname-lbl b{color:var(--fg);font-family:Consolas,monospace}
   .stname-input{font-family:Segoe UI,Arial,sans-serif;font-size:12px;padding:4px 6px;border:1px solid var(--line);border-radius:4px;width:160px}
+  .cm-row{flex-direction:column;align-items:flex-start;gap:4px}
+  .cm-row select{font-family:Segoe UI,Arial,sans-serif;font-size:11px;padding:3px 5px;border:1px solid var(--line);border-radius:4px}
+  .cm-row .cm-manual{display:flex;gap:4px}
+  .cm-row .cm-manual input{font-family:Consolas,monospace;font-size:11px;padding:3px 5px;border:1px solid var(--line);border-radius:4px;width:110px}
 
   .single{background:#eef4ff;border:1px solid #bcd3f9;border-radius:var(--radius);padding:12px 14px;margin:14px 0}
   .single .t{font-weight:600;margin-bottom:2px}
@@ -139,6 +143,15 @@ station (opsional) ikut ke komentar program yang di-generate (mis. <code>LB400_A
 </div>
 <div id="stationNamesPanel" class="stname-panel"></div>
 
+<h2>Confirm Mode per aktuator (opsional)</h2>
+<p class="hint">Default (Auto) - pencocokan sensor otomatis (findLsc buat silinder, best-match komen buat
+servo). <b>Open-loop</b> - aktuator sengaja gak punya sensor by design (mis. DANDORI LOCK, PART FEEDER
+START) - skip fault-detection DAN skip warning "no matching limit switch" sama sekali. <b>Manual</b> -
+override pencocokan otomatis yang salah/low-confidence, isi sendiri nama bit konfirmasinya. Kalau
+distel Open-loop, aktuator itu gak bisa dipakai di Motion Sequence (butuh bit konfirmasi buat lanjut
+ke step berikutnya).</p>
+<div id="confirmModePanel" class="stname-panel"></div>
+
 <details class="json-io project-json">
   <summary>Project JSON (Import/Export SEMUA - IO list, Motion Sequence, Condition, nama station, timer default sekaligus)</summary>
   <p class="hint">Simpan/pulihkan seluruh kerjaan sekali tempel, gak perlu per-station. Import langsung
@@ -217,10 +230,15 @@ function sortStations(keys) {
   });
 }
 
-var errEl, resEl, statsEl, warnEl, warnBoxEl, motionPanelEl, conditionPanelEl, stationNamesPanelEl, timerPhpxEl, timerMotionEl;
+var errEl, resEl, statsEl, warnEl, warnBoxEl, motionPanelEl, conditionPanelEl, stationNamesPanelEl, timerPhpxEl, timerMotionEl, confirmModePanelEl;
 var flowStore = {};
 var lastSplitMsg = null;
 var stationNames = {}; // key station -> nama bebas (opsional), ngikut ke komen program (LB400_A/B dkk)
+// key nama device (SOL_.../CR_.../SRV_...) -> {mode:'auto'|'openloop'|'manual', lscA, lscB}. 'auto' =
+// gak disetel/default (findLsc/auto-match servo jalan kayak biasa). 'openloop' = sengaja gak ada
+// sensor (DANDORI LOCK, PART FEEDER START dkk) - skip fault-detection + skip warning. 'manual' = user
+// nunjuk langsung bit konfirmasinya (buat overrule findLsc yang salah tebak / low-confidence).
+var actuatorOverrides = {};
 // renderMotionPanel/renderConditionPanel/renderResults nge-rebuild DOM-nya total (innerHTML='') tiap
 // ada interaksi apapun (regenerate() dipanggil hampir di semua event) - <details> baru selalu closed
 // kalau gak dijagain manual, jadi state open/closed disimpen di sini, LUAR elemen DOM-nya sendiri.
@@ -617,6 +635,7 @@ function regenerate() {
   });
   flowStore.stationNames = stationNames;
   flowStore.timerDefaults = { phpx: timerPhpxEl ? timerPhpxEl.value : '', motion: timerMotionEl ? timerMotionEl.value : '' };
+  flowStore.actuatorOverrides = actuatorOverrides;
   try {
     // Salinan wrapper baru tiap panggil - gen_all.js nge-reassign msg.payload di baris terakhirnya,
     // kalau lastSplitMsg dipakai langsung, groups di dalamnya keganti hasil generate pas dipanggil lagi.
@@ -1054,6 +1073,51 @@ function renderStationNamesPanel() {
   stationNamesPanelEl.style.display = 'flex';
 }
 
+function renderConfirmModePanel() {
+  confirmModePanelEl.innerHTML = '';
+  if (!lastSplitMsg) { confirmModePanelEl.style.display = 'none'; return; }
+  var groups = lastSplitMsg.payload;
+  var stations = sortStations(Object.keys(groups).filter(function (k) { return k !== 'MAIN' && groups[k].length; }));
+  var any = false;
+  stations.forEach(function (stKey) {
+    var devs = (groups[stKey] || []).filter(function (d) { return d.io === 'OUT' && (d.jenis === 'CR' || d.jenis === 'SOL' || d.jenis === 'SRV_CMD'); });
+    devs.forEach(function (d) {
+      any = true;
+      var ov = actuatorOverrides[d.name] || { mode: 'auto' };
+      var row = document.createElement('div'); row.className = 'stname-lbl cm-row';
+      var head = document.createElement('div');
+      var b = document.createElement('b'); b.textContent = stKey + ' / ' + d.name;
+      head.appendChild(b);
+      row.appendChild(head);
+      var sel = document.createElement('select');
+      ['auto', 'openloop', 'manual'].forEach(function (m) {
+        var opt = document.createElement('option'); opt.value = m;
+        opt.textContent = m === 'auto' ? 'Auto (default)' : (m === 'openloop' ? 'Open-loop (no sensor)' : 'Manual (pick bit)');
+        if (ov.mode === m) opt.selected = true;
+        sel.appendChild(opt);
+      });
+      var manualBox = document.createElement('div'); manualBox.className = 'cm-manual';
+      var lscAInput = document.createElement('input'); lscAInput.placeholder = 'bit konfirmasi'; lscAInput.value = ov.lscA || '';
+      var lscBInput = document.createElement('input'); lscBInput.placeholder = 'bit B (opsional, pair)'; lscBInput.value = ov.lscB || '';
+      manualBox.appendChild(lscAInput); manualBox.appendChild(lscBInput);
+      manualBox.style.display = ov.mode === 'manual' ? 'flex' : 'none';
+      function commit() {
+        var mode = sel.value;
+        if (mode === 'auto') { delete actuatorOverrides[d.name]; }
+        else if (mode === 'openloop') { actuatorOverrides[d.name] = { mode: 'openloop' }; }
+        else { actuatorOverrides[d.name] = { mode: 'manual', lscA: lscAInput.value.trim(), lscB: lscBInput.value.trim() }; }
+        regenerate();
+      }
+      sel.addEventListener('change', function () { manualBox.style.display = sel.value === 'manual' ? 'flex' : 'none'; commit(); });
+      lscAInput.addEventListener('change', commit);
+      lscBInput.addEventListener('change', commit);
+      row.appendChild(sel); row.appendChild(manualBox);
+      confirmModePanelEl.appendChild(row);
+    });
+  });
+  confirmModePanelEl.style.display = any ? 'flex' : 'none';
+}
+
 // ===== Project JSON: SEMUA state (IO list + motionSequences + conditionDefs + nama station + timer
 // default) jadi satu blob - format field motionSequences/conditionDefs SAMA PERSIS bentuk yang
 // dipakai per-station box, cuma dibungkus per stKey biar satu file nyimpen semuanya sekaligus. =====
@@ -1072,6 +1136,7 @@ function exportProjectJSON() {
     io: document.getElementById('ioText').value,
     stationNames: stationNames,
     timerDefaults: { phpx: timerPhpxEl ? timerPhpxEl.value : '', motion: timerMotionEl ? timerMotionEl.value : '' },
+    actuatorOverrides: actuatorOverrides,
     motionSequences: motionSequences,
     conditionDefs: conditionDefs
   }, null, 2);
@@ -1094,6 +1159,8 @@ function importProjectJSON(jsonText) {
   Object.keys(parsed.stationNames || {}).forEach(function (k) { stationNames[k] = String(parsed.stationNames[k] || '').trim(); });
   if (timerPhpxEl) timerPhpxEl.value = (parsed.timerDefaults && parsed.timerDefaults.phpx) || '';
   if (timerMotionEl) timerMotionEl.value = (parsed.timerDefaults && parsed.timerDefaults.motion) || '';
+  actuatorOverrides = {};
+  Object.keys(parsed.actuatorOverrides || {}).forEach(function (k) { actuatorOverrides[k] = parsed.actuatorOverrides[k]; });
 
   var errs = [];
   Object.keys(parsed.motionSequences || {}).forEach(function (st) {
@@ -1105,7 +1172,7 @@ function importProjectJSON(jsonText) {
     if (err) errs.push('conditionDefs.' + st + ': ' + err);
   });
 
-  renderMotionPanel(); renderConditionPanel(); renderStationNamesPanel();
+  renderMotionPanel(); renderConditionPanel(); renderStationNamesPanel(); renderConfirmModePanel();
   regenerate();
   return errs.length ? errs.join('\\n') : null;
 }
@@ -1123,6 +1190,7 @@ function runFullPipeline() {
   renderMotionPanel();
   renderConditionPanel();
   renderStationNamesPanel();
+  renderConfirmModePanel();
 
   try {
     var msg = { payload: document.getElementById('ioText').value };
@@ -1140,6 +1208,7 @@ function runFullPipeline() {
   renderMotionPanel();
   renderConditionPanel();
   renderStationNamesPanel();
+  renderConfirmModePanel();
   regenerate();
 }
 
@@ -1151,6 +1220,7 @@ warnBoxEl = document.getElementById('warnBox');
 motionPanelEl = document.getElementById('motionPanel');
 conditionPanelEl = document.getElementById('conditionPanel');
 stationNamesPanelEl = document.getElementById('stationNamesPanel');
+confirmModePanelEl = document.getElementById('confirmModePanel');
 timerPhpxEl = document.getElementById('timerPhpx');
 timerMotionEl = document.getElementById('timerMotion');
 timerPhpxEl.addEventListener('change', function () { if (lastSplitMsg) regenerate(); });

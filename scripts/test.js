@@ -307,5 +307,49 @@ console.log(typoOk ? 'CONDITION REMAP OK: trigger jadi LB300/LB301 (bukan LB401 
                    : 'CONDITION REMAP GAGAL: trigger mutual-exclusion masih coil-nya sendiri atau gak kedeklarasi');
 if(!typoOk) console.log('  kontak di output gate LB400:', mxHead.join(', '));
 
+// Skenario 5: SRV_LS/SRV_CMD (servo N-posisi, gak dipair kayak actus - tiap command aktuator mandiri,
+// dicocokin ke SRV_LS paling mirip komennya) + actuatorOverrides (openloop skip warning+fault-check
+// buat aktuator yang sengaja gak ada sensor kayak DANDORI LOCK/PART FEEDER). IO list sendiri (bukan
+// IO shared di atas) biar gak ganggu skenario lain.
+console.log('\n=== Skenario servo (SRV_LS/SRV_CMD) + actuatorOverrides (openloop) ===');
+const SRV_IO = `CH0_00\tPB\tIN\tNOT EMERGENCY STOP
+CH3_04\tAS\tIN\tST2 STOPPER-1 UP
+CH3_05\tAS\tIN\tST2 STOPPER-1 DOWN
+CH5_04\tCR\tOUT\tST2  STOPPER-1 UP
+CH5_05\tCR\tOUT\tST2  STOPPER-1 DOWN
+CH6_02\tSOL\tOUT\tST1 DANDORI  TYPE-1 LOCK
+CH6_03\tSOL\tOUT\tST1 DANDORI  TYPE-1 UNLOCK
+CH6_07\tCR\tOUT\tST1 PART FEEDER-1 START
+CH6_08\tCR\tOUT\tST1 PART FEEDER-2 START
+VS0_00\tSRV_LS\tIN\tST2 SERVO LEFT
+VS0_01\tSRV_LS\tIN\tST2 SERVO RIGHT
+VS0_02\tSRV_LS\tIN\tST2 SERVO CENTER
+VS0_03\tSRV_CMD\tOUT\tST2 SERVO CENTER
+VS0_04\tSRV_CMD\tOUT\tST2 SERVO LEFT
+VS0_05\tSRV_CMD\tOUT\tST2 SERVO RIGHT`;
+const srvCtx = {
+    actuatorOverrides: { 'SOL_ST1_DDR_TYP1_LCK': {mode:'openloop'}, 'CR_ST1_PART_FDR1_STR': {mode:'openloop'} },
+    motionSequences: { ST2: [{ condition:'', nodes:[{id:'n1',sol:'SRV_ST2_SRV_LFT',after:[],join:'AND'}] }] },
+};
+const srvFlow = {get:k=>srvCtx[k], set:(k,v)=>srvCtx[k]=v};
+let sm=run('s_parse',{payload:SRV_IO},srvFlow); sm=run('s_name',sm,srvFlow);
+const sv=run('s_val',sm,srvFlow); if(sv[1]){ console.log('VALIDATE ERR:',sv[1].payload); process.exit(1); }
+const ssp=run('s_split',sv[0],srvFlow); console.log('SPLIT:',ssp.summary);
+const sr=run('s_all',ssp,srvFlow);
+console.log(sr.payload.stats);
+if(sr.payload.warnings) console.log('WARN:\n'+sr.payload.warnings);
+const okSrv = validate('servo', sr.payload.files);
+const st2s = sr.payload.files.find(f=>f.name==='Prg011_ST2.xml');
+const noOddWarn = !/solenoid count is odd/.test(sr.payload.warnings||'');
+const noOpenloopWarn = !/DANDORI.*motion fault skipped/.test(sr.payload.warnings||'') && !/FEEDER.*motion fault skipped/.test(sr.payload.warnings||'');
+const allThreeServoIndividual = (st2s.xml.match(/Individual command, ST2 SERVO/g)||[]).length === 3;
+const leftFaultRung = st2s.xml.match(/<Rung[^>]*>(?:(?!<\/Rung>)[\s\S])*?SRV_ST2_SRV_LFT[\s\S]*?<\/Rung>/);
+const leftMatchedCorrectLs = !!leftFaultRung && /LS_ST2_SRV_LFT/.test(leftFaultRung[0]) && !/LS_ST2_SRV_RGT/.test(leftFaultRung[0]) && !/LS_ST2_SRV_CTR/.test(leftFaultRung[0]);
+const servoMotionStepOk = /Motion 1:/.test(st2s.xml) && !/unknown solenoid/.test(sr.payload.warnings||'');
+const servoAutoOutputOk = (st2s.xml.match(/operand="SRV_ST2_SRV_(LFT|RGT|CTR)"/g)||[]).length >= 3;
+const servoOk = okSrv && noOddWarn && noOpenloopWarn && allThreeServoIndividual && leftMatchedCorrectLs && servoMotionStepOk && servoAutoOutputOk;
+console.log(servoOk ? 'SERVO OK: 3 command mandiri (gak ke-drop pairUp ganjil), auto-match LS bener, openloop suppress warning'
+                     : 'SERVO GAGAL: cek servo/override di atas');
+
 if(!okStub || !noMfFull || !sealAOk || !sealBOk || !okSeeded || !usedRealSequence
-   || !okSeededCond || !usedConditionDefs || !okSeededTypo || !typoOk) process.exit(1);
+   || !okSeededCond || !usedConditionDefs || !okSeededTypo || !typoOk || !servoOk) process.exit(1);

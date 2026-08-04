@@ -54,18 +54,48 @@ di sini, berlaku buat SEMUA station - format harus persis `T#<angka><unit>`
 warning (nilainya ditempel langsung jadi XML attribute tanpa escape, jadi
 divalidasi ketat).
 
+### Aktuator servo N-posisi (`SRV_LS`/`SRV_CMD`)
+
+Buat aktuator yang bukan silinder FWD/BWD dua-posisi (mis. servo axis
+3-posisi LEFT/RIGHT/CENTER) - dua jenis IO baru: `SRV_LS` (input, limit
+switch/feedback per posisi) dan `SRV_CMD` (output, command per posisi).
+Beda dari silinder biasa: tiap `SRV_CMD` itu **aktuator mandiri satu-satu**
+(gak lewat `pairUp` dua-dua kayak CR/SOL - kalau jumlahnya ganjil, yang
+sisa bakal DI-DROP diam-diam sama pairUp, ini yang bikin salah satu posisi
+gak keliatan sama sekali di section Individual sebelumnya). Tiap `SRV_CMD`
+otomatis dicocokin ke `SRV_LS` yang komennya PALING mirip (skor tertinggi
+menang - butuh presisi karena kandidat kayak LEFT/RIGHT/CENTER biasanya
+banyak kata sama, cuma beda satu kata arah/posisi). Hasilnya bisa dipakai
+di Motion Sequence persis kayak solenoid biasa (`sol` = nama `SRV_CMD`-nya),
+dapat motion-fault detection satu-sisi (bukan dual-sensor-fault kayak
+silinder, gak ada exclusivity dua-state buat dicek), dan tombol jog sendiri
+di Individual (bukan pasangan M/R - "arah" servo itu pilihan posisi, bukan
+gerak dua arah).
+
+### Confirm Mode per aktuator (opsional)
+
+Panel di bawah nama station - buat tiap output CR/SOL/SRV_CMD, pilih:
+**Auto** (default, pencocokan sensor otomatis kayak biasa), **Open-loop**
+(aktuator sengaja gak punya sensor by design - mis. DANDORI LOCK/UNLOCK,
+PART FEEDER START - skip fault-detection DAN skip warning "no matching
+limit switch" sama sekali, gak makan slot MF), atau **Manual** (override
+pencocokan otomatis yang salah/low-confidence, isi sendiri nama bit
+konfirmasinya). Aktuator Open-loop gak bisa dipakai di Motion Sequence
+(TR0 cmd+confirm butuh bit konfirmasi buat lanjut ke step berikutnya).
+
 ### Project JSON (simpan/pulihkan semua sekaligus)
 
 Kotak "Project JSON" (di bawah Pengaturan) nyimpen/mulihin SATU project
 utuh - IO list, Motion Sequence semua station, Condition semua station,
-nama station, timer default - dalam satu blob, gak perlu export per-station
-satu-satu. Import langsung generate ulang pakai IO list di dalamnya dan
-GANTI seluruh project yang lagi kebuka. Format:
+nama station, timer default, Confirm Mode per aktuator - dalam satu blob,
+gak perlu export per-station satu-satu. Import langsung generate ulang
+pakai IO list di dalamnya dan GANTI seluruh project yang lagi kebuka. Format:
 ```json
 {
   "io": "CH0_00\tPB\tIN\t...",
   "stationNames": {"ST1": "Conveyor Feed"},
   "timerDefaults": {"phpx": "T#200MS", "motion": "T#5S"},
+  "actuatorOverrides": {"SOL_ST1_DDR_TYP1_LCK": {"mode": "openloop"}},
   "motionSequences": {"ST1": [...]},
   "conditionDefs": {"ST1": [...]}
 }
@@ -273,11 +303,11 @@ Terbalik akan memunculkan galat
   di project Denso asli - tombol jog per step).
 - Aktuator yang gak punya alamat CH fisik (servo axis, dll) bisa dimasukin
   sebagai baris IO list "virtual" (alamat bebas asal gak bentrok, mis.
-  `VS0_00`) - jenis AS buat tiap posisi confirm, CR/SOL buat command-nya,
-  PERSIS pola pasangan cylinder biasa (`FWD`/`BWD` jadi `LEFT`/`RIGHT`, dst)
-  biar bisa masuk graph editor & `motionStep` yang sama. JANGAN taruh
-  keterangan "(virtual)" dkk di kolom komentar - itu ikut kepotong jadi
-  bagian nama simbol (genname make semua kata di komentar). Catat
+  `VS0_00`) - buat servo N-posisi (LEFT/RIGHT/CENTER dst) pakai jenis
+  `SRV_LS`/`SRV_CMD` (lihat bagian "Aktuator servo N-posisi" di atas), buat
+  silinder FWD/BWD dua-posisi biasa tetap AS/CR/SOL kayak biasa. JANGAN
+  taruh keterangan "(virtual)" dkk di kolom komentar - itu ikut kepotong
+  jadi bagian nama simbol (genname makein semua kata di komentar). Catat
   virtual-nya di luar IO list aja (dokumentasi terpisah).
 - Kalau satu nama solenoid dipakai di lebih dari satu node motion (sengaja
   atau gak), `Auto_Output` cuma nge-OR command node yang PALING TERAKHIR

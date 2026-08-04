@@ -1,5 +1,5 @@
 // Generate nama symbol dari Jenis + Komen (sama persis dengan flow CX supaya nama konsisten)
-var PRE = {PB:"PB_",CR:"CR_",LS:"LS_",SS:"SS_","2P":"P2_",PH:"PH_",PX:"PX_",PL:"PL_",BZ:"BZ_",AS:"AS_",SOL:"SOL_"};
+var PRE = {PB:"PB_",CR:"CR_",LS:"LS_",SS:"SS_","2P":"P2_",PH:"PH_",PX:"PX_",PL:"PL_",BZ:"BZ_",AS:"AS_",SOL:"SOL_",SRV_LS:"LS_",SRV_CMD:"SRV_"};
 var ABBR = {CONFIRM:"CNF",CONF:"CNF",CLOSE:"CLS",OPEN:"OPN",FORWARD:"FWD",BACKWARD:"BWD",POSITION:"POS",SENSOR:"SNR",
 WORKPIECE:"WP",WORK:"WP",PIECE:"PC",DETECT:"DET",PRESENCE:"PRS",READY:"RDY",START:"STR",STOP:"STP",EMERGENCY:"EMG",
 MASTER:"MST",BUTTON:"BTN",SWITCH:"SW",PRESSURE:"PRS",LOW:"LOW",HIGH:"HI",LEFT:"LFT",RIGHT:"RGT",FRONT:"FRN",REAR:"RER",

@@ -71,7 +71,9 @@ var AL_BLOCK = {}, MF_BLOCK = {};
     ukeys.forEach(function(k){
         var devs = groups[k];
         var asCount = pairUp(devs.filter(function(d){return d.jenis==="AS";}).sort(function(a,b){return a.row-b.row;})).length;
-        var actCount = pairUp(devs.filter(function(d){return d.io==="OUT" && (d.jenis==="CR"||d.jenis==="SOL");})).length;
+        // servo SRV_CMD itu mandiri (1 MF slot per command, gak dipair) - beda dari actus yang 1 pair = 1 slot
+        var actCount = pairUp(devs.filter(function(d){return d.io==="OUT" && (d.jenis==="CR"||d.jenis==="SOL");})).length
+                     + devs.filter(function(d){return d.io==="OUT" && d.jenis==="SRV_CMD";}).length;
         AL_BLOCK[k] = { start: alCursor+1, end: alCursor+asCount };
         alCursor += asCount;
         MF_BLOCK[k] = { start: mfCursor+1, end: mfCursor+actCount };
@@ -94,6 +96,29 @@ function buildUnit(stKey, devs){
     var solList = outputs.filter(function(d){return d.jenis==="CR"||d.jenis==="SOL";});
     var actus   = pairUp(solList);
     if(solList.length%2) warnings.push(stKey+": solenoid count is odd, last output is not paired into an actuator.");
+
+    // Servo N-posisi (SRV_CMD/SRV_LS): tiap CMD itu aktuator MANDIRI (satu output, satu feedback),
+    // BUKAN pasangan FWD/BWD dual-sensor kayak actus - gak lewat pairUp, dicocokin ke SRV_LS yang
+    // komennya PALING mirip (skor tertinggi menang, bukan skor>=2 kayak findLsc biasa - kandidat servo
+    // biasanya banyak kata sama, cuma beda 1 kata arah/posisi, jadi butuh presisi match tertinggi).
+    var srvCmds = outputs.filter(function(d){return d.jenis==="SRV_CMD";});
+    var srvLsList = inputs.filter(function(d){return d.jenis==="SRV_LS";});
+    function tokenize(d){ return (d.komen||"").toUpperCase().split(/[^A-Z0-9]+/).filter(function(w){return w.length>2;}); }
+    var srvActus = srvCmds.map(function(cmd){
+        var a1=tokenize(cmd), best=null, bestScore=-1;
+        srvLsList.forEach(function(ls){
+            var b1=tokenize(ls), m=0; a1.forEach(function(w){ if(b1.indexOf(w)>=0) m++; });
+            if(m>bestScore){ bestScore=m; best=ls; }
+        });
+        return { cmd:cmd, ls:(bestScore>0?best:null) };
+    });
+    var srvLscOf={}; srvActus.forEach(function(sa){ if(sa.ls) srvLscOf[sa.cmd.name]=sa.ls.name; });
+
+    // Override per-aktuator (disetel di panel web "Confirm mode") - openloop: sengaja gak ada sensor
+    // (mis. DANDORI LOCK, PART FEEDER START), skip fault-detection + skip warning sama sekali. manual:
+    // findLsc auto-match salah/gak yakin, user nunjuk langsung bit konfirmasinya. Key-nya nama device
+    // pertama di actus pair (sama kayak yang dipakein di pesan warning-nya).
+    var actuatorOverrides = flow.get("actuatorOverrides") || {};
 
     var ext=[],priv=[],glob=[],seen={},pseen={},nameCI={};
     // Sysmac Studio nolak 2 variable yang beda cuma di huruf besar/kecil (mis. "LB232" vs "lb232")
@@ -163,12 +188,17 @@ function buildUnit(stKey, devs){
         var x=r.clm(t,[c,r.ct(t,rail)]); r.rr([x]); S6.push(r.build());
         fltList.push(t); alN++;
     });
+    var faultTimerIdx=0;
     actus.forEach(function(a,i){
+        var ov=actuatorOverrides[a[0].name]||actuatorOverrides[a[1].name];
+        if(ov && ov.mode==="openloop") return; // sengaja gak ada sensor by design - skip diam-diam, gak makan slot MF, gak warning
         if(mfN>mfCap){ warnings.push(stKey+": MF motion-fault block full, actuator "+a[0].komen+" skipped."); return; }
-        var lscA=findLsc(a[0],asPairs), lscB=findLsc(a[1],asPairs);
+        var lscA, lscB;
+        if(ov && ov.mode==="manual" && ov.lscA && ov.lscB){ lscA=ov.lscA; lscB=ov.lscB; }
+        else { lscA=findLsc(a[0],asPairs); lscB=findLsc(a[1],asPairs); }
         if(!lscA||!lscB){ warnings.push(stKey+": no matching limit switch for actuator "+a[0].komen+", motion fault skipped."); return; }
         var cmt="Cylinder motion fault, solenoid energised but position not confirmed: "+a[0].komen+" / "+a[1].komen;
-        var mf=MF(mfN,cmt), tmr="LT"+pad(200+i,3);
+        var mf=MF(mfN,cmt), tmr="LT"+pad(200+faultTimerIdx,3); faultTimerIdx++;
         P(tmr,"TON","Motion timeout for "+a[0].komen);
         // 1 rung: (SOL_M ANDNOT LSC_M) OR (SOL_R ANDNOT LSC_R) -> TON -> MF, OR digabung langsung di pin In TON
         var r=new Rung(o++, cmt);
@@ -176,6 +206,24 @@ function buildUnit(stKey, devs){
         var c1=r.ct(lscA,r.ct(a[0].name,rail),true);
         var c2=r.ct(lscB,r.ct(a[1].name,rail),true);
         var coil=r.ton([c1,c2],T_MOTION,tmr,mf);
+        r.rr([coil]); S6.push(r.build());
+        fltList.push(mf); mfN++;
+    });
+    // Servo (srvActus): motion-fault SATU SISI (cmd energised ANDNOT confirm) - gak ada konsep "dual
+    // sensor fault" (AL) karena gak ada pasangan dua-state buat dicek exclusivity-nya kayak silinder.
+    srvActus.forEach(function(sa){
+        var ov=actuatorOverrides[sa.cmd.name];
+        if(ov && ov.mode==="openloop") return;
+        if(mfN>mfCap){ warnings.push(stKey+": MF motion-fault block full, servo command "+sa.cmd.komen+" skipped."); return; }
+        var lsc=(ov && ov.mode==="manual" && ov.lscA) ? ov.lscA : srvLscOf[sa.cmd.name];
+        if(!lsc){ warnings.push(stKey+": no matching limit switch for servo command "+sa.cmd.komen+", motion fault skipped."); return; }
+        var cmt="Servo motion fault, command energised but position not confirmed: "+sa.cmd.komen;
+        var mf=MF(mfN,cmt), tmr="LT"+pad(200+faultTimerIdx,3); faultTimerIdx++;
+        P(tmr,"TON","Motion timeout for "+sa.cmd.komen);
+        var r=new Rung(o++, cmt);
+        var rail=r.rail();
+        var c1=r.ct(lsc,r.ct(sa.cmd.name,rail),true);
+        var coil=r.ton([c1],T_MOTION,tmr,mf);
         r.rr([coil]); S6.push(r.build());
         fltList.push(mf); mfN++;
     });
@@ -272,6 +320,24 @@ function buildUnit(stKey, devs){
         cur=rr.ct(ilR,cur); cur=rr.ct("LB319",cur);
         rr.rr([rr.cl(oR,cur)]); S9.push(rr.build());
     });
+    // Servo (srvActus): 1 tombol jog per command, BUKAN pasangan M/R - "arah" servo itu PILIHAN posisi
+    // (LEFT/RIGHT/CENTER), bukan gerak dua-arah kayak silinder. Nomor Screen/actuator LANJUT dari
+    // actus (idx=actus.length+i) dan alamat LB interlock/command LANJUT dari range punya actus juga,
+    // biar gak tabrakan nama sama sekali. Ini yang bikin SEMUA posisi servo keliatan di Individual
+    // (dulu kalau SRV_CMD kepaksa lewat pairUp yang butuh genap, sisa ganjil-nya didiemin/ke-drop).
+    var indSrv=[];
+    srvActus.forEach(function(sa,i){
+        var idx=actus.length+i, pg=1+Math.floor(idx/PER_PAGE), nn=(idx%PER_PAGE)+1;
+        var pb="PB4"+SN+pg+"_"+nn+"S";
+        var il="LB"+pad(232+actus.length*2+i,3);
+        var oS="LB"+pad(340+actus.length*2+i,3);
+        G(pb,"BOOL","Individual button, "+sa.cmd.komen);
+        P(il,"BOOL","Motion interlock for "+sa.cmd.komen);
+        P(oS,"BOOL","Individual command, "+sa.cmd.komen);
+        indSrv.push(oS);
+        S9.push(series(o++,[["GSB000",false]],il,"Screen "+SN+pg+" actuator "+nn+" : "+sa.cmd.komen+" / interlock to be defined"));
+        S9.push(series(o++,[[pb,false],[il,false],["LB319",false]],oS,null));
+    });
 
     // 10. AutoRunning : unit menerima AUTO_RUN dari main lalu mengurut sendiri
     // Urutan gerak diambil dari flow.get("motionSequences")[stKey] (diisi di web UI index.html
@@ -320,6 +386,7 @@ function buildUnit(stKey, devs){
     // after.length>1 dimaterialisasi jadi 1 rung AND/OR dulu sebelum motionStep-nya.
     var variants=((flow.get("motionSequences")||{})[stKey])||[];
     var solByName={}; actus.forEach(function(a){ solByName[a[0].name]=a[0]; solByName[a[1].name]=a[1]; });
+    srvActus.forEach(function(sa){ solByName[sa.cmd.name]=sa.cmd; });
     var stepCount=0, joinN=0, varN=0, cmdBitOf={}, variantDoneBits=[];
 
     function topoSort(nodes){
@@ -426,7 +493,8 @@ function buildUnit(stKey, devs){
         nodes.forEach(function(node){
             var dev=solByName[node.sol];
             if(!dev){ warnings.push(stKey+': motion sequence references unknown solenoid "'+node.sol+'", step skipped.'); return; }
-            var lsc=findLsc(dev,asPairs);
+            var devOv=actuatorOverrides[dev.name];
+            var lsc=(devOv && devOv.mode==="manual" && devOv.lscA) ? devOv.lscA : (srvLscOf[dev.name] || findLsc(dev,asPairs));
             if(!lsc){ warnings.push(stKey+': no matching limit switch for "'+node.sol+'" in motion sequence, step skipped.'); return; }
 
             var after=(node.after||[]).filter(function(ref){
@@ -523,7 +591,17 @@ function buildUnit(stKey, devs){
             S11.push(merge2(o++,"LB"+pad(411+i*2,3),indR[i],a[1].name,null));
         });
     }
+    // Servo (srvActus): auto command (cmdBitOf dari motion sequence kalau dipakai di sana) + individual
+    // command (indSrv), digabung ke output fisik langsung - gak lewat cabang stepCount/stub actus di
+    // atas (nomor LB410+i*2 di situ udah kepakai buat step motion sequence beneran begitu srv dipakai).
+    // Kalau srv ini gak dipakai di motion sequence manapun, cmdBitOf-nya kosong = individual-only control.
+    srvActus.forEach(function(sa,i){
+        var allBits=(cmdBitOf[sa.cmd.name]||[]).concat([indSrv[i]]);
+        S11.push(allBits.length>1 ? orMany(o++, allBits, sa.cmd.name, null)
+                                   : series(o++,[[allBits[0],false]],sa.cmd.name,null));
+    });
     var used={}; actus.forEach(function(a){ used[a[0].name]=1; used[a[1].name]=1; });
+    srvActus.forEach(function(sa){ used[sa.cmd.name]=1; });
     outputs.filter(function(d){return !used[d.name];}).forEach(function(d,i){
         var ab="LB"+pad(480+i,3); P(ab,"BOOL","Automatic command, "+d.komen);
         S11.push(merge2(o++,ab,null,d.name,null));
