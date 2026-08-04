@@ -1,57 +1,77 @@
 {
   ".claude/settings.local.json": {
-    "mtime": 1785580117.4232228,
-    "ast_hash": "82376675bbb4ee978c71b147b6932fa4",
-    "semantic_hash": "82376675bbb4ee978c71b147b6932fa4"
+    "mtime": 1785818118.775355,
+    "ast_hash": "d44eb3725089c0ac8f523654fdd4b214",
+    "semantic_hash": ""
   },
   "js/gen_all.js": {
-    "mtime": 1785697549.52479,
-    "ast_hash": "128276d9655387525a7832b086a5f6af",
-    "semantic_hash": "128276d9655387525a7832b086a5f6af"
+    "mtime": 1785818274.1903012,
+    "ast_hash": "a468bbdc02e26c451afec2803b3b5ca2",
+    "semantic_hash": ""
   },
   "js/genname.js": {
-    "mtime": 1785579388.2259364,
-    "ast_hash": "1e7d45393b900cccaea63b1d3d028e8f",
-    "semantic_hash": "1e7d45393b900cccaea63b1d3d028e8f"
+    "mtime": 1785806665.7877495,
+    "ast_hash": "967192616348387a5deabb7ae597ba8e",
+    "semantic_hash": ""
   },
   "js/lib.js": {
-    "mtime": 1785689949.049231,
-    "ast_hash": "a9fee54b3eadc4212bbb9f0afa37bf46",
-    "semantic_hash": "a9fee54b3eadc4212bbb9f0afa37bf46"
+    "mtime": 1785817321.253127,
+    "ast_hash": "2aa337a37ab3e081fed00605180de3bd",
+    "semantic_hash": ""
   },
   "js/parse.js": {
-    "mtime": 1785579388.255874,
-    "ast_hash": "9646a2734d44cdb47ae3586bd90fb46b",
-    "semantic_hash": "9646a2734d44cdb47ae3586bd90fb46b"
+    "mtime": 1785806665.7887475,
+    "ast_hash": "708e652da39cca7e0faea8bbfaf3bd35",
+    "semantic_hash": ""
   },
   "js/split.js": {
-    "mtime": 1785579388.247301,
-    "ast_hash": "eda66dc10bdc492a293857f0207156d0",
-    "semantic_hash": "eda66dc10bdc492a293857f0207156d0"
+    "mtime": 1785806665.7897472,
+    "ast_hash": "84c55239f38af5f4b1cd6eb5ac3f654d",
+    "semantic_hash": ""
   },
   "js/validate.js": {
-    "mtime": 1785579388.2360272,
-    "ast_hash": "6fe42f72be6903feab5a87c6acc5f10d",
-    "semantic_hash": "6fe42f72be6903feab5a87c6acc5f10d"
+    "mtime": 1785806665.7907467,
+    "ast_hash": "ee4598dad94df5ead6b90afa98bf4b92",
+    "semantic_hash": ""
   },
   "outputs/sysmac-program-generator-flow.json": {
-    "mtime": 1785697554.937883,
-    "ast_hash": "c00a691ab39365ad30e9d7c4e4bf87bf",
-    "semantic_hash": "c00a691ab39365ad30e9d7c4e4bf87bf"
+    "mtime": 1785818312.6323423,
+    "ast_hash": "b44ecdbbfa7418896666b6336eed7372",
+    "semantic_hash": ""
   },
   "scripts/build.py": {
-    "mtime": 1785685513.9204452,
+    "mtime": 1785806665.8124552,
     "ast_hash": "08764590ed2d9e6ca44d4d995ef685c9",
     "semantic_hash": "08764590ed2d9e6ca44d4d995ef685c9"
   },
   "scripts/build_html.py": {
-    "mtime": 1785696593.716827,
-    "ast_hash": "6ab233e0ad3f7dc4ea406bde33c17b23",
-    "semantic_hash": "6ab233e0ad3f7dc4ea406bde33c17b23"
+    "mtime": 1785818436.6182446,
+    "ast_hash": "8c14c5a5ace4940cc4a1389f7aad98b8",
+    "semantic_hash": ""
   },
   "scripts/test.js": {
-    "mtime": 1785690383.5157602,
-    "ast_hash": "1251814a96495d3c80750798960b7531",
-    "semantic_hash": "1251814a96495d3c80750798960b7531"
+    "mtime": 1785818403.2918735,
+    "ast_hash": "fb46c11414963e9dc6601185139915af",
+    "semantic_hash": ""
+  },
+  "README.md": {
+    "mtime": 1785806665.768649,
+    "ast_hash": "3c6555595350ad29c921cd8cda055441",
+    "semantic_hash": ""
+  },
+  "index.html": {
+    "mtime": 1785818443.2573304,
+    "ast_hash": "23e218fa1f126d109daa34f224f26a46",
+    "semantic_hash": ""
+  },
+  "image.png": {
+    "mtime": 1785815685.0401742,
+    "ast_hash": "c7234a58113d6604eb3fb7000d5f5f37",
+    "semantic_hash": ""
+  },
+  "imagertarget.png": {
+    "mtime": 1785811929.6842449,
+    "ast_hash": "5402f498b2469cf5ae3915630608cea1",
+    "semantic_hash": ""
   }
 }

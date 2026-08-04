@@ -2,3 +2,5 @@ node_modules/
 __pycache__/
 *.pyc
 /tmp/
+# snapshot graph lama yang dibikin `graphify update` tiap kali rebuild - riwayatnya udah ada di git
+graphify-out/20*/
