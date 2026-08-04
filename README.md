@@ -146,10 +146,17 @@ sudah dideklarasi (Condition section, sensor) - kalau bit itu gak match id
 node manapun di JSON-nya, node "condition" otomatis dibikin biar kegambar.
 Import mengganti SELURUH varian station itu; Export nulis balik state
 sekarang ke textarea (bisa disalin/disimpan). Posisi node hasil import
-dihitung otomatis dari KEDALAMAN dependency (`after`), bukan urutan array
-mentah di JSON - node root sejajar di baris atas, tiap hop `after` turun
-satu baris, forks kesebar ke samping - jadi tetap kebaca top-to-bottom
-walau urutan node di JSON-nya acak.
+dihitung dari **urutan topologis** (dependency selalu di-array sebelum
+yang gantung ke dia) dipasang ke **grid tetap 4 kolom** (index ke-N =
+kolom `N%4`, baris `floor(N/4)`) - bukan urutan array mentah JSON, dan
+bukan tata-letak dinamis per-kedalaman (percobaan sebelumnya, kerasa gak
+absolut karena kolom bisa geser ngikutin bentuk graph) - jadi posisinya
+selalu sama tiap import JSON yang sama persis, dan tetap kebaca top-to-
+bottom biar urutan JSON-nya acak. Graph juga selalu gambar node **START**
+(nyambung ke tiap node yang gak nunjuk node lain - awal sequence) dan
+**FINISH** (disambungin DARI tiap node yang gak ditunjuk node lain manapun
+- akhir sequence) di atas dan bawah - murni visual, dihitung ulang tiap
+render, gak kesimpen di JSON/state, gak bisa diklik/digeser/dihapus.
 
 `comment` (opsional, boleh kosong) - keterangan bebas per varian ("TYPE 1 -
 lane 1&2", dst), muncul di kotak "Comment" panel UI DAN sebagai teks comment

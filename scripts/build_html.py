@@ -88,6 +88,8 @@ HTML = '''<!doctype html>
   .gnode-rect{fill:var(--accent);stroke:var(--accent-dk);stroke-width:1;cursor:move}
   .gnode-rect.condition{fill:#7c3aed;stroke:#5b21b6;stroke-dasharray:4,2}
   .gnode-rect.selected{stroke:#f1c40f;stroke-width:3}
+  .gnode-rect.anchor{fill:#37424f;stroke:#232a33;cursor:default;rx:14}
+  .gedge-line.anchor{stroke:#9aa3ad;stroke-dasharray:3,2}
   .gnode-text{fill:#fff;font-size:9px;font-family:Consolas,monospace}
   .gnode-del{fill:#b91c1c;cursor:pointer}
   .gnode-del-text{fill:#fff;font-size:9px;text-anchor:middle;font-family:Consolas,monospace}
@@ -402,29 +404,26 @@ function variantsToJSON(stKey) {
 // gak kebaca step-nya). Sekarang posisi dihitung dari KEDALAMAN topologi (depth = berapa hop `after`
 // dari root) buat Y, dan kolom paralel di depth yang sama buat X - jadi hasil import selalu kegambar
 // top-to-bottom ngikutin urutan gerak beneran, forks kesebar ke samping, gak peduli urutan di JSON-nya.
+// Grid MURNI berdasarkan urutan topologis (DFS postorder - dependency SELALU kegambar sebelum yang
+// gantung ke dia), posisi tiap node = index-nya doang di urutan itu, wrap 4 kolom - PERSIS rumus grid
+// lama (idx-based), cuma urutannya sekarang bukan urutan array JSON mentah lagi. Ini SENGAJA gak
+// makein "kedalaman"/kolom-paralel dinamis (percobaan sebelumnya) - itu bikin posisi kerasa gak
+// absolut karena kolom tiap depth bisa geser tergantung graph shape; grid index-based ini simpel,
+// satu-satunya input yang nentuin posisi ya urutan topologis-nya, gak ada faktor lain.
 function layoutVariantNodes(nodes) {
   var byId = {}; nodes.forEach(function (n) { byId[n.id] = n; });
-  var depthCache = {}, visiting = {};
-  function depthOf(id) {
-    if (depthCache[id] !== undefined) return depthCache[id];
-    if (visiting[id]) return 0; // cycle guard - gak seharusnya kejadian dari JSON import, jaga-jaga
-    visiting[id] = true;
-    var n = byId[id], d = 0;
-    if (n && n.after && n.after.length) {
-      var maxD = -1;
-      n.after.forEach(function (ref) { if (byId[ref]) maxD = Math.max(maxD, depthOf(ref)); });
-      d = maxD + 1;
-    }
-    visiting[id] = false;
-    depthCache[id] = d;
-    return d;
+  var visited = {}, order = [];
+  function visit(n) {
+    if (visited[n.id]) return;
+    visited[n.id] = true;
+    (n.after || []).forEach(function (ref) { if (byId[ref]) visit(byId[ref]); });
+    order.push(n);
   }
-  var col = {};
-  nodes.forEach(function (n) {
-    var d = depthOf(n.id);
-    var c = col[d] || 0; col[d] = c + 1;
-    n.x = 20 + c * 145;
-    n.y = 20 + d * 90;
+  nodes.forEach(visit);
+  var COLS = 4;
+  order.forEach(function (n, idx) {
+    n.x = 20 + (idx % COLS) * 145;
+    n.y = 20 + Math.floor(idx / COLS) * 90;
   });
 }
 
@@ -634,13 +633,47 @@ function renderVariantGraph(stKey, vIdx) {
   var maxY = 40;
   nodes.forEach(function (n) { if (n.y + NODE_H > maxY) maxY = n.y + NODE_H; });
 
-  var svg = svgEl('svg', { class: 'graph-canvas', width: 620, height: Math.max(160, maxY + 40) });
+  // Node "Start"/"Finish" - MURNI visual, dihitung tiap render dari graph SEKARANG, gak disimpen di
+  // state/JSON, gak bisa diklik/geser/hapus. Start nyambung ke tiap node motion yang gak nunjuk node
+  // motion lain (root), Finish nyambung DARI tiap node motion yang gak ada yang nunjuk dia (leaf) -
+  // biar kelihatan jelas dari mana mulai dan kemana berakhirnya sequence-nya.
+  var nodeIds = {}; nodes.forEach(function (n) { nodeIds[n.id] = true; });
+  var referencedIds = {};
+  nodes.forEach(function (n) { (n.after || []).forEach(function (ref) { if (nodeIds[ref]) referencedIds[ref] = true; }); });
+  var roots = nodes.filter(function (n) { return n.type === 'motion' && !(n.after || []).some(function (ref) { return nodeIds[ref]; }); });
+  var leaves = nodes.filter(function (n) { return n.type === 'motion' && !referencedIds[n.id]; });
+  var ANCHOR_Y_TOP = -70, ANCHOR_Y_BOTTOM = maxY + 30;
+  var startAnchor = { x: 20, y: ANCHOR_Y_TOP }, finishAnchor = { x: 20, y: ANCHOR_Y_BOTTOM };
+
+  var svg = svgEl('svg', {
+    class: 'graph-canvas', width: 620, height: Math.max(160, (ANCHOR_Y_BOTTOM + NODE_H + 90) - ANCHOR_Y_TOP),
+    viewBox: (0) + ' ' + (ANCHOR_Y_TOP - 20) + ' ' + 620 + ' ' + ((ANCHOR_Y_BOTTOM + NODE_H + 90) - ANCHOR_Y_TOP)
+  });
   var markerId = 'arrow-' + stKey + '-' + vIdx;
   var defs = svgEl('defs');
   var marker = svgEl('marker', { id: markerId, markerWidth: 8, markerHeight: 8, refX: 7, refY: 4, orient: 'auto' });
   marker.appendChild(svgEl('path', { d: 'M0,0 L8,4 L0,8 Z', fill: '#666' }));
   defs.appendChild(marker);
   svg.appendChild(defs);
+
+  function anchorEdge(from, to) {
+    svg.appendChild(svgEl('line', {
+      class: 'gedge-line anchor', x1: from.x + NODE_W, y1: from.y + NODE_H / 2, x2: to.x, y2: to.y + NODE_H / 2,
+      'marker-end': 'url(#' + markerId + ')'
+    }));
+  }
+  function anchorNode(pos, label) {
+    var g = svgEl('g', { transform: 'translate(' + pos.x + ',' + pos.y + ')' });
+    g.appendChild(svgEl('rect', { class: 'gnode-rect anchor', width: NODE_W, height: NODE_H, rx: 14 }));
+    var t = svgEl('text', { class: 'gnode-text', x: NODE_W / 2, y: NODE_H / 2 + 3, 'text-anchor': 'middle' });
+    t.textContent = label;
+    g.appendChild(t);
+    svg.appendChild(g);
+  }
+  (roots.length ? roots : nodes.filter(function (n) { return n.type === 'motion'; })).forEach(function (n) { anchorEdge(startAnchor, n); });
+  anchorNode(startAnchor, 'START');
+  leaves.forEach(function (n) { anchorEdge(n, finishAnchor); });
+  anchorNode(finishAnchor, 'FINISH');
 
   nodes.forEach(function (n) {
     if (n.type !== 'motion') return;
