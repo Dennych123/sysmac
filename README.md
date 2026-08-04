@@ -1,7 +1,6 @@
 # sysmac-program-generator
 
-Generator program Omron Sysmac Studio (IEC 61131-10 XML) dari IO list,
-mengikuti standar pemrograman terstruktur PT. Denso Indonesia.
+
 Dipaketkan sebagai `index.html` standalone (tanpa Node-RED) dan sebagai
 flow Node-RED dashboard.
 
