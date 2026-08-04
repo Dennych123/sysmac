@@ -145,7 +145,11 @@ ke `gen_all.js`:
 sudah dideklarasi (Condition section, sensor) - kalau bit itu gak match id
 node manapun di JSON-nya, node "condition" otomatis dibikin biar kegambar.
 Import mengganti SELURUH varian station itu; Export nulis balik state
-sekarang ke textarea (bisa disalin/disimpan).
+sekarang ke textarea (bisa disalin/disimpan). Posisi node hasil import
+dihitung otomatis dari KEDALAMAN dependency (`after`), bukan urutan array
+mentah di JSON - node root sejajar di baris atas, tiap hop `after` turun
+satu baris, forks kesebar ke samping - jadi tetap kebaca top-to-bottom
+walau urutan node di JSON-nya acak.
 
 `comment` (opsional, boleh kosong) - keterangan bebas per varian ("TYPE 1 -
 lane 1&2", dst), muncul di kotak "Comment" panel UI DAN sebagai teks comment
@@ -194,10 +198,12 @@ selesai/CYCLE_STOP). Root node varian itu jadi nempel ke bit LATCH-nya,
 bukan hasil sample mentah - jadi kalau condition-nya flicker di tengah
 cycle, motion yang lagi jalan gak ikut keputus. Varian tanpa Condition
 tetap ke `LB400` langsung (gak ikut mutual exclusion). Semua varian nge-OR
-ke `LB499` "1 cycle motion complete" bareng. Station yang gak disentuh di
-panel ini tetap dapat kerangka placeholder biasa (lihat `Batasan`). Import
-JSON nolak `"join"` yang bukan persis `"AND"`/`"OR"` (mis. typo `"or"`) -
-error, bukan kesilent-defaultkan ke AND.
+ke `LB499` "1 cycle motion complete" bareng - rung `LB499` ini ditaruh
+DI ANTARA rung LB400/mutex-group (LB401-LB40x) dan motion step pertama
+(LB410), bukan di paling atas atau paling bawah section. Station yang gak
+disentuh di panel ini tetap dapat kerangka placeholder biasa (lihat
+`Batasan`). Import JSON nolak `"join"` yang bukan persis `"AND"`/`"OR"`
+(mis. typo `"or"`) - error, bukan kesilent-defaultkan ke AND.
 
 Pencocokan solenoid <-> limit switch (`findLsc`, dipakai buat motion fault
 dan `motionStep`) dicatat di `msg.payload.lscAudit` (satu baris per match,

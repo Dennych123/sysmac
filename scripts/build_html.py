@@ -397,6 +397,37 @@ function variantsToJSON(stKey) {
   return JSON.stringify(variants, null, 2);
 }
 
+// Posisi node hasil import JSON dulu ngikutin urutan array MENTAH di JSON-nya (grid 4 kolom) - kalau
+// urutan array gak ngikutin urutan dependency (`after`), gambarnya berantakan (panah nyilang-nyilang,
+// gak kebaca step-nya). Sekarang posisi dihitung dari KEDALAMAN topologi (depth = berapa hop `after`
+// dari root) buat Y, dan kolom paralel di depth yang sama buat X - jadi hasil import selalu kegambar
+// top-to-bottom ngikutin urutan gerak beneran, forks kesebar ke samping, gak peduli urutan di JSON-nya.
+function layoutVariantNodes(nodes) {
+  var byId = {}; nodes.forEach(function (n) { byId[n.id] = n; });
+  var depthCache = {}, visiting = {};
+  function depthOf(id) {
+    if (depthCache[id] !== undefined) return depthCache[id];
+    if (visiting[id]) return 0; // cycle guard - gak seharusnya kejadian dari JSON import, jaga-jaga
+    visiting[id] = true;
+    var n = byId[id], d = 0;
+    if (n && n.after && n.after.length) {
+      var maxD = -1;
+      n.after.forEach(function (ref) { if (byId[ref]) maxD = Math.max(maxD, depthOf(ref)); });
+      d = maxD + 1;
+    }
+    visiting[id] = false;
+    depthCache[id] = d;
+    return d;
+  }
+  var col = {};
+  nodes.forEach(function (n) {
+    var d = depthOf(n.id);
+    var c = col[d] || 0; col[d] = c + 1;
+    n.x = 20 + c * 145;
+    n.y = 20 + d * 90;
+  });
+}
+
 function importSequenceJSON(stKey, jsonText) {
   var parsed;
   try { parsed = JSON.parse(jsonText); }
@@ -408,18 +439,16 @@ function importSequenceJSON(stKey, jsonText) {
     var raw = parsed[vi] || {};
     if (!Array.isArray(raw.nodes)) return 'Varian ke-' + (vi + 1) + ' butuh field "nodes" (array)';
     var v = { condition: String(raw.condition || '').trim(), comment: String(raw.comment || '').trim(), nodes: [] };
-    var idx = 0;
     for (var ni = 0; ni < raw.nodes.length; ni++) {
       var n = raw.nodes[ni] || {};
       if (!n.id || !n.sol) return 'Varian ke-' + (vi + 1) + ' node ke-' + (ni + 1) + ' butuh "id" dan "sol"';
       if (n.join !== undefined && n.join !== 'AND' && n.join !== 'OR') {
         return 'Varian ke-' + (vi + 1) + ' node "' + n.id + '": "join" harus persis "AND" atau "OR" (ketemu ' + JSON.stringify(n.join) + ')';
       }
-      var pos = { x: 20 + (idx % 4) * 145, y: 20 + Math.floor(idx / 4) * 75 }; idx++;
       v.nodes.push({
         id: String(n.id), type: 'motion', sol: String(n.sol),
         after: Array.isArray(n.after) ? n.after.map(String) : [],
-        join: n.join === 'OR' ? 'OR' : 'AND', x: pos.x, y: pos.y
+        join: n.join === 'OR' ? 'OR' : 'AND', x: 0, y: 0
       });
     }
     // auto-bikin node "condition" buat tiap `after` yang gak match id node motion manapun di varian ini
@@ -428,9 +457,9 @@ function importSequenceJSON(stKey, jsonText) {
     v.nodes.forEach(function (n) { n.after.forEach(function (ref) { if (!motionIds[ref] && extraBits.indexOf(ref) < 0) extraBits.push(ref); }); });
     var cc = (raw.conditionComments && typeof raw.conditionComments === 'object') ? raw.conditionComments : {};
     extraBits.forEach(function (bit) {
-      var pos = { x: 20 + (idx % 4) * 145, y: 20 + Math.floor(idx / 4) * 75 }; idx++;
-      v.nodes.push({ id: bit, type: 'condition', bit: bit, comment: String(cc[bit] || '').trim(), x: pos.x, y: pos.y });
+      v.nodes.push({ id: bit, type: 'condition', bit: bit, comment: String(cc[bit] || '').trim(), x: 0, y: 0 });
     });
+    layoutVariantNodes(v.nodes);
     newVariants.push(v);
   }
 

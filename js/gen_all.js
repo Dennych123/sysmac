@@ -383,6 +383,9 @@ function buildUnit(stKey, devs){
         S10.push(mutexGroup(o++,["LB400",false],mxBranches,
             "Unit motion condition running (mutual exclusion): "+condTxts));
     }
+    // Titik sisip LB499 diinget di sini: setelah rung LB400/mutex-group (LB401..LB40x) kelar, SEBELUM
+    // motion step pertama (LB410) - bukan paling atas section, bukan di ujung akhir.
+    var lb499InsertAt=S10.length;
 
     variants.forEach(function(variant,vIdx){
         var nodes=topoSort(variant.nodes||[]);
@@ -490,11 +493,12 @@ function buildUnit(stKey, devs){
         S10.push(series(o++,[["LB400",false],["LB105",false]],"LB409","Motion steps to be written here using LB410 onwards, or configure a motion sequence in the web UI"));
         S10.push(series(o++,[["LB409",false]],"LB499",null));
     }
-    // LB499 dipindah ke rung PALING ATAS AutoRunning (di atas LB400) - valid, PLC scan siklik jadi
-    // rung boleh nunjuk bit yang baru di-compute rung LAIN di bawahnya (kepakein nilai scan
-    // sebelumnya). evaluationOrder di-renumber ulang 1..N ngikutin urutan array yang baru, biar
-    // urutan tampil di Sysmac Studio (yang ngikutin evaluationOrder, bukan cuma posisi di XML) bener.
-    S10.unshift.apply(S10, S10.splice(preLB499Count));
+    // LB499 dipindah ke antara rung LB400/mutex-group (LB401..) dan motion step pertama (LB410) -
+    // BUKAN paling atas section. Valid, PLC scan siklik jadi rung boleh nunjuk bit yang baru
+    // di-compute rung LAIN di bawahnya (kepakein nilai scan sebelumnya). evaluationOrder di-renumber
+    // ulang 1..N ngikutin urutan array yang baru, biar urutan tampil di Sysmac Studio (yang ngikutin
+    // evaluationOrder, bukan cuma posisi di XML) bener.
+    S10.splice.apply(S10, [lb499InsertAt, 0].concat(S10.splice(preLB499Count)));
     S10 = S10.map(function(rungXml,idx){ return rungXml.replace(/evaluationOrder="\d+"/, 'evaluationOrder="'+(idx+1)+'"'); });
 
     // 11. Auto_Output

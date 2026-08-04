@@ -234,16 +234,18 @@ const gateOrder = /operand="LB400"[\s\S]*?operand="LB300"/.test(mxRung);
 const oneRung = !/Sample condition at cycle start/.test(st1.xml);
 const sealsIntoCoil = /<LdObject xsi:type="Coil"[^>]*operand="LB401"[^>]*><ConnectionPointIn>(?:<Connection[^>]*\/>){2}<\/ConnectionPointIn>/.test(mxRung);
 // LB499 rung dipindah ke ATAS LB400 (evaluationOrder="1", dan posisinya di XML sebelum rung LB400).
+// LB499 harus DI ANTARA rung LB400/mutex-group (LB401..) dan motion step pertama (LB410) - bukan di
+// atas LB400 (request awal, ternyata salah), bukan di paling bawah (posisi lama sebelum semua ini).
 const lb499Pos = st1 ? st1.xml.indexOf('1 cycle motion complete') : -1;
-const lb400Pos = st1 ? st1.xml.indexOf('Autorun condition running: auto motion start') : -1;
-const lb499First = lb499Pos >= 0 && lb400Pos >= 0 && lb499Pos < lb400Pos;
-const lb499EvalOrder1 = /evaluationOrder="1">[\s\S]{0,300}?1 cycle motion complete/.test(st1.xml);
-console.log('LB499 rung above LB400 (position + evaluationOrder=1):', lb499First, lb499EvalOrder1);
+const gateEndPos = st1 ? Math.max(st1.xml.indexOf('Autorun condition running: auto motion start'), st1.xml.indexOf('Unit motion condition running (mutual exclusion)')) : -1;
+const firstMotionPos = st1 ? st1.xml.indexOf('Motion 1:') : -1;
+const lb499Between = lb499Pos >= 0 && gateEndPos >= 0 && firstMotionPos >= 0 && gateEndPos < lb499Pos && lb499Pos < firstMotionPos;
+console.log('LB499 rung between LB400/mutex-group and first motion step:', lb499Between);
 // Format komen: "[label] Motion N: ..." (label DULUAN, bukan "Motion N [label]: ...")
 const commentFormatOk = st1 && /\[[^\]]+\] Motion 1: /.test(st1.xml);
 console.log('Motion comment format "[label] Motion N: ...":', commentFormatOk);
 const usedRealSequence = properName && hasAllMotions && hasJoins && hasLatch && gateOrder && oneRung && sealsIntoCoil &&
-  lb499First && lb499EvalOrder1 && commentFormatOk && !/Motion steps to be written here/.test(st1.xml);
+  lb499Between && commentFormatOk && !/Motion steps to be written here/.test(st1.xml);
 console.log(usedRealSequence ? 'MOTION SEQUENCE OK: ST1 pakai 2 varian (fork+AND+OR+condition select-latch), bukan stub'
                               : 'MOTION SEQUENCE GAGAL: ST1 masih stub atau graph gak lengkap kepakai');
 
