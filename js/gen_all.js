@@ -47,6 +47,9 @@ function MF(n,cmt){ var t="MF["+n+"]"; if(cmt) ARRAY_ELEMENTS[t]=cmt; return t; 
 // station lain), biar konsisten satu ladder gak setengah-setengah ada nama setengah cuma "ST1".
 var stationNamesMap = flow.get("stationNames") || {};
 function labelOf(k){ var n=(stationNamesMap[k]||"").trim(); return k+(n?(" "+n):""); }
+// Sysmac Program name gak boleh ada spasi (ganti underscore), cuma alfanumerik+underscore aman -
+// dipakai buat akhiran nama Program/ContentHeader DAN nama file download-nya (Prg010_ST1_ConveyorFeed).
+function sanitizeIdent(s){ return (s||"").trim().replace(/[^A-Za-z0-9]+/g,"_").replace(/^_+|_+$/g,""); }
 
 // urutan station dinamis: apa saja yang muncul di komen
 var ukeys = Object.keys(groups).filter(function(k){ return k!=="MAIN" && groups[k].length; })
@@ -54,7 +57,8 @@ var ukeys = Object.keys(groups).filter(function(k){ return k!=="MAIN" && groups[
 var STMAP = {};
 ukeys.forEach(function(k,i){
     var n = parseInt(k.replace(/\D/g,""),10) || (i+1);
-    STMAP[k] = { prg:"Prg"+pad(10+i,3)+"_"+k, gb:"GB"+pad(10+i,3), n:n };
+    var nameSuffix = sanitizeIdent(stationNamesMap[k]);
+    STMAP[k] = { prg:"Prg"+pad(10+i,3)+"_"+k+(nameSuffix?("_"+nameSuffix):""), gb:"GB"+pad(10+i,3), n:n };
 });
 
 // AL/MF: index 1..AL_MAIN_RESERVED buat alarm MAIN, sisanya blok per station UKURAN DINAMIS

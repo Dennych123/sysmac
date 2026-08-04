@@ -200,7 +200,7 @@ console.log((sealAOk && sealBOk) ? 'START MOTION SEAL OK: LB400_A seal masuk di 
 // Variant 2 (ST1, condition "LB300"): sequence terpisah pakai actuator lain (divider), cuma
 //   aktif kalau LB300 true - buktiin condition-gating dan multi-varian jalan bareng di 1 station.
 console.log('\n=== Skenario motion sequence multi-varian (ST1: 2 varian, fork+AND+OR) ===');
-const seeded = runPipeline({ motionSequences: { ST1: [
+const seeded = runPipeline({ stationNames: { ST1: 'Conveyor Feed' }, motionSequences: { ST1: [
     { condition: '', nodes: [
         { id:'n1', sol:'SOL_ST1_STP5_CHK',  after:[],              join:'AND' },
         { id:'n2', sol:'SOL_ST1_STP5_UCHK', after:['n1'],          join:'AND' },
@@ -220,7 +220,9 @@ const okSeeded = validate('seeded', seeded.files);
 // LB400 gerbang bareng di depan, lalu (LB300 OR seal LB401) nge-OR ke coil LB401 sendiri (varian
 // ber-condition PERTAMA = LB401, terlepas dari posisi mentahnya di array variants) - bukan rung
 // sample terpisah, bukan placeholder stub lama.
-const st1 = seeded.files.find(f=>f.name==='Prg010_ST1.xml');
+const st1 = seeded.files.find(f=>f.name==='Prg010_ST1_Conveyor_Feed.xml');
+const properName = st1 && /<Program name="Prg010_ST1_Conveyor_Feed">/.test(st1.xml) && /ST1 Conveyor Feed/.test(st1.xml);
+console.log('station name in file name + Program attr + broadcast comments:', properName);
 const hasAllMotions = st1 && [1,2,3,4,5,6,7].every(n => new RegExp('Motion '+n+'[ \\[]').test(st1.xml));
 const hasJoins = st1 && /Join \(AND\)/.test(st1.xml) && /Join \(OR\)/.test(st1.xml);
 const mxRungMatch = st1 && st1.xml.match(/<Rung[^>]*>(?:(?!<\/Rung>)[\s\S])*?Unit motion condition running \(mutual exclusion\)[\s\S]*?<\/Rung>/);
@@ -231,7 +233,7 @@ const hasLatch = /Unit motion condition running \(mutual exclusion\).*LB300/.tes
 const gateOrder = /operand="LB400"[\s\S]*?operand="LB300"/.test(mxRung);
 const oneRung = !/Sample condition at cycle start/.test(st1.xml);
 const sealsIntoCoil = /<LdObject xsi:type="Coil"[^>]*operand="LB401"[^>]*><ConnectionPointIn>(?:<Connection[^>]*\/>){2}<\/ConnectionPointIn>/.test(mxRung);
-const usedRealSequence = hasAllMotions && hasJoins && hasLatch && gateOrder && oneRung && sealsIntoCoil && !/Motion steps to be written here/.test(st1.xml);
+const usedRealSequence = properName && hasAllMotions && hasJoins && hasLatch && gateOrder && oneRung && sealsIntoCoil && !/Motion steps to be written here/.test(st1.xml);
 console.log(usedRealSequence ? 'MOTION SEQUENCE OK: ST1 pakai 2 varian (fork+AND+OR+condition select-latch), bukan stub'
                               : 'MOTION SEQUENCE GAGAL: ST1 masih stub atau graph gak lengkap kepakai');
 

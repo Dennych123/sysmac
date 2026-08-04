@@ -43,7 +43,11 @@ Conveyor Feed") - ngikut ke SEMUA komentar yang nyebut identitas station,
 bukan cuma satu tempat: `LB400_A`/`LB400_B` ("ST1 Conveyor Feed, Automatic
 motion start seal"), broadcast status ke program lain (`GB0xx_00` dkk,
 "ST1 Conveyor Feed unit at home position"), referensi ke station LAIN di
-Station_Input program masing-masing, sampai status bit di MAIN. Timer
+Station_Input program masing-masing, sampai status bit di MAIN. Nama-nya
+juga nempel ke **nama Program Sysmac-nya sendiri** dan nama file XML-nya
+(`Prg010_ST1_Conveyor_Feed`, bukan cuma `Prg010_ST1`) - spasi/karakter
+aneh di nama otomatis diganti underscore (Sysmac gak terima spasi di nama
+Program). Timer
 debounce PH/PX (`T#200MS`) dan motion-fault (`T#5S`) juga bisa disetel
 di sini, berlaku buat SEMUA station - format harus persis `T#<angka><unit>`
 (`MS`/`S`/`M`/`H`, mis. `T#150MS`), salah format dibalikin ke default +
