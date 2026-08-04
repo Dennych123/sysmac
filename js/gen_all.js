@@ -14,7 +14,7 @@ function validTimer(v, fallback, label){
     return v.toUpperCase();
 }
 var T_PHPX   = validTimer(timerDefaults.phpx, "T#200MS", "PH/PX debounce");
-var T_MOTION = validTimer(timerDefaults.motion, "T#500MS", "motion fault");
+var T_MOTION = validTimer(timerDefaults.motion, "T#5S", "motion fault");
 var ARRAY_ELEMENTS = {}; // "AL[61]" -> comment, buat baris per elemen di GlobalVariables.tsv
 
 // Nama status global mengikuti standar Denso (MSTR_RDY, bukan MSTR_READY)
@@ -42,6 +42,11 @@ function findLsc(dev,asPairs){
 function pairUp(l){ var p=[]; for(var i=0;i<l.length;i+=2){ if(l[i+1]) p.push([l[i],l[i+1]]); } return p; }
 function AL(n,cmt){ var t="AL["+n+"]"; if(cmt) ARRAY_ELEMENTS[t]=cmt; return t; }
 function MF(n,cmt){ var t="MF["+n+"]"; if(cmt) ARRAY_ELEMENTS[t]=cmt; return t; }
+// Nama station custom (opsional, disetel di panel "Pengaturan" web UI) - dipakein ke SEMUA komen yang
+// nyebut identitas station (bukan cuma LB400_A/B), termasuk broadcast status lintas-program (MAIN dan
+// station lain), biar konsisten satu ladder gak setengah-setengah ada nama setengah cuma "ST1".
+var stationNamesMap = flow.get("stationNames") || {};
+function labelOf(k){ var n=(stationNamesMap[k]||"").trim(); return k+(n?(" "+n):""); }
 
 // urutan station dinamis: apa saja yang muncul di komen
 var ukeys = Object.keys(groups).filter(function(k){ return k!=="MAIN" && groups[k].length; })
@@ -77,8 +82,7 @@ var MF_TYPE = "ARRAY[1.."+MF_SIZE+"] OF BOOL";
 // ============================================================ UNIT
 function buildUnit(stKey, devs){
     var inf=STMAP[stKey], GB=inf.gb, SN=inf.n;
-    var stName=((flow.get("stationNames")||{})[stKey]||"").trim();
-    var stLabel=stKey+(stName?(" "+stName):"");
+    var stLabel=labelOf(stKey);
     var inputs  = devs.filter(function(d){return d.io==="IN";});
     var outputs = devs.filter(function(d){return d.io==="OUT";});
     var phpx    = inputs.filter(function(d){return d.jenis==="PH"||d.jenis==="PX";});
@@ -105,8 +109,8 @@ function buildUnit(stKey, devs){
     var others = ukeys.filter(function(k){ return k!==stKey; });
     others.forEach(function(k,i){
         var g=STMAP[k].gb, lb1="LB"+pad(70+i*2,3), lb2="LB"+pad(71+i*2,3);
-        P(lb1,"BOOL",k+" reported at home position"); P(lb2,"BOOL",k+" reported cycle complete");
-        G(g+"_00","BOOL",k+" unit at home position"); G(g+"_20","BOOL",k+" automatic operation complete");
+        P(lb1,"BOOL",labelOf(k)+" reported at home position"); P(lb2,"BOOL",labelOf(k)+" reported cycle complete");
+        G(g+"_00","BOOL",labelOf(k)+" unit at home position"); G(g+"_20","BOOL",labelOf(k)+" automatic operation complete");
         S1.push(series(o++,[[g+"_00",false]],lb1, i===0?"Status exchanged between unit programs":null));
         S1.push(series(o++,[[g+"_20",false]],lb2,null));
     });
@@ -240,12 +244,12 @@ function buildUnit(stKey, devs){
         P(b,"BOOL",["Individual operation condition auxiliary","Individual operation condition",
                     "Individual cycle running","Process home return command"][i]);
     });
-    G("PB4"+SN+"0_STG","BOOL","Individual staging button");
-    G("PB004_"+pad(SN,2),"BOOL","Process home return button");
+    G("PB004_"+pad(SN,2)+"M","BOOL","Individual staging button");
+    G("PB004_"+pad(SN,2)+"R","BOOL","Process home return button");
     S9.push(series(o++,[["IND_MODE",false],["NO_FAULT",false],["MSTR_RDY",false]],"LB310","Individual operation permitted"));
     S9.push(series(o++,[["LB310",false],["LB134",false],["LB139",false]],"LB319",null));
-    S9.push(latch(o++,[["PB4"+SN+"0_STG",false]],"LB320",[["LB319",false],["LB309",false]],null));
-    S9.push(series(o++,[["PB004_"+pad(SN,2),false],["LB319",false]],"LB339","Return all actuators to home position"));
+    S9.push(latch(o++,[["PB004_"+pad(SN,2)+"M",false]],"LB320",[["LB319",false],["LB309",false]],null));
+    S9.push(series(o++,[["PB004_"+pad(SN,2)+"R",false],["LB319",false]],"LB339","Return all actuators to home position"));
     var indM=[], indR=[];
     actus.forEach(function(a,i){
         var pg=1+Math.floor(i/PER_PAGE), nn=(i%PER_PAGE)+1;
@@ -257,11 +261,11 @@ function buildUnit(stKey, devs){
         P(oM,"BOOL","Individual command, "+a[0].komen);  P(oR,"BOOL","Individual command, "+a[1].komen);
         indM.push(oM); indR.push(oR);
         S9.push(series(o++,[["GSB000",false]],ilM,"Screen "+SN+pg+" actuator "+nn+" : "+a[0].komen+" / interlock to be defined"));
-        S9.push(series(o++,[[pbM,false],[pbR,true],[ilM,false],["LB320",false]],oM,null));
+        S9.push(series(o++,[[pbM,false],[pbR,true],[ilM,false],["LB319",false]],oM,null));
         S9.push(series(o++,[["GSB000",false]],ilR,null));
         var rr=new Rung(o++,null); var rl2=rr.rail();
         var cur=rr.ctm(pbM,[rr.ct(pbR,rl2),rr.ct("LB339",rl2)],true);
-        cur=rr.ct(ilR,cur); cur=rr.ct("LB320",cur);
+        cur=rr.ct(ilR,cur); cur=rr.ct("LB319",cur);
         rr.rr([rr.cl(oR,cur)]); S9.push(rr.build());
     });
 
@@ -529,10 +533,10 @@ function buildUnit(stKey, devs){
     [["LB105","00","unit at home position"],["LB134","01","emergency stop clear"],["LB139","02","auto stop clear"],
      ["LB144","03","cycle stop clear"],["LB149","04","fault stop clear"],["LB154","05","warning clear"],
      ["LB309","06","unit motion condition established"],["LB499","20","automatic operation complete"]].forEach(function(x,i){
-        G(GB+"_"+x[1],"BOOL",stKey+" "+x[2]);
+        G(GB+"_"+x[1],"BOOL",stLabel+" "+x[2]);
         S14.push(series(o++,[[x[0],false]],GB+"_"+x[1], i===0?"Unit status broadcast to other programs":null));
     });
-    G(GB+"_09","BOOL",stKey+" unit is stopped");
+    G(GB+"_09","BOOL",stLabel+" unit is stopped");
     S14.push(series(o++,[["LB400",true]],GB+"_09",null));
 
     var secs=[sect("Station_Input",1,S1),sect("Device_Input",2,S2),sect("HMI_Input",3,S3),sect("Timers",4,S4),
@@ -558,7 +562,7 @@ function buildMain(devs){
     allDevs.forEach(function(d){ G(portName(d.address),"BOOL",d.komen); G(d.name,"BOOL",d.komen); });
     ukeys.forEach(function(k){
         var gb=STMAP[k].gb;
-        ["00","01","02","03","04","05","06","09","20"].forEach(function(b){ G(gb+"_"+b,"BOOL",k+" status bit"); });
+        ["00","01","02","03","04","05","06","09","20"].forEach(function(b){ G(gb+"_"+b,"BOOL",labelOf(k)+" status bit"); });
     });
     function has(n){ return devs.some(function(d){return d.name===n;}); }
     function req(n,l){ if(!has(n)){ warnings.push('MAIN: "'+n+'" ('+l+') not found in IO list, GSB000 used instead.'); return "GSB000"; } return n; }
@@ -572,7 +576,7 @@ function buildMain(devs){
     var S1=[],o=1;
     ukeys.forEach(function(k,i){
         var gb=STMAP[k].gb, lb="LB"+pad(70+i,3);
-        P(lb,"BOOL",k+" reported at home position");
+        P(lb,"BOOL",labelOf(k)+" reported at home position");
         S1.push(series(o++,[[gb+"_00",false]],lb, i===0?"Unit status received from station programs":null));
     });
 
@@ -769,8 +773,8 @@ ukeys.forEach(function(k){ files.push(buildUnit(k,groups[k])); });
     }
     fillRange(AL,1,AL_MAIN_RESERVED,"MAIN alarm group");
     ukeys.forEach(function(k){
-        fillRange(AL, AL_BLOCK[k].start, AL_BLOCK[k].end, k+" alarm group");
-        fillRange(MF, MF_BLOCK[k].start, MF_BLOCK[k].end, k+" motion fault group");
+        fillRange(AL, AL_BLOCK[k].start, AL_BLOCK[k].end, labelOf(k)+" alarm group");
+        fillRange(MF, MF_BLOCK[k].start, MF_BLOCK[k].end, labelOf(k)+" motion fault group");
     });
 })();
 

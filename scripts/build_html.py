@@ -133,7 +133,7 @@ HTML = '''<!doctype html>
 station (opsional) ikut ke komentar program yang di-generate (mis. <code>LB400_A</code>/<code>LB400_B</code>).</p>
 <div class="settings-row">
   <label>Timer debounce PH/PX <input id="timerPhpx" placeholder="T#200MS"></label>
-  <label>Timer motion-fault <input id="timerMotion" placeholder="T#500MS"></label>
+  <label>Timer motion-fault <input id="timerMotion" placeholder="T#5S"></label>
 </div>
 <div id="stationNamesPanel" class="stname-panel"></div>
 
@@ -141,7 +141,7 @@ station (opsional) ikut ke komentar program yang di-generate (mis. <code>LB400_A
   <summary>Project JSON (Import/Export SEMUA - IO list, Motion Sequence, Condition, nama station, timer default sekaligus)</summary>
   <p class="hint">Simpan/pulihkan seluruh kerjaan sekali tempel, gak perlu per-station. Import langsung
   jalanin Generate ulang pakai IO list di dalamnya, GANTI seluruh project yang lagi ke-buka.</p>
-  <textarea id="projectJsonTa" placeholder='{"io":"CH0_00\\tPB\\tIN\\t...","stationNames":{"ST1":"Conveyor Feed"},"timerDefaults":{"phpx":"T#200MS","motion":"T#500MS"},"motionSequences":{"ST1":[...]},"conditionDefs":{"ST1":[...]}}'></textarea>
+  <textarea id="projectJsonTa" placeholder='{"io":"CH0_00\\tPB\\tIN\\t...","stationNames":{"ST1":"Conveyor Feed"},"timerDefaults":{"phpx":"T#200MS","motion":"T#5S"},"motionSequences":{"ST1":[...]},"conditionDefs":{"ST1":[...]}}'></textarea>
   <div class="row">
     <button id="projectImportBtn" class="json-import">Import Project JSON</button>
     <button id="projectExportBtn" class="json-export">Export Project JSON</button>

@@ -39,9 +39,12 @@ secara otomatis. Jangan menyalin isi lib ke file generator, dan jangan edit
 ### Pengaturan (nama station, timer default)
 
 Setelah Generate, tiap station dapat kotak nama bebas (opsional, mis. "ST1
-Conveyor Feed") - ngikut ke komentar program yang di-generate (`LB400_A`/
-`LB400_B`: "ST1 Conveyor Feed, Automatic motion start seal"). Timer
-debounce PH/PX (`T#200MS`) dan motion-fault (`T#500MS`) juga bisa disetel
+Conveyor Feed") - ngikut ke SEMUA komentar yang nyebut identitas station,
+bukan cuma satu tempat: `LB400_A`/`LB400_B` ("ST1 Conveyor Feed, Automatic
+motion start seal"), broadcast status ke program lain (`GB0xx_00` dkk,
+"ST1 Conveyor Feed unit at home position"), referensi ke station LAIN di
+Station_Input program masing-masing, sampai status bit di MAIN. Timer
+debounce PH/PX (`T#200MS`) dan motion-fault (`T#5S`) juga bisa disetel
 di sini, berlaku buat SEMUA station - format harus persis `T#<angka><unit>`
 (`MS`/`S`/`M`/`H`, mis. `T#150MS`), salah format dibalikin ke default +
 warning (nilainya ditempel langsung jadi XML attribute tanpa escape, jadi
@@ -58,7 +61,7 @@ GANTI seluruh project yang lagi kebuka. Format:
 {
   "io": "CH0_00\tPB\tIN\t...",
   "stationNames": {"ST1": "Conveyor Feed"},
-  "timerDefaults": {"phpx": "T#200MS", "motion": "T#500MS"},
+  "timerDefaults": {"phpx": "T#200MS", "motion": "T#5S"},
   "motionSequences": {"ST1": [...]},
   "conditionDefs": {"ST1": [...]}
 }
@@ -268,7 +271,9 @@ Terbalik akan memunculkan galat
 - `HMI_Input` sengaja kosong
 - Pemasangan solenoid dengan sensor memakai kemiripan kata pada komentar
 - Penetapan port fisik tetap manual melalui I/O Map
-- Tombol staging Individual (`PB4<SN>0_STG`) masih ikutin pola lama
-  (nomor station di TENGAH nama); tombol home-return udah diganti ke
-  `PB004_<SN dua digit>` (mis. `PB004_01` buat ST1) - kalau butuh convention
-  serupa buat STG, kasih tau nomor ID-nya
+- Tombol Individual station-level: home-return = `PB004_<SN dua digit>R`
+  (mis. `PB004_01R` buat ST1), staging/motion = `PB004_<SN dua digit>M`
+  (mis. `PB004_02M` buat ST2). Kontak `LB319` (bukan `LB320`) yang jadi
+  interlock ke koil command individual tiap aktuator (`LB340`/`LB341`+);
+  `LB320` sendiri (staging latch) tetap dipakai buat gerbang `LB400` di
+  AutoRunning, gak diganti - itu bit yang beda maksud
