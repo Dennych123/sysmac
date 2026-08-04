@@ -152,11 +152,13 @@ kolom `N%4`, baris `floor(N/4)`) - bukan urutan array mentah JSON, dan
 bukan tata-letak dinamis per-kedalaman (percobaan sebelumnya, kerasa gak
 absolut karena kolom bisa geser ngikutin bentuk graph) - jadi posisinya
 selalu sama tiap import JSON yang sama persis, dan tetap kebaca top-to-
-bottom biar urutan JSON-nya acak. Graph juga selalu gambar node **START**
-(nyambung ke tiap node yang gak nunjuk node lain - awal sequence) dan
-**FINISH** (disambungin DARI tiap node yang gak ditunjuk node lain manapun
-- akhir sequence) di atas dan bawah - murni visual, dihitung ulang tiap
-render, gak kesimpen di JSON/state, gak bisa diklik/digeser/dihapus.
+bottom biar urutan JSON-nya acak. Graph juga selalu gambar node lingkaran
+kecil **START** (nyambung ke tiap node yang gak nunjuk node lain - awal
+sequence) dan **END** (disambungin DARI tiap node yang gak ditunjuk node
+lain manapun - akhir sequence) di atas dan bawah, port di ATAS/BAWAH
+lingkaran (vertikal) biar kabelnya gak numpuk sama kabel antar-node biasa
+(horizontal, port kiri/kanan) - murni visual, dihitung ulang tiap render,
+gak kesimpen di JSON/state, gak bisa diklik/digeser/dihapus.
 
 `comment` (opsional, boleh kosong) - keterangan bebas per varian ("TYPE 1 -
 lane 1&2", dst), muncul di kotak "Comment" panel UI DAN sebagai teks comment

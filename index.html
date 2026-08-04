@@ -230,6 +230,7 @@ var dragState = null;
 var selected = null;     // {stKey, vIdx, kind:'node'|'edge', id, fromId, toId}
 
 var NODE_W = 110, NODE_H = 32;
+var ANCHOR_R = 15, ANCHOR_TOP_MARGIN = 55; // Start/Finish: radius lingkaran kecil + ruang di atas row 0
 var SVG_NS = 'http://www.w3.org/2000/svg';
 
 function svgEl(tag, attrs) {
@@ -267,7 +268,7 @@ function setVariantComment(st, vIdx, text) {
 
 function nextPos(st, vIdx) {
   var idx = motionState[st][vIdx].nodes.length;
-  return { x: 20 + (idx % 4) * 145, y: 20 + Math.floor(idx / 4) * 75 };
+  return { x: 20 + (idx % 4) * 145, y: ANCHOR_TOP_MARGIN + 20 + Math.floor(idx / 4) * 75 };
 }
 
 function addMotionNode(st, vIdx, sol) {
@@ -411,7 +412,7 @@ function layoutVariantNodes(nodes) {
   var COLS = 4;
   order.forEach(function (n, idx) {
     n.x = 20 + (idx % COLS) * 145;
-    n.y = 20 + Math.floor(idx / COLS) * 90;
+    n.y = ANCHOR_TOP_MARGIN + 20 + Math.floor(idx / COLS) * 90;
   });
 }
 
@@ -624,19 +625,25 @@ function renderVariantGraph(stKey, vIdx) {
   // Node "Start"/"Finish" - MURNI visual, dihitung tiap render dari graph SEKARANG, gak disimpen di
   // state/JSON, gak bisa diklik/geser/hapus. Start nyambung ke tiap node motion yang gak nunjuk node
   // motion lain (root), Finish nyambung DARI tiap node motion yang gak ada yang nunjuk dia (leaf) -
-  // biar kelihatan jelas dari mana mulai dan kemana berakhirnya sequence-nya.
+  // biar kelihatan jelas dari mana mulai dan kemana berakhirnya sequence-nya. Lingkaran kecil (logo
+  // flowchart terminal biasa), port di ATAS/BAWAH (vertikal) - bukan kiri/kanan kayak kabel antar-node
+  // biasa (horizontal) - biar dua jenis kabel gak numpuk/nyilang di port yang sama.
   var nodeIds = {}; nodes.forEach(function (n) { nodeIds[n.id] = true; });
   var referencedIds = {};
   nodes.forEach(function (n) { (n.after || []).forEach(function (ref) { if (nodeIds[ref]) referencedIds[ref] = true; }); });
   var roots = nodes.filter(function (n) { return n.type === 'motion' && !(n.after || []).some(function (ref) { return nodeIds[ref]; }); });
   var leaves = nodes.filter(function (n) { return n.type === 'motion' && !referencedIds[n.id]; });
-  var ANCHOR_Y_TOP = -70, ANCHOR_Y_BOTTOM = maxY + 30;
-  var startAnchor = { x: 20, y: ANCHOR_Y_TOP }, finishAnchor = { x: 20, y: ANCHOR_Y_BOTTOM };
+  var fallbackTargets = roots.length ? roots : nodes.filter(function (n) { return n.type === 'motion'; });
+  var fallbackSources = leaves.length ? leaves : nodes.filter(function (n) { return n.type === 'motion'; });
+  function avgCenterX(list, fallbackX) {
+    if (!list.length) return fallbackX;
+    var sum = 0; list.forEach(function (n) { sum += n.x + NODE_W / 2; });
+    return sum / list.length;
+  }
+  var startAnchor = { x: avgCenterX(fallbackTargets, 20 + NODE_W / 2) - ANCHOR_R, y: 18 - ANCHOR_R };
+  var finishAnchor = { x: avgCenterX(fallbackSources, 20 + NODE_W / 2) - ANCHOR_R, y: maxY + 22 };
 
-  var svg = svgEl('svg', {
-    class: 'graph-canvas', width: 620, height: Math.max(160, (ANCHOR_Y_BOTTOM + NODE_H + 90) - ANCHOR_Y_TOP),
-    viewBox: (0) + ' ' + (ANCHOR_Y_TOP - 20) + ' ' + 620 + ' ' + ((ANCHOR_Y_BOTTOM + NODE_H + 90) - ANCHOR_Y_TOP)
-  });
+  var svg = svgEl('svg', { class: 'graph-canvas', width: 620, height: Math.max(160, finishAnchor.y + ANCHOR_R * 2 + 30) });
   var markerId = 'arrow-' + stKey + '-' + vIdx;
   var defs = svgEl('defs');
   var marker = svgEl('marker', { id: markerId, markerWidth: 8, markerHeight: 8, refX: 7, refY: 4, orient: 'auto' });
@@ -644,24 +651,32 @@ function renderVariantGraph(stKey, vIdx) {
   defs.appendChild(marker);
   svg.appendChild(defs);
 
-  function anchorEdge(from, to) {
+  function anchorEdgeDown(fromCx, fromCy, toNode) {
     svg.appendChild(svgEl('line', {
-      class: 'gedge-line anchor', x1: from.x + NODE_W, y1: from.y + NODE_H / 2, x2: to.x, y2: to.y + NODE_H / 2,
+      class: 'gedge-line anchor', x1: fromCx, y1: fromCy, x2: toNode.x + NODE_W / 2, y2: toNode.y,
+      'marker-end': 'url(#' + markerId + ')'
+    }));
+  }
+  function anchorEdgeUp(fromNode, toCx, toCy) {
+    svg.appendChild(svgEl('line', {
+      class: 'gedge-line anchor', x1: fromNode.x + NODE_W / 2, y1: fromNode.y + NODE_H, x2: toCx, y2: toCy,
       'marker-end': 'url(#' + markerId + ')'
     }));
   }
   function anchorNode(pos, label) {
-    var g = svgEl('g', { transform: 'translate(' + pos.x + ',' + pos.y + ')' });
-    g.appendChild(svgEl('rect', { class: 'gnode-rect anchor', width: NODE_W, height: NODE_H, rx: 14 }));
-    var t = svgEl('text', { class: 'gnode-text', x: NODE_W / 2, y: NODE_H / 2 + 3, 'text-anchor': 'middle' });
+    var cx = pos.x + ANCHOR_R, cy = pos.y + ANCHOR_R;
+    var g = svgEl('g');
+    g.appendChild(svgEl('circle', { class: 'gnode-rect anchor', cx: cx, cy: cy, r: ANCHOR_R }));
+    var t = svgEl('text', { class: 'gnode-text', x: cx, y: cy + 3, 'text-anchor': 'middle' });
     t.textContent = label;
     g.appendChild(t);
     svg.appendChild(g);
+    return { cx: cx, cy: cy };
   }
-  (roots.length ? roots : nodes.filter(function (n) { return n.type === 'motion'; })).forEach(function (n) { anchorEdge(startAnchor, n); });
-  anchorNode(startAnchor, 'START');
-  leaves.forEach(function (n) { anchorEdge(n, finishAnchor); });
-  anchorNode(finishAnchor, 'FINISH');
+  var startC = anchorNode(startAnchor, 'START');
+  fallbackTargets.forEach(function (n) { anchorEdgeDown(startC.cx, startC.cy + ANCHOR_R, n); });
+  var finishC = anchorNode(finishAnchor, 'END');
+  fallbackSources.forEach(function (n) { anchorEdgeUp(n, finishC.cx, finishC.cy - ANCHOR_R); });
 
   nodes.forEach(function (n) {
     if (n.type !== 'motion') return;
