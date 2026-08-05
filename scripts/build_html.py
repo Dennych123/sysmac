@@ -44,6 +44,41 @@ HTML = '''<!doctype html>
            color:var(--fg)}
   textarea:focus,input:focus,select:focus{outline:2px solid var(--accent);outline-offset:1px;border-color:var(--accent)}
   #ioText{height:240px}
+
+  /* ===== Editor IO list mode tabel ===== */
+  .io-tabs{display:flex;align-items:center;gap:6px;margin:8px 0 6px}
+  .io-tab{background:transparent;color:var(--muted);border:1px solid var(--line);padding:6px 14px;margin:0;
+          font-size:13px;font-weight:500;border-radius:6px}
+  .io-tab:hover{background:#e8edf5;color:var(--fg)}
+  .io-tab.active{background:var(--accent);border-color:var(--accent);color:#fff}
+  .io-count{margin-left:auto;font-size:12.5px;color:var(--muted)}
+  .io-grid-scroll{max-height:460px;overflow:auto;border:1px solid var(--line);border-radius:7px;background:var(--card)}
+  #ioGrid{border-collapse:separate;border-spacing:0;width:100%;font-size:12.5px}
+  #ioGrid th{position:sticky;top:0;z-index:1;background:#eef2f8;text-align:left;font-weight:600;font-size:12px;
+             color:var(--muted);padding:8px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
+  #ioGrid td{padding:3px 6px;border-bottom:1px solid var(--line-soft);vertical-align:middle}
+  #ioGrid tr:last-child td{border-bottom:none}
+  #ioGrid tr:hover td{background:#f8fafc}
+  #ioGrid .rn{color:var(--faint);font-size:11px;text-align:right;width:38px;font-family:Consolas,monospace}
+  #ioGrid input,#ioGrid select{font-size:12.5px;padding:5px 6px;border:1px solid var(--line);border-radius:5px;
+                               background:#fff;color:var(--fg);width:100%}
+  #ioGrid input{font-family:Consolas,monospace}
+  #ioGrid .c-addr{width:130px}
+  #ioGrid .c-jenis{width:150px}
+  #ioGrid .c-io{width:92px}
+  #ioGrid .c-st{width:64px}
+  #ioGrid .c-del{width:34px}
+  #ioGrid .bad input,#ioGrid .bad select{border-color:var(--danger);background:#fef2f2}
+  #ioGrid .st-tag{display:inline-block;font-family:Consolas,monospace;font-size:11px;padding:1px 6px;border-radius:4px;
+                  background:#eef2ff;color:#3730a3;border:1px solid #dbe0fb}
+  #ioGrid .st-tag.main{background:#f1f5f9;color:#475569;border-color:#e2e8f0}
+  #ioGrid .rm{background:#e5e7eb;color:#374151;padding:3px 8px;margin:0;font-size:12px;line-height:1}
+  #ioGrid .rm:hover{background:var(--danger);color:#fff}
+  .io-grid-bar{display:flex;align-items:center;gap:8px;margin-top:8px;flex-wrap:wrap}
+  .io-add{background:#374151;padding:6px 12px;margin:0;font-size:12.5px}
+  .io-add:hover{background:#1f2937}
+  .io-problems{font-size:12.5px;color:var(--danger);font-weight:500}
+  .io-problems.ok{color:var(--ok);font-weight:400}
   button{padding:8px 16px;font-size:13px;font-weight:500;cursor:pointer;background:var(--accent);color:#fff;
          border:none;border-radius:6px;margin-top:8px;transition:background .12s,box-shadow .12s}
   button:hover{background:var(--accent-dk)}
@@ -188,7 +223,22 @@ HTML = '''<!doctype html>
 </head>
 <body>
 <h1>Susmax Program Generator</h1>
-<p class="hint">Tempel IO list: Alamat / Jenis / IN-OUT / Komen (pisah TAB). Komen ada ST1/ST2/ST3 -&gt; masuk program unit. Tanpa ST -&gt; program MAIN.</p>
+<p class="hint">Alamat / Jenis / IN-OUT / Komen. Komen memuat ST1/ST2/ST3 -&gt; masuk program unit, tanpa ST -&gt; program MAIN.
+Mode <b>Tabel</b> bikin kolom Jenis dan IN/OUT jadi pilihan, jadi gak bisa salah ketik. Mode <b>Teks</b> buat tempel
+massal dari Excel (pisah TAB) - dua-duanya isi yang sama, ganti mode kapan saja.</p>
+<div class="io-tabs">
+  <button type="button" class="io-tab active" id="ioTabGrid">Tabel</button>
+  <button type="button" class="io-tab" id="ioTabText">Teks (TSV)</button>
+  <span class="io-count" id="ioCount"></span>
+</div>
+<div id="ioGridWrap">
+  <div class="io-grid-scroll"><table id="ioGrid"><tbody></tbody></table></div>
+  <div class="io-grid-bar">
+    <button type="button" class="io-add" id="ioAddRow">+ Baris</button>
+    <button type="button" class="io-add" id="ioPaste">Tempel dari clipboard</button>
+    <span class="io-problems" id="ioProblems"></span>
+  </div>
+</div>
 <textarea id="ioText" placeholder="CH000_00&#9;PB&#9;IN&#9;NOT EMERGENCY STOP"></textarea>
 <div><button id="genBtn">Generate Program</button></div>
 <div id="err"></div>
@@ -368,6 +418,175 @@ function buildJsonIORow(ta, msg, getText, doImport, fileName) {
   });
 
   return row;
+}
+
+// ===== Editor IO list mode tabel =====
+// Textarea TSV tetap jadi SUMBER KEBENARAN - seluruh pipeline, Project JSON, dan import/export
+// membacanya. Tabel ini murni permukaan edit yang baca-tulis teks yang sama, jadi gak ada satu pun
+// jalur lama yang perlu diubah dan tempel-massal dari Excel tetap jalan lewat mode Teks.
+// Daftar jenis diambil dari PRE di genname.js - kalau ada jenis baru di sana, tambahin di sini juga.
+var IO_JENIS = [
+  ['PB', 'Push button'], ['SS', 'Selector switch'], ['LS', 'Limit switch'],
+  ['CR', 'Relay / contactor'], ['PH', 'Photo sensor'], ['PX', 'Proximity sensor'],
+  ['AS', 'Auto switch silinder (dipasangkan 2 arah)'], ['SRV_LS', 'Feedback posisi servo'],
+  ['PL', 'Pilot lamp'], ['BZ', 'Buzzer'], ['2P', 'Tombol 2 tangan'],
+  ['SOL', 'Solenoid valve'], ['SRV_CMD', 'Command servo (N posisi)']
+];
+var IO_IN_ONLY = { PB:1, SS:1, LS:1, PH:1, PX:1, AS:1, SRV_LS:1, '2P':1 };
+var IO_OUT_ONLY = { PL:1, BZ:1, SOL:1, SRV_CMD:1 };   // CR bisa dua-duanya
+
+var ioRows = [];        // [{address,jenis,io,komen}]
+var ioView = 'grid';
+
+// Pemisah baris dibikin lewat new RegExp dari string, bukan regex literal. Alasannya: HTML di
+// build_html.py itu string Python biasa, jadi escape baris-baru yang ditulis tunggal bakal ditelan
+// Python duluan dan regex literal-nya rusak. Di dalam string, escape-nya ditulis dobel dan aman.
+var IO_LINE_RE = new RegExp('[\\r\\n]+');
+
+function ioParseText(txt) {
+  return String(txt || '').split(IO_LINE_RE).filter(function (l) { return l.trim() !== ''; })
+    .map(function (l) {
+      var c = l.split('\\t');
+      return { address: (c[0] || '').trim(), jenis: (c[1] || '').trim().toUpperCase(),
+               io: (c[2] || '').trim().toUpperCase(), komen: (c[3] || '').trim() };
+    });
+}
+function ioRowsToText(rows) {
+  return rows.map(function (r) { return [r.address, r.jenis, r.io, r.komen].join('\\t'); }).join('\\n');
+}
+// Station diturunkan dari komen persis seperti split.js, biar yang kelihatan di tabel = yang bakal
+// kejadian pas generate, bukan tebakan terpisah yang bisa beda.
+function ioStationOf(komen) {
+  var m = /\\bST\\s*(\\d+)/i.exec(String(komen || ''));
+  return m ? 'ST' + m[1] : 'MAIN';
+}
+
+function ioSyncToText() {
+  var ta = document.getElementById('ioText');
+  if (ta) ta.value = ioRowsToText(ioRows);
+}
+function ioLoadFromText() {
+  var ta = document.getElementById('ioText');
+  ioRows = ioParseText(ta ? ta.value : '');
+}
+
+// Masalah yang dicek SAMA dengan validate.js - tujuannya user lihat errornya di baris yang salah,
+// sebelum klik Generate, bukan sebagai satu blok teks sesudahnya.
+function ioProblems() {
+  var bad = {}, seen = {}, dup = {};
+  ioRows.forEach(function (r, i) {
+    var miss = !r.address || !r.jenis || !r.io;
+    if (miss) bad[i] = 'Alamat, Jenis, dan IN/OUT wajib diisi';
+    if (r.address && r.io) {
+      var k = r.io + '|' + r.address;
+      if (seen[k] !== undefined) { dup[k] = true; bad[i] = 'Alamat ' + r.address + ' (' + r.io + ') dipakai lebih dari sekali'; bad[seen[k]] = bad[seen[k]] || ('Alamat ' + r.address + ' (' + r.io + ') dipakai lebih dari sekali'); }
+      else seen[k] = i;
+    }
+  });
+  return bad;
+}
+
+function renderIoGrid() {
+  var tb = document.querySelector('#ioGrid tbody');
+  if (!tb) return;
+  var bad = ioProblems();
+  tb.innerHTML = '';
+
+  var thead = document.querySelector('#ioGrid thead');
+  if (!thead) {
+    thead = document.createElement('thead');
+    var hr = document.createElement('tr');
+    ['#', 'Alamat', 'Jenis', 'IN/OUT', 'Komen', 'Program', ''].forEach(function (h) {
+      var th = document.createElement('th'); th.textContent = h; hr.appendChild(th);
+    });
+    thead.appendChild(hr);
+    document.getElementById('ioGrid').insertBefore(thead, tb);
+  }
+
+  ioRows.forEach(function (r, i) {
+    var tr = document.createElement('tr');
+    if (bad[i]) { tr.className = 'bad'; tr.title = bad[i]; }
+
+    var tdN = document.createElement('td'); tdN.className = 'rn'; tdN.textContent = (i + 1); tr.appendChild(tdN);
+
+    function cell(cls) { var td = document.createElement('td'); td.className = cls; tr.appendChild(td); return td; }
+    function commit() { ioSyncToText(); renderIoGrid(); ioUpdateCount(); }
+
+    var addr = document.createElement('input');
+    addr.value = r.address; addr.placeholder = 'CH0_00';
+    addr.addEventListener('change', function () { r.address = addr.value.trim(); commit(); });
+    cell('c-addr').appendChild(addr);
+
+    var sel = document.createElement('select');
+    var blank = document.createElement('option'); blank.value = ''; blank.textContent = '- pilih -'; sel.appendChild(blank);
+    IO_JENIS.forEach(function (j) {
+      var o = document.createElement('option'); o.value = j[0]; o.textContent = j[0] + ' - ' + j[1]; sel.appendChild(o);
+    });
+    // Jenis di luar daftar (mis. dari file lama) tetap dimunculin, kalau nggak nilainya ilang diam-diam
+    if (r.jenis && !IO_JENIS.some(function (j) { return j[0] === r.jenis; })) {
+      var ox = document.createElement('option'); ox.value = r.jenis; ox.textContent = r.jenis + ' - tidak dikenal'; sel.appendChild(ox);
+    }
+    sel.value = r.jenis || '';
+    sel.addEventListener('change', function () {
+      r.jenis = sel.value;
+      // Jenis yang cuma masuk akal satu arah langsung ngisi IN/OUT-nya - satu sumber salah input hilang
+      if (IO_IN_ONLY[r.jenis]) r.io = 'IN';
+      else if (IO_OUT_ONLY[r.jenis]) r.io = 'OUT';
+      commit();
+    });
+    cell('c-jenis').appendChild(sel);
+
+    var ioSel = document.createElement('select');
+    ['', 'IN', 'OUT'].forEach(function (v) {
+      var o = document.createElement('option'); o.value = v; o.textContent = v || '- pilih -'; ioSel.appendChild(o);
+    });
+    ioSel.value = r.io || '';
+    ioSel.addEventListener('change', function () { r.io = ioSel.value; commit(); });
+    cell('c-io').appendChild(ioSel);
+
+    var km = document.createElement('input');
+    km.value = r.komen; km.placeholder = 'ST1 STOPPER-2 CHUCK';
+    km.addEventListener('change', function () { r.komen = km.value.trim(); commit(); });
+    cell('').appendChild(km);
+
+    var st = ioStationOf(r.komen);
+    var tag = document.createElement('span');
+    tag.className = 'st-tag' + (st === 'MAIN' ? ' main' : ''); tag.textContent = st;
+    tag.title = st === 'MAIN' ? 'Komen gak menyebut ST<n>, masuk program MAIN' : 'Masuk program ' + st;
+    cell('c-st').appendChild(tag);
+
+    var rm = document.createElement('button');
+    rm.type = 'button'; rm.className = 'rm'; rm.textContent = 'x'; rm.title = 'Hapus baris';
+    rm.addEventListener('click', function () { ioRows.splice(i, 1); commit(); });
+    cell('c-del').appendChild(rm);
+
+    tb.appendChild(tr);
+  });
+  ioUpdateCount();
+}
+
+function ioUpdateCount() {
+  var bad = ioProblems();
+  var n = Object.keys(bad).length;
+  var cnt = document.getElementById('ioCount');
+  if (cnt) cnt.textContent = ioRows.length + ' baris';
+  var pr = document.getElementById('ioProblems');
+  if (pr) {
+    pr.textContent = n ? (n + ' baris bermasalah - lihat kotak merah') : (ioRows.length ? 'Semua baris valid' : '');
+    pr.className = 'io-problems' + (n ? '' : ' ok');
+  }
+}
+
+function setIoView(v) {
+  ioView = v;
+  var grid = document.getElementById('ioGridWrap'), ta = document.getElementById('ioText');
+  var tg = document.getElementById('ioTabGrid'), tt = document.getElementById('ioTabText');
+  if (v === 'grid') { ioLoadFromText(); renderIoGrid(); }
+  else { ioSyncToText(); }
+  grid.style.display = v === 'grid' ? 'block' : 'none';
+  ta.style.display = v === 'grid' ? 'none' : 'block';
+  tg.className = 'io-tab' + (v === 'grid' ? ' active' : '');
+  tt.className = 'io-tab' + (v === 'text' ? ' active' : '');
 }
 
 function downloadFile(name, text) {
@@ -1924,7 +2143,33 @@ timerPhpxEl = document.getElementById('timerPhpx');
 timerMotionEl = document.getElementById('timerMotion');
 timerPhpxEl.addEventListener('change', function () { if (lastSplitMsg) regenerate(); });
 timerMotionEl.addEventListener('change', function () { if (lastSplitMsg) regenerate(); });
-document.getElementById('genBtn').addEventListener('click', runFullPipeline);
+document.getElementById('ioTabGrid').addEventListener('click', function () { setIoView('grid'); });
+document.getElementById('ioTabText').addEventListener('click', function () { setIoView('text'); });
+document.getElementById('ioAddRow').addEventListener('click', function () {
+  ioRows.push({ address: '', jenis: '', io: '', komen: '' });
+  ioSyncToText(); renderIoGrid();
+});
+document.getElementById('ioPaste').addEventListener('click', function () {
+  readTextFromClipboard().then(function (t) {
+    var rows = ioParseText(t);
+    if (!rows.length) { window.alert('Clipboard gak berisi baris TSV (Alamat/Jenis/IN-OUT/Komen).'); return; }
+    // Ditambahin, bukan nimpa - biar tempelan kedua gak diam-diam ngapus yang pertama
+    ioRows = ioRows.concat(rows);
+    ioSyncToText(); renderIoGrid();
+  }).catch(function (e) {
+    window.alert('Gagal baca clipboard (' + e.message + '). Pakai mode "Teks (TSV)" lalu tempel manual.');
+  });
+});
+// Textarea diedit langsung -> tabel ikut, biar dua mode gak pernah beda isi
+document.getElementById('ioText').addEventListener('change', function () {
+  if (ioView === 'text') { ioLoadFromText(); ioUpdateCount(); }
+});
+setIoView('grid');
+document.getElementById('genBtn').addEventListener('click', function () {
+  // Mode tabel: pastiin textarea sudah sinkron sebelum pipeline baca isinya
+  if (ioView === 'grid') ioSyncToText();
+  runFullPipeline();
+});
 (function () {
   var ta = document.getElementById('projectJsonTa');
   var msg = document.getElementById('projectJsonMsg');
@@ -1959,6 +2204,23 @@ if bad:
     raise SystemExit(
         "BUILD GAGAL: %d karakter kontrol di output (escape ketelan Python - tulis dobel, mis. \\\\n).\n"
         "  offset %d, kode %d\n  konteks: ...%s..." % (len(bad), bad[0][0], bad[0][1], ctx))
+
+# Cek karakter kontrol di atas TIDAK menangkap kasus \n dan \r yang ketelan, karena baris baru itu
+# karakter yang sah - yang rusak cuma STRUKTUR JS-nya (literal kebuka, komentar kepotong dua). Jadi
+# outputnya dicek sintaks beneran pakai `node --check`. Kalau node gak ada, dilewat dengan pesan -
+# build tetap jalan, tapi jaringnya berkurang.
+import re as _re, subprocess as _sp, tempfile as _tf, shutil as _sh
+_scripts = _re.findall(r'<script>(.*?)</script>', out, _re.S)
+if _sh.which('node'):
+    for _i, _js in enumerate(_scripts):
+        _fh = _tf.NamedTemporaryFile('w', suffix='.js', delete=False, encoding='utf-8')
+        _fh.write(_js); _fh.close()
+        _r = _sp.run(['node', '--check', _fh.name], capture_output=True, text=True)
+        os.unlink(_fh.name)
+        if _r.returncode != 0:
+            raise SystemExit("BUILD GAGAL: blok <script> #%d sintaksnya rusak.\n%s" % (_i + 1, _r.stderr.strip()))
+else:
+    print("catatan: node tidak ada di PATH, cek sintaks JS dilewati")
 
 outpath = os.path.join(_D, 'index.html')
 open(outpath, 'w', encoding='utf-8').write(out)
