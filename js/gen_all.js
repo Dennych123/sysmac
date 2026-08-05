@@ -2,6 +2,23 @@
 var groups   = flow.get("groups") || {};
 var PER_PAGE = 8;
 var files = [], warnings = [], lscAudit = [];
+
+// ===== Warning terstruktur =====
+// warnings[] (string) tetap dipertahankan - itu yang dipakai panel warning lama dan gampang dibaca
+// manusia. Tapi string doang gak cukup buat konsumen mesin: mau ngelompokin per station, mau
+// nyaring per jenis, atau (nanti) mau LLM yang mutusin gimana nanganin tiap masalah - semuanya
+// butuh KODE yang stabil, bukan nebak dari teks bahasa Indonesia/Inggris yang bisa berubah kapan aja.
+// W() nulis ke dua-duanya sekaligus, jadi gak ada jalur yang kelewat.
+//   level : "warn" (default) | "info"
+//   code  : slug stabil, JANGAN diubah sembarangan - konsumen luar nyantol ke sini
+var warnList = [];
+function W(code, station, message, extra){
+    var w = { level: (extra && extra.level) || "warn", code: code, station: station || "", message: message };
+    if(extra && extra.device) w.device = extra.device;
+    warnList.push(w);
+    warnings.push(message);
+    return w;
+}
 var GLOBALS = {};
 // Timer default (debounce PH/PX, motion-fault) bisa disetel lewat web UI - format harus "T#<angka><unit>"
 // (MS/S/M/H), soalnya nilainya ditempel LANGSUNG jadi XML attribute tanpa escape (lihat lib.js ton()) -
@@ -10,7 +27,7 @@ var timerDefaults = flow.get("timerDefaults") || {};
 function validTimer(v, fallback, label){
     v=(v||"").trim();
     if(!v) return fallback;
-    if(!/^T#\d+(\.\d+)?(MS|S|M|H)$/i.test(v)){ warnings.push('Timer default '+label+' "'+v+'" invalid format (expected e.g. T#200MS), using default '+fallback+'.'); return fallback; }
+    if(!/^T#\d+(\.\d+)?(MS|S|M|H)$/i.test(v)){ W("timer_format","",'Timer default '+label+' "'+v+'" invalid format (expected e.g. T#200MS), using default '+fallback+'.'); return fallback; }
     return v.toUpperCase();
 }
 var T_PHPX   = validTimer(timerDefaults.phpx, "T#200MS", "PH/PX debounce");
@@ -62,8 +79,8 @@ function findLsc(dev,asPairs){
         lscAudit.push(dev.komen+" -> "+best+" (score "+bestScore+")");
         // Seri skor = matcher gak punya dasar buat milih, cuma kepilih gara-gara urutan I/O. Ini yang dulu
         // bikin STOPPER-2/3/4 semua nyantol ke sensor STOPPER-5 tanpa satupun warning keluar.
-        if(tied.length>1) warnings.push('LSC match for "'+dev.komen+'" is AMBIGUOUS: '+tied.length+' candidates tied at score '+bestScore+' ('+tied.join(", ")+'), picked "'+best+'" by I/O order only - verify manually.');
-        else if(bestScore===2) warnings.push('LSC match for "'+dev.komen+'" -> "'+best+'" is low-confidence (score 2, only 2 shared comment words) - verify manually.');
+        if(tied.length>1) W("lsc_ambiguous","",'LSC match for "'+dev.komen+'" is AMBIGUOUS: '+tied.length+' candidates tied at score '+bestScore+' ('+tied.join(", ")+'), picked "'+best+'" by I/O order only - verify manually.');
+        else if(bestScore===2) W("lsc_low_confidence","",'LSC match for "'+dev.komen+'" -> "'+best+'" is low-confidence (score 2, only 2 shared comment words) - verify manually.');
     }
     return best;
 }
@@ -132,7 +149,7 @@ var STATION_BLOCK_DEFAULT = 30;
     var maxNeed = 0;
     ukeys.forEach(function(k){ maxNeed = Math.max(maxNeed, need[k].al, need[k].mf); });
     if(maxNeed > sb){
-        warnings.push("Ada station yang butuh "+maxNeed+" slot, lebih besar dari 'Slot per station' ("+sb+
+        W("station_block_raised","","Ada station yang butuh "+maxNeed+" slot, lebih besar dari 'Slot per station' ("+sb+
                       ") - dinaikin ke "+maxNeed+" buat SEMUA station biar penomorannya tetap seragam. "+
                       "Naikin setelannya kalau mau ada ruang cadangan lagi.");
         sb = maxNeed;
@@ -170,7 +187,7 @@ var STATION_BLOCK_DEFAULT = 30;
         var v = parseInt(raw, 10);
         if(!isFinite(v) || v <= 0) return Math.max(dflt, used);
         if(v < used){
-            warnings.push("Array "+name+" diminta "+v+" elemen, tapi "+used+" slot sudah kepakai - dinaikin ke "+used+".");
+            W("array_size_raised","","Array "+name+" diminta "+v+" elemen, tapi "+used+" slot sudah kepakai - dinaikin ke "+used+".");
             return used;
         }
         return v;
@@ -191,7 +208,7 @@ function buildUnit(stKey, devs){
     var asPairs = pairUp(devs.filter(function(d){return d.jenis==="AS";}).sort(function(a,b){return a.row-b.row;}));
     var solList = outputs.filter(function(d){return d.jenis==="CR"||d.jenis==="SOL";});
     var actus   = pairUp(solList);
-    if(solList.length%2) warnings.push(stKey+": solenoid count is odd, last output is not paired into an actuator.");
+    if(solList.length%2) W("solenoid_count_odd",stKey,stKey+": solenoid count is odd, last output is not paired into an actuator.");
 
     // Servo N-posisi (SRV_CMD/SRV_LS): tiap CMD itu aktuator MANDIRI (satu output, satu feedback),
     // BUKAN pasangan FWD/BWD dual-sensor kayak actus - gak lewat pairUp, dicocokin ke SRV_LS yang
@@ -206,7 +223,7 @@ function buildUnit(stKey, devs){
             if(m>bestScore){ bestScore=m; best=ls; tied=[ls.name]; }
             else if(m===bestScore && tied.indexOf(ls.name)<0){ tied.push(ls.name); }
         });
-        if(bestScore>0 && tied.length>1) warnings.push(stKey+': servo feedback for "'+cmd.komen+'" is AMBIGUOUS: '+tied.length+' candidates tied at score '+bestScore+' ('+tied.join(", ")+'), picked "'+best.name+'" by I/O order only - verify manually.');
+        if(bestScore>0 && tied.length>1) W("lsc_ambiguous","",stKey+': servo feedback for "'+cmd.komen+'" is AMBIGUOUS: '+tied.length+' candidates tied at score '+bestScore+' ('+tied.join(", ")+'), picked "'+best.name+'" by I/O order only - verify manually.');
         return { cmd:cmd, ls:(bestScore>0?best:null) };
     });
     var srvLscOf={}; srvActus.forEach(function(sa){ if(sa.ls) srvLscOf[sa.cmd.name]=sa.ls.name; });
@@ -277,7 +294,7 @@ function buildUnit(stKey, devs){
     var alCap=AL_BLOCK[stKey].end, alN=AL_BLOCK[stKey].start;
     var mfCap=MF_BLOCK[stKey].end, mfN=MF_BLOCK[stKey].start;
     asPairs.forEach(function(p,i){
-        if(alN>alCap){ warnings.push(stKey+": AL alarm block full, dual sensor fault for "+p[0].komen+" skipped."); return; }
+        if(alN>alCap){ W("al_block_full",stKey,stKey+": AL alarm block full, dual sensor fault for "+p[0].komen+" skipped."); return; }
         var cmt="Dual sensor fault, both ends detected at the same time: "+p[0].komen+" / "+p[1].komen;
         var t=AL(alN,cmt);
         var r=new Rung(o++, cmt);
@@ -289,11 +306,11 @@ function buildUnit(stKey, devs){
     actus.forEach(function(a,i){
         var ov=actuatorOverrides[a[0].name]||actuatorOverrides[a[1].name];
         if(ov && ov.mode==="openloop") return; // sengaja gak ada sensor by design - skip diam-diam, gak makan slot MF, gak warning
-        if(mfN>mfCap){ warnings.push(stKey+": MF motion-fault block full, actuator "+a[0].komen+" skipped."); return; }
+        if(mfN>mfCap){ W("mf_block_full",stKey,stKey+": MF motion-fault block full, actuator "+a[0].komen+" skipped."); return; }
         var lscA, lscB;
         if(ov && ov.mode==="manual" && ov.lscA && ov.lscB){ lscA=ov.lscA; lscB=ov.lscB; }
         else { lscA=findLsc(a[0],asPairs); lscB=findLsc(a[1],asPairs); }
-        if(!lscA||!lscB){ warnings.push(stKey+": no matching limit switch for actuator "+a[0].komen+", motion fault skipped."); return; }
+        if(!lscA||!lscB){ W("lsc_not_found",stKey,stKey+": no matching limit switch for actuator "+a[0].komen+", motion fault skipped."); return; }
         var cmt="Cylinder motion fault, solenoid energised but position not confirmed: "+a[0].komen+" / "+a[1].komen;
         var mf=MF(mfN,cmt), tmr="LT"+pad(200+faultTimerIdx,3); faultTimerIdx++;
         P(tmr,"TON","Motion timeout for "+a[0].komen);
@@ -311,9 +328,9 @@ function buildUnit(stKey, devs){
     srvActus.forEach(function(sa){
         var ov=actuatorOverrides[sa.cmd.name];
         if(ov && ov.mode==="openloop") return;
-        if(mfN>mfCap){ warnings.push(stKey+": MF motion-fault block full, servo command "+sa.cmd.komen+" skipped."); return; }
+        if(mfN>mfCap){ W("mf_block_full",stKey,stKey+": MF motion-fault block full, servo command "+sa.cmd.komen+" skipped."); return; }
         var lsc=(ov && ov.mode==="manual" && ov.lscA) ? ov.lscA : srvLscOf[sa.cmd.name];
-        if(!lsc){ warnings.push(stKey+": no matching limit switch for servo command "+sa.cmd.komen+", motion fault skipped."); return; }
+        if(!lsc){ W("lsc_not_found",stKey,stKey+": no matching limit switch for servo command "+sa.cmd.komen+", motion fault skipped."); return; }
         var cmt="Servo motion fault, command energised but position not confirmed: "+sa.cmd.komen;
         var mf=MF(mfN,cmt), tmr="LT"+pad(200+faultTimerIdx,3); faultTimerIdx++;
         P(tmr,"TON","Motion timeout for "+sa.cmd.komen);
@@ -337,10 +354,10 @@ function buildUnit(stKey, devs){
             if(!n || n.type!=="alarm") return;
             var cat = n.category;
             if(!ALARM_GROUPS[cat]){
-                if(cat) warnings.push(stKey+': flowchart alarm "'+(n.comment||n.id)+'" has unknown category "'+cat+'", treated as faultstop.');
+                if(cat) W("alarm_unknown_category",stKey,stKey+': flowchart alarm "'+(n.comment||n.id)+'" has unknown category "'+cat+'", treated as faultstop.');
                 cat = "faultstop";
             }
-            if(alN>alCap){ warnings.push(stKey+': AL alarm block full, flowchart alarm "'+(n.comment||n.id)+'" skipped.'); return; }
+            if(alN>alCap){ W("al_block_full",stKey,stKey+': AL alarm block full, flowchart alarm "'+(n.comment||n.id)+'" skipped.'); return; }
             var cmt = "Flowchart alarm ("+cat+"): "+(n.comment||n.id);
             var bit = AL(alN, cmt); alN++;
             alarmBitOf[vIdx+"/"+n.id] = bit;
@@ -568,7 +585,7 @@ function buildUnit(stKey, devs){
             var trigBit=v.condition;
             if(condLatchBits.indexOf(trigBit)>=0){
                 var fixed=freeCondBit(ci); usedConds[fixed]=true;
-                warnings.push(stKey+': motion sequence variant condition "'+trigBit+'" is the same as one of its own mutual-exclusion coils ('+condLatchBits.join(", ")+') - a latch cannot be triggered by itself, so it was remapped to '+fixed+'. Define the driving logic for '+fixed+' in the Condition section.');
+                W("variant_condition_remapped",stKey,stKey+': motion sequence variant condition "'+trigBit+'" is the same as one of its own mutual-exclusion coils ('+condLatchBits.join(", ")+') - a latch cannot be triggered by itself, so it was remapped to '+fixed+'. Define the driving logic for '+fixed+' in the Condition section.');
                 trigBit=fixed;
             }
             condTrigOf[vIdx]=trigBit;
@@ -644,16 +661,16 @@ function buildUnit(stKey, devs){
             var dev=null, lsc=null;
             if(ntype==="motion"){
                 dev=solByName[node.sol];
-                if(!dev){ warnings.push(stKey+': motion sequence references unknown solenoid "'+node.sol+'", step skipped.'); return; }
+                if(!dev){ W("unknown_solenoid",stKey,stKey+': motion sequence references unknown solenoid "'+node.sol+'", step skipped.'); return; }
                 var devOv=actuatorOverrides[dev.name];
                 lsc=(devOv && devOv.mode==="manual" && devOv.lscA) ? devOv.lscA : (srvLscOf[dev.name] || findLsc(dev,asPairs));
-                if(!lsc){ warnings.push(stKey+': no matching limit switch for "'+node.sol+'" in motion sequence, step skipped.'); return; }
+                if(!lsc){ W("lsc_not_found",stKey,stKey+': no matching limit switch for "'+node.sol+'" in motion sequence, step skipped.'); return; }
             }
 
             var after=(node.after||[]).filter(function(ref){
                 var b=refBase(ref);
                 if(nodeIds[b] && !stepDone[b]){
-                    warnings.push(stKey+': flowchart step '+nodeTitle(node)+' depends on a skipped step "'+ref+'", dependency ignored.');
+                    W("dependency_skipped",stKey,stKey+': flowchart step '+nodeTitle(node)+' depends on a skipped step "'+ref+'", dependency ignored.');
                     return false;
                 }
                 return true;
@@ -700,10 +717,10 @@ function buildUnit(stKey, devs){
                 // TIDAK dipaksa di sini - node hilirnya tinggal nunjuk "id#Y" dan "id#N" sekaligus
                 // dengan join OR, jadi mekanisme join yang sudah ada yang ngerjain (LB421/LB422 -> OR).
                 var cbit=String(node.cond||"").trim();
-                if(!cbit){ warnings.push(stKey+': decision block '+nodeTitle(node)+' has no condition bit, block skipped.'); return; }
+                if(!cbit){ W("decision_no_condition",stKey,stKey+': decision block '+nodeTitle(node)+' has no condition bit, block skipped.'); return; }
                 declareExternal(cbit);
                 var yBit="LB"+pad(600+decN,3), nBit="LB"+pad(601+decN,3); decN+=2;
-                if(decN>100){ warnings.push(stKey+": decision block range LB600-LB699 exhausted, later judgement blocks will collide."); }
+                if(decN>100){ W("decision_range_full",stKey,stKey+": decision block range LB600-LB699 exhausted, later judgement blocks will collide."); }
                 var dlabel=node.comment||cbit;
                 P(yBit,"BOOL","Judgement YES (held): "+dlabel); P(nBit,"BOOL","Judgement NO (held): "+dlabel);
                 S10.push(judgeBranch(o++,prevBit,cbit,false,yBit,nBit,"["+variantLabel+"] Judgement "+dlabel+" -> YES ("+cbit+" on), held, interlocked with "+nBit));
@@ -715,21 +732,21 @@ function buildUnit(stKey, devs){
                 // baru dijadiin SATU rung latch di bawah. Dua coil buat bit yang sama di rung berbeda
                 // bakal saling timpa tiap scan (yang terakhir menang) - itu bug klasik ladder.
                 var mbit=String(node.bit||"").trim();
-                if(!mbit){ warnings.push(stKey+': '+nodeTitle(node)+' has no target bit, block skipped.'); return; }
+                if(!mbit){ W("memory_no_bit",stKey,stKey+': '+nodeTitle(node)+' has no target bit, block skipped.'); return; }
                 (((ntype==="setmem")?memSets:memResets)[mbit]=((ntype==="setmem")?memSets:memResets)[mbit]||[]).push(prevBit);
                 if(!memCmt[mbit] && node.comment) memCmt[mbit]=node.comment;
                 confirmBitOf[node.id]=prevBit; stepDone[node.id]=true;   // aksi seketika, hilir lanjut dari step yang sama
 
             } else if(ntype==="alarm"){
                 var abit=alarmBitOf[vIdx+"/"+node.id];
-                if(!abit){ warnings.push(stKey+': '+nodeTitle(node)+' did not get an AL slot, block skipped.'); return; }
+                if(!abit){ W("alarm_no_slot",stKey,stKey+': '+nodeTitle(node)+' did not get an AL slot, block skipped.'); return; }
                 // Self-latch, sama persis kayak rung AL dual-sensor fault di section Fault: alarm harus
                 // nyangkut walau penyebabnya cuma sekejap, bukan ikut padam pas step-nya lewat.
                 S10.push(latch(o++,[[prevBit,false]],abit,[], "["+variantLabel+"] Alarm: "+(node.comment||node.id)));
                 confirmBitOf[node.id]=prevBit; stepDone[node.id]=true;
 
             } else {
-                warnings.push(stKey+': unknown flowchart block type "'+ntype+'" on node "'+node.id+'", block skipped.');
+                W("unknown_block_type",stKey,stKey+': unknown flowchart block type "'+ntype+'" on node "'+node.id+'", block skipped.');
             }
         });
         nodes.forEach(function(n){
@@ -765,7 +782,7 @@ function buildUnit(stKey, devs){
         .forEach(function(mbit){
             var sets=memSets[mbit]||[], resets=memResets[mbit]||[];
             if(!sets.length){
-                warnings.push(stKey+': memory bit "'+mbit+'" only has RESET blocks and is never set from this flowchart - verify that something else sets it.');
+                W("memory_reset_only",stKey,stKey+': memory bit "'+mbit+'" only has RESET blocks and is never set from this flowchart - verify that something else sets it.');
             }
             if(!GLOBALS[mbit]) P(mbit,"BOOL","Flowchart memory"+(memCmt[mbit]?": "+memCmt[mbit]:""));
             S10.push(latch(o++, sets.map(function(b){return [b,false];}), mbit,
@@ -887,7 +904,7 @@ function buildMain(devs){
         ["00","01","02","03","04","05","06","09","20"].forEach(function(b){ G(gb+"_"+b,"BOOL",labelOf(k)+" status bit"); });
     });
     function has(n){ return devs.some(function(d){return d.name===n;}); }
-    function req(n,l){ if(!has(n)){ warnings.push('MAIN: "'+n+'" ('+l+') not found in IO list, GSB000 used instead.'); return "GSB000"; } return n; }
+    function req(n,l){ if(!has(n)){ W("main_bit_missing","MAIN",'MAIN: "'+n+'" ('+l+') not found in IO list, GSB000 used instead.'); return "GSB000"; } return n; }
     var sEmg=req("NOT_EMG_STOP","emergency stop"), sFuse=req("FUSE_GOOD","fuse"), sAir=req("AIR_SC_CONF","air source"),
         sSafe=req("SAFE_CONF","safety"), sMstr=req("MSTR_RDY","master on confirm"), sPbMstr=req("PB_MSTR_ON","master on button"),
         sSel=req("SS_AUTO_IND","auto individual selector"), sPbAuto=req("PB_AUTO_RUN","auto start button"),
@@ -1083,7 +1100,7 @@ function progMulti(title,blocks,globVars){
      +'  </Resource></Configuration></Instances>\n</Project>\n';
 }
 
-if(!groups.MAIN||!groups.MAIN.length) warnings.push("No MAIN devices found, every comment contains a station tag.");
+if(!groups.MAIN||!groups.MAIN.length) W("no_main_devices","","No MAIN devices found, every comment contains a station tag.");
 files.push(buildMain(groups.MAIN||[]));
 ukeys.forEach(function(k){ files.push(buildUnit(k,groups[k])); });
 
@@ -1135,7 +1152,7 @@ var blocks=files.filter(function(f){ return f.name.slice(-4)===".xml"; }).map(fu
 files.unshift({ name:"AllPrograms.xml", xml:progMulti("AllPrograms",blocks,globVars),
                 stats:"COMBINED: "+blocks.length+" program and "+gnames.length+" global variable in one file" });
 
-msg.payload={ files:files, warnings:warnings.join("\n"), unitCount:ukeys.length,
+msg.payload={ files:files, warnings:warnings.join("\n"), warnList:warnList, unitCount:ukeys.length,
               stats:files.map(function(f){return f.stats;}).join("\n"),
               // Dipakai web UI buat nampilin rekomendasi ukuran array (minimal = yang kepakai sekarang)
               arrayInfo:{ alUsed:AL_USED, mfUsed:MF_USED, alSize:AL_SIZE, mfSize:MF_SIZE,

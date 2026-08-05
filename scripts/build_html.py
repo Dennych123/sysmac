@@ -60,7 +60,12 @@ HTML = '''<!doctype html>
   .warn-box{display:none;background:#fffbeb;border:1px solid #fcd34d;border-left:4px solid #d97706;
             border-radius:7px;padding:12px 14px;margin-top:12px}
   .warn-box b{color:#92400e;font-size:13px}
-  #warn{white-space:pre-wrap;color:#78350f;font-family:Consolas,monospace;font-size:12px;line-height:1.6;margin-top:6px}
+  #warn{color:#78350f;font-size:12.5px;line-height:1.6;margin-top:6px}
+  .warn-grp{font-weight:650;color:#92400e;margin:8px 0 2px;font-size:12.5px}
+  .warn-grp:first-child{margin-top:2px}
+  .warn-item{display:flex;gap:8px;align-items:baseline;padding:2px 0 2px 4px}
+  .warn-code{flex:none;font-family:Consolas,monospace;font-size:11px;background:#fef3c7;border:1px solid #fcd34d;
+             border-radius:3px;padding:0 5px;color:#92400e}
 
   .settings-row{display:flex;flex-wrap:wrap;gap:16px;margin:10px 0}
   .settings-row label{font-size:12.5px;color:var(--muted);display:flex;flex-direction:column;gap:4px;font-weight:500}
@@ -393,8 +398,11 @@ function sortStations(keys) {
 }
 
 var errEl, resEl, statsEl, warnEl, warnBoxEl, motionPanelEl, conditionPanelEl, stationNamesPanelEl, timerPhpxEl, timerMotionEl, confirmModePanelEl, alSizeEl, mfSizeEl, stationBlockEl, arraySizeHintEl;
-// Warning generate terakhir - dipakai section Confirm Mode buat tau apa masih ada yang perlu diurus.
+// Warning generate terakhir. warnList = versi terstruktur ({level,code,station,message}); string-nya
+// cuma disimpen buat fallback. Konsumen di sini WAJIB nyantol ke `code`, bukan nyocokin teks pesan -
+// teksnya bisa berubah kapan saja tanpa siapa pun sadar ada yang rusak.
 var lastWarnings = '';
+var lastWarnList = [];
 // Sekali user buka/tutup Confirm Mode sendiri, kita berhenti maksa bukain - keputusannya dia.
 var confirmModeTouched = false;
 var flowStore = {};
@@ -498,13 +506,25 @@ function addBlockNode(st, vIdx, spec) {
 // aja yang udah dia bikin di kotak Condition. Sekarang daftarnya ditarik langsung dari conditionState
 // station itu. Opsi ketik-manual tetap disediain, karena `after` node maupun condition varian sah juga
 // nunjuk bit DI LUAR Condition section (sensor, LSC, atau bit warisan dari JSON import).
+function pad3(n) { return ('000' + n).slice(-3); }
+
 function conditionBitOptions(stKey, current) {
   var out = [], seen = {};
-  (conditionState[stKey] || []).forEach(function (d) {
-    if (!d.bit || seen[d.bit]) return;
-    seen[d.bit] = true;
-    out.push({ value: d.bit, label: d.bit + (d.name ? ' - ' + d.name : '') });
+  function add(bit, label) {
+    if (!bit || seen[bit]) return;
+    seen[bit] = true;
+    out.push({ value: bit, label: label });
+  }
+  // Bit yang dikosongin di panel Condition TETAP dibikin generator, namanya LB300+i (gen_all section 8).
+  // Jadi baris itu gak boleh di-skip di dropdown - kalau di-skip, bit yang beneran ada malah gak kelihatan.
+  (conditionState[stKey] || []).forEach(function (d, i) {
+    var bit = d.bit || ('LB' + pad3(300 + i));
+    add(bit, bit + (d.name ? ' - ' + d.name : (d.bit ? '' : ' - auto (bit dikosongin)')));
   });
+  // Station tanpa Condition custom tetap dapat 3 slot cadangan generik LB300-LB302 dari generator.
+  // Tanpa ini, LB300 yang jelas-jelas dibikin malah ketulis "(di luar daftar)" - persis kebalikan
+  // dari kenyataannya.
+  for (var s = 0; s < 3; s++) add('LB' + pad3(300 + s), 'LB' + pad3(300 + s) + ' - slot cadangan');
   // Nilai yang LAGI kepasang tapi gak ada di daftar (hasil import JSON, atau Condition-nya keburu
   // dihapus) wajib tetap muncul sebagai opsi. Kalau nggak, select jatuh ke opsi pertama dan diam-diam
   // ngubah setelan user tiap panel dirender ulang.
@@ -935,6 +955,29 @@ function importConditionJSON(stKey, jsonText) {
   return null;
 }
 
+// Warning dikelompokkan per station. Sebelumnya cuma satu blok teks panjang - kalau 3 station
+// masing-masing ngeluh, semuanya nyampur dan susah tau mana punya siapa. Kode-nya ikut ditampilin
+// karena itu yang stabil dan bisa dicari, teks pesannya bisa berubah.
+function renderWarnings(list, raw) {
+  warnEl.innerHTML = '';
+  if (!list || !list.length) { warnEl.textContent = raw || ''; return; }
+  var byStation = {};
+  list.forEach(function (w) { var k = w.station || 'Umum'; (byStation[k] = byStation[k] || []).push(w); });
+  Object.keys(byStation).sort().forEach(function (st) {
+    var h = document.createElement('div'); h.className = 'warn-grp';
+    h.textContent = st + ' - ' + byStation[st].length + ' warning';
+    warnEl.appendChild(h);
+    byStation[st].forEach(function (w) {
+      var d = document.createElement('div'); d.className = 'warn-item';
+      var c = document.createElement('span'); c.className = 'warn-code'; c.textContent = w.code;
+      d.appendChild(c);
+      // Prefix "ST1: " dibuang - sudah jadi judul grupnya, gak perlu diulang tiap baris
+      d.appendChild(document.createTextNode(w.message.replace(/^[A-Za-z0-9_]+:\\s*/, '')));
+      warnEl.appendChild(d);
+    });
+  });
+}
+
 function renderResults(payload) {
   resEl.innerHTML = '';
   statsEl.textContent = payload.stats;
@@ -954,7 +997,8 @@ function renderResults(payload) {
       : '';
   }
   lastWarnings = payload.warnings || '';
-  warnEl.textContent = payload.warnings || '';
+  lastWarnList = payload.warnList || [];
+  renderWarnings(lastWarnList, lastWarnings);
   warnBoxEl.style.display = payload.warnings ? 'block' : 'none';
 
   if (payload.files.length) {
@@ -1742,10 +1786,10 @@ function updateConfirmModeSummary(stationCount) {
       });
     });
   }
-  // "Perlu perhatian" = generator ngeluh gak nemu limit switch buat aktuator yang masih Auto.
-  var needs = (lastWarnings || '').split('\\n').filter(function (w) {
-    return /no matching limit switch/.test(w);
-  }).length;
+  // "Perlu perhatian" = generator gak nemu limit switch buat aktuator yang masih Auto. Dicek lewat
+  // KODE warning, bukan nyocokin kalimatnya - kalau teksnya diubah, pencocokan teks bakal diam-diam
+  // berhenti jalan dan section ini gak pernah kebuka lagi padahal ada yang perlu diurus.
+  var needs = lastWarnList.filter(function (w) { return w.code === 'lsc_not_found'; }).length;
   if (!total) { sub.textContent = 'generate dulu buat lihat daftar aktuator'; sub.className = 'fold-sub'; return; }
   if (needs) {
     sub.textContent = needs + ' aktuator belum ketemu sensornya - setel Open-loop atau Manual';
