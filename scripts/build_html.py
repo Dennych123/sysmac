@@ -16,42 +16,71 @@ HTML = '''<!doctype html>
 <meta charset="utf-8">
 <title>Susmax Program Generator</title>
 <style>
-  :root{--fg:#1c2430;--muted:#5c6673;--line:#dde1e7;--card:#fff;--bg:#f4f6f8;--accent:#2563eb;--accent-dk:#1d4ed8;--radius:8px}
+  /* Tool ini dipakai di layar PC dan isinya padat teks. Dua keputusan dasar di sini:
+     (1) lebar ikut layar sampai 1680px - tabel IO, kanvas flowchart, dan JSON semuanya butuh ruang
+         horizontal; dikurung 1040px bikin semuanya kesempitan dan sering wrap gak perlu.
+     (2) teks sekunder DINAIKIN kontras dan ukurannya. Sebelumnya .hint 11px warna #5c6673 - itu
+         gabungan terburuk: kecil DAN pudar, padahal isinya penjelasan yang justru perlu dibaca. */
+  :root{
+    --fg:#111827;--muted:#4b5563;--faint:#6b7280;
+    --line:#d6dbe3;--line-soft:#e6eaf0;--card:#fff;--bg:#f1f4f8;
+    --accent:#2563eb;--accent-dk:#1d4ed8;--accent-soft:#eff5ff;
+    --ok:#15803d;--warn:#b45309;--danger:#b91c1c;
+    --radius:8px;--shadow:0 1px 2px rgba(16,24,40,.06),0 1px 3px rgba(16,24,40,.08);
+  }
   *{box-sizing:border-box}
-  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;max-width:1040px;margin:24px auto;padding:0 16px;color:var(--fg);background:var(--bg);line-height:1.45}
-  h1{font-size:19px;font-weight:600;margin:0 0 4px}
-  h2{font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:.03em;color:var(--muted);margin:22px 0 6px;padding-bottom:4px;border-bottom:1px solid var(--line)}
-  textarea{width:100%;box-sizing:border-box;font-family:Consolas,Menlo,monospace;font-size:12px;border:1px solid var(--line);border-radius:6px;padding:8px}
-  #ioText{height:220px}
-  button{padding:8px 16px;font-size:13px;cursor:pointer;background:var(--accent);color:#fff;border:none;border-radius:6px;margin-top:8px;transition:background .12s}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
+       max-width:1680px;margin:0 auto;padding:24px 28px 64px;color:var(--fg);background:var(--bg);
+       font-size:14px;line-height:1.55;-webkit-font-smoothing:antialiased}
+  h1{font-size:22px;font-weight:650;margin:0 0 2px;letter-spacing:-.01em}
+  /* Judul section: teks penuh kontras + garis aksen di kiri, bukan huruf kapital abu-abu kecil yang
+     dulu malah kebaca lebih lemah dari isinya. */
+  h2{font-size:15px;font-weight:650;color:var(--fg);margin:32px 0 8px;padding:0 0 0 10px;
+     border-left:3px solid var(--accent);line-height:1.3}
+  code{font-family:Consolas,Menlo,monospace;font-size:.92em;background:var(--accent-soft);
+       border:1px solid #dbe6fb;border-radius:4px;padding:1px 4px}
+  textarea{width:100%;box-sizing:border-box;font-family:Consolas,Menlo,monospace;font-size:12.5px;
+           line-height:1.5;border:1px solid var(--line);border-radius:6px;padding:10px;background:var(--card);
+           color:var(--fg)}
+  textarea:focus,input:focus,select:focus{outline:2px solid var(--accent);outline-offset:1px;border-color:var(--accent)}
+  #ioText{height:240px}
+  button{padding:8px 16px;font-size:13px;font-weight:500;cursor:pointer;background:var(--accent);color:#fff;
+         border:none;border-radius:6px;margin-top:8px;transition:background .12s,box-shadow .12s}
   button:hover{background:var(--accent-dk)}
-  button.dl{background:#37424f;padding:4px 10px;margin:0}
-  button.dl:hover{background:#232a33}
-  .hint{font-size:11px;color:var(--muted);margin:4px 0}
-  #err{white-space:pre-wrap;color:#b91c1c;font-family:Consolas,monospace;font-size:12px;margin-top:10px}
-  #stats{white-space:pre-wrap;color:var(--fg);font-family:Consolas,monospace;font-size:11px;margin-top:12px;background:var(--card);border:1px solid var(--line);border-radius:6px;padding:10px}
+  button:focus-visible{outline:2px solid var(--fg);outline-offset:2px}
+  button.dl{background:#374151;padding:5px 11px;margin:0}
+  button.dl:hover{background:#1f2937}
+  #genBtn{font-size:14px;padding:10px 22px;box-shadow:var(--shadow)}
+  .hint{font-size:12.5px;color:var(--muted);margin:6px 0;max-width:110ch}
+  #err{white-space:pre-wrap;color:var(--danger);font-family:Consolas,monospace;font-size:12.5px;margin-top:10px}
+  #stats{white-space:pre-wrap;color:var(--fg);font-family:Consolas,monospace;font-size:12px;line-height:1.6;
+         margin-top:14px;background:var(--card);border:1px solid var(--line);border-radius:7px;padding:12px 14px;
+         box-shadow:var(--shadow);overflow-x:auto}
 
-  .warn-box{display:none;background:#fff8e6;border:1px solid #f0c36d;border-left:4px solid #e6a817;border-radius:6px;padding:10px 12px;margin-top:10px}
-  .warn-box b{color:#8a5a00;font-size:12px}
-  #warn{white-space:pre-wrap;color:#7a4a00;font-family:Consolas,monospace;font-size:11px;margin-top:4px}
+  .warn-box{display:none;background:#fffbeb;border:1px solid #fcd34d;border-left:4px solid #d97706;
+            border-radius:7px;padding:12px 14px;margin-top:12px}
+  .warn-box b{color:#92400e;font-size:13px}
+  #warn{white-space:pre-wrap;color:#78350f;font-family:Consolas,monospace;font-size:12px;line-height:1.6;margin-top:6px}
 
-  .settings-row{display:flex;flex-wrap:wrap;gap:14px;margin:6px 0}
-  .settings-row label{font-size:11px;color:var(--muted);display:flex;flex-direction:column;gap:3px}
-  .settings-row input{font-family:Consolas,monospace;font-size:12px;padding:6px 8px;border:1px solid var(--line);border-radius:6px;width:130px}
-  .stname-panel{display:none;flex-wrap:wrap;gap:10px;margin:8px 0}
-  .stname-lbl{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted);background:var(--card);border:1px solid var(--line);border-radius:6px;padding:5px 8px}
-  .stname-lbl b{color:var(--fg);font-family:Consolas,monospace}
-  .stname-input{font-family:Segoe UI,Arial,sans-serif;font-size:12px;padding:4px 6px;border:1px solid var(--line);border-radius:4px;width:160px}
-  .cm-row{flex-direction:column;align-items:flex-start;gap:4px}
-  .cm-row select{font-family:Segoe UI,Arial,sans-serif;font-size:11px;padding:3px 5px;border:1px solid var(--line);border-radius:4px}
-  .cm-row .cm-manual{display:flex;gap:4px}
-  .cm-row .cm-manual input{font-family:Consolas,monospace;font-size:11px;padding:3px 5px;border:1px solid var(--line);border-radius:4px;width:110px}
+  .settings-row{display:flex;flex-wrap:wrap;gap:16px;margin:10px 0}
+  .settings-row label{font-size:12.5px;color:var(--muted);display:flex;flex-direction:column;gap:4px;font-weight:500}
+  .settings-row input{font-family:Consolas,monospace;font-size:13px;padding:7px 9px;border:1px solid var(--line);
+                      border-radius:6px;width:140px;background:var(--card);color:var(--fg)}
+  .stname-panel{display:none;flex-wrap:wrap;gap:10px;margin:10px 0}
+  .stname-lbl{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--muted);background:var(--card);
+              border:1px solid var(--line);border-radius:7px;padding:7px 10px;box-shadow:var(--shadow)}
+  .stname-lbl b{color:var(--fg);font-family:Consolas,monospace;font-size:12.5px}
+  .stname-input{font-family:inherit;font-size:12.5px;padding:5px 8px;border:1px solid var(--line);border-radius:5px;width:180px}
+  .cm-row{flex-direction:column;align-items:flex-start;gap:5px;min-width:230px}
+  .cm-row select{font-family:inherit;font-size:12.5px;padding:5px 7px;border:1px solid var(--line);border-radius:5px;background:#fff}
+  .cm-row .cm-manual{display:flex;gap:5px}
+  .cm-row .cm-manual input{font-family:Consolas,monospace;font-size:12px;padding:5px 7px;border:1px solid var(--line);border-radius:5px;width:130px}
 
   .single{background:#eef4ff;border:1px solid #bcd3f9;border-radius:var(--radius);padding:12px 14px;margin:14px 0}
   .single .t{font-weight:600;margin-bottom:2px}
   .single .d{font-size:11px;color:var(--muted);margin-bottom:8px}
   details.per-program{margin-top:10px}
-  details.per-program>summary{cursor:pointer;font-size:12px;color:var(--muted);padding:6px 2px;list-style:none}
+  details.per-program>summary{cursor:pointer;font-size:13px;color:var(--fg);font-weight:500;padding:7px 2px;list-style:none}
   details.per-program>summary::-webkit-details-marker{display:none}
   details.per-program>summary::before{content:"▸ ";color:var(--accent)}
   details.per-program[open]>summary::before{content:"▾ "}
@@ -103,7 +132,7 @@ HTML = '''<!doctype html>
   .gnode-rect.selected{stroke:#f1c40f;stroke-width:3}
   .gnode-rect.anchor{fill:#37424f;stroke:#232a33;cursor:move;rx:14}
   .gedge-line.anchor{stroke:#9aa3ad;stroke-dasharray:3,2}
-  .gnode-text{fill:#fff;font-size:9px;font-family:Consolas,monospace}
+  .gnode-text{fill:#fff;font-size:10.5px;font-family:Consolas,monospace}
   .gnode-del{fill:#b91c1c;cursor:pointer}
   .gnode-del-text{fill:#fff;font-size:9px;text-anchor:middle;font-family:Consolas,monospace}
   .gnode-handle{fill:#f1c40f;stroke:#333;stroke-width:1;cursor:crosshair}
@@ -132,9 +161,24 @@ HTML = '''<!doctype html>
   .json-io .json-msg{font-size:10px;margin-top:4px;white-space:pre-wrap}
   .json-io .json-msg.ok{color:#1e8449}
   .json-io .json-msg.err{color:#b91c1c}
-  details.project-json{border:1px solid var(--line);border-radius:6px;padding:8px 10px;margin:10px 0;background:var(--card)}
-  details.project-json>summary{font-size:12px;font-weight:600;color:var(--fg)}
-  .project-json textarea{height:160px}
+  details.project-json{border:1px solid var(--line);border-radius:8px;padding:12px 14px;margin:14px 0;
+                       background:var(--card);box-shadow:var(--shadow)}
+  details.project-json>summary{font-size:13.5px;font-weight:600;color:var(--fg);cursor:pointer}
+  .project-json textarea{height:180px}
+
+  /* Section yang bisa dilipat (mis. Confirm Mode). Dipakai buat bagian OPSIONAL yang kalau selalu
+     kebuka cuma makan tinggi layar - ringkasannya tetap kelihatan di summary jadi gak perlu dibuka
+     kecuali memang mau diubah. */
+  details.fold{border:1px solid var(--line);border-radius:8px;background:var(--card);margin:14px 0;
+               padding:0 14px;box-shadow:var(--shadow)}
+  details.fold>summary{cursor:pointer;padding:12px 0;list-style:none;display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+  details.fold>summary::-webkit-details-marker{display:none}
+  details.fold>summary::before{content:"\\25B8";color:var(--accent);font-size:12px}
+  details.fold[open]>summary::before{content:"\\25BE"}
+  details.fold[open]{padding-bottom:14px}
+  .fold-t{font-size:15px;font-weight:650;color:var(--fg)}
+  .fold-sub{font-size:12.5px;color:var(--faint)}
+  .fold-sub.attn{color:var(--warn);font-weight:600}
 </style>
 </head>
 <body>
@@ -159,7 +203,8 @@ station (opsional) ikut ke komentar program yang di-generate (mis. <code>LB400_A
 <div id="arraySizeHint" class="hint" style="margin-top:2px"></div>
 <div id="stationNamesPanel" class="stname-panel"></div>
 
-<h2>Confirm Mode per aktuator (opsional)</h2>
+<details id="confirmModeBox" class="fold">
+<summary><span class="fold-t">Confirm Mode per aktuator</span> <span class="fold-sub" id="confirmModeSummary">opsional - buka kalau ada aktuator yang perlu dioverride</span></summary>
 <p class="hint">Default (Auto) - pencocokan sensor otomatis (findLsc buat silinder, best-match komen buat
 servo). <b>Open-loop</b> - aktuator sengaja gak punya sensor by design (mis. DANDORI LOCK, PART FEEDER
 START) - skip fault-detection DAN skip warning "no matching limit switch" sama sekali. <b>Manual</b> -
@@ -167,8 +212,9 @@ override pencocokan otomatis yang salah/low-confidence, isi sendiri nama bit kon
 distel Open-loop, aktuator itu gak bisa dipakai di Motion Sequence (butuh bit konfirmasi buat lanjut
 ke step berikutnya).</p>
 <div id="confirmModePanel" class="stname-panel"></div>
+</details>
 
-<details class="json-io project-json">
+<details class="json-io project-json" open>
   <summary>Project JSON (Import/Export SEMUA - IO list, Motion Sequence, Condition, nama station, timer default sekaligus)</summary>
   <p class="hint">Simpan/pulihkan seluruh kerjaan sekali tempel, gak perlu per-station. Import langsung
   jalanin Generate ulang pakai IO list di dalamnya, GANTI seluruh project yang lagi ke-buka.</p>
@@ -347,6 +393,10 @@ function sortStations(keys) {
 }
 
 var errEl, resEl, statsEl, warnEl, warnBoxEl, motionPanelEl, conditionPanelEl, stationNamesPanelEl, timerPhpxEl, timerMotionEl, confirmModePanelEl, alSizeEl, mfSizeEl, stationBlockEl, arraySizeHintEl;
+// Warning generate terakhir - dipakai section Confirm Mode buat tau apa masih ada yang perlu diurus.
+var lastWarnings = '';
+// Sekali user buka/tutup Confirm Mode sendiri, kita berhenti maksa bukain - keputusannya dia.
+var confirmModeTouched = false;
 var flowStore = {};
 var lastSplitMsg = null;
 var stationNames = {}; // key station -> nama bebas (opsional), ngikut ke komen program (LB400_A/B dkk)
@@ -619,9 +669,10 @@ function nodeLabel(n) {
 
 // Lebar node ngikutin panjang label, gak dipotong lagi. Dulu label dipangkas 15 char jadi
 // "SOL_ST1_STP4_.." - dua stopper beda kelihatan sama persis di canvas, gak bisa dibedain.
-// Font .gnode-text 9px monospace = ~5.4px/char; +16 buat padding kiri-kanan. Minimal tetap
-// NODE_W biar node berlabel pendek gak jadi kotak kecil.
-function nodeW(n) { return Math.max(NODE_W, Math.ceil(nodeLabel(n).length * 5.4) + 16); }
+// Font .gnode-text 10.5px Consolas = ~6.1px/char (advance monospace ~0.55em, dilebihin dikit biar
+// aman); +18 buat padding kiri-kanan. Minimal tetap NODE_W biar node berlabel pendek gak jadi kotak
+// kecil. ANGKA INI TERIKAT ke font-size .gnode-text - ubah salah satu, ubah dua-duanya.
+function nodeW(n) { return Math.max(NODE_W, Math.ceil(nodeLabel(n).length * 6.1) + 18); }
 
 // Titik sambung kabel dipilih dinamis: SISI node yang paling searah ke lawan bicaranya (atas, bawah,
 // kiri, atau kanan), bukan selalu kanan->kiri kayak dulu. Bandingin kemiringan garis pusat-ke-pusat
@@ -902,6 +953,7 @@ function renderResults(payload) {
         + 'Rekomendasi minimal AL ' + Math.ceil(ai.alUsed / 10) * 10 + ', MF ' + Math.ceil(ai.mfUsed / 10) * 10 + '.'
       : '';
   }
+  lastWarnings = payload.warnings || '';
   warnEl.textContent = payload.warnings || '';
   warnBoxEl.style.display = payload.warnings ? 'block' : 'none';
 
@@ -1665,6 +1717,44 @@ function renderConfirmModePanel() {
     });
   });
   confirmModePanelEl.style.display = any ? 'flex' : 'none';
+  updateConfirmModeSummary(stations.length);
+}
+
+// Section Confirm Mode itu OPSIONAL dan panjang - kalau selalu kebuka dia dorong Motion Sequence jauh
+// ke bawah padahal seringnya gak disentuh sama sekali. Jadi dia dilipat, TAPI ringkasannya tetap
+// kebaca di summary, dan otomatis kebuka kalau ada yang beneran perlu diurus (aktuator tanpa sensor
+// yang belum disetel). Sekali sudah disetel, dia gak maksa buka lagi - itu arti "collapse setelah
+// selesai confirm": yang nutup bukan timer, tapi hilangnya alasan buat kebuka.
+function updateConfirmModeSummary(stationCount) {
+  var box = document.getElementById('confirmModeBox');
+  var sub = document.getElementById('confirmModeSummary');
+  if (!box || !sub) return;
+  var total = 0, over = 0;
+  if (lastSplitMsg) {
+    var g = lastSplitMsg.payload;
+    Object.keys(g).forEach(function (k) {
+      if (k === 'MAIN') return;
+      (g[k] || []).forEach(function (d) {
+        if (d.io === 'OUT' && (d.jenis === 'CR' || d.jenis === 'SOL' || d.jenis === 'SRV_CMD')) {
+          total++;
+          if (actuatorOverrides[d.name]) over++;
+        }
+      });
+    });
+  }
+  // "Perlu perhatian" = generator ngeluh gak nemu limit switch buat aktuator yang masih Auto.
+  var needs = (lastWarnings || '').split('\\n').filter(function (w) {
+    return /no matching limit switch/.test(w);
+  }).length;
+  if (!total) { sub.textContent = 'generate dulu buat lihat daftar aktuator'; sub.className = 'fold-sub'; return; }
+  if (needs) {
+    sub.textContent = needs + ' aktuator belum ketemu sensornya - setel Open-loop atau Manual';
+    sub.className = 'fold-sub attn';
+    if (!confirmModeTouched) box.open = true;
+  } else {
+    sub.textContent = over + ' dari ' + total + ' aktuator dioverride, sisanya Auto';
+    sub.className = 'fold-sub';
+  }
 }
 
 // ===== Project JSON: SEMUA state (IO list + motionSequences + conditionDefs + nama station + timer
@@ -1775,6 +1865,10 @@ motionPanelEl = document.getElementById('motionPanel');
 conditionPanelEl = document.getElementById('conditionPanel');
 stationNamesPanelEl = document.getElementById('stationNamesPanel');
 confirmModePanelEl = document.getElementById('confirmModePanel');
+(function () {
+  var cmBox = document.getElementById('confirmModeBox');
+  if (cmBox) cmBox.addEventListener('toggle', function () { confirmModeTouched = true; });
+})();
 alSizeEl = document.getElementById('alSize');
 mfSizeEl = document.getElementById('mfSize');
 stationBlockEl = document.getElementById('stationBlock');
@@ -1809,6 +1903,18 @@ out = (HTML
        .replace('__VALIDATE_JS__', json.dumps(VALIDATE))
        .replace('__SPLIT_JS__', json.dumps(SPLIT))
        .replace('__GEN_ALL_JS__', json.dumps(GEN_ALL)))
+
+# HTML di atas itu string Python BIASA, bukan raw. Jadi escape yang dimaksudkan buat JS atau CSS
+# (\n, \t, \25B8) diterjemahkan Python duluan dan hasilnya rusak diam-diam: \n jadi baris baru
+# sungguhan yang mutus literal JS, \25 jadi karakter kontrol oktal yang bikin CSS-nya salah. Sudah
+# kejadian tiga kali, jadi sekarang dijaga di sini: escape buat JS/CSS WAJIB ditulis dobel (\\n),
+# dan build gagal keras kalau ada karakter kontrol nyasar di output.
+bad = [(i, ord(c)) for i, c in enumerate(out) if ord(c) < 32 and c not in '\n\r\t']
+if bad:
+    ctx = out[max(0, bad[0][0] - 70):bad[0][0] + 30].replace('\n', ' ')
+    raise SystemExit(
+        "BUILD GAGAL: %d karakter kontrol di output (escape ketelan Python - tulis dobel, mis. \\\\n).\n"
+        "  offset %d, kode %d\n  konteks: ...%s..." % (len(bad), bad[0][0], bad[0][1], ctx))
 
 outpath = os.path.join(_D, 'index.html')
 open(outpath, 'w', encoding='utf-8').write(out)
