@@ -17,25 +17,53 @@ var T_PHPX   = validTimer(timerDefaults.phpx, "T#200MS", "PH/PX debounce");
 var T_MOTION = validTimer(timerDefaults.motion, "T#5S", "motion fault");
 var ARRAY_ELEMENTS = {}; // "AL[61]" -> comment, buat baris per elemen di GlobalVariables.tsv
 
-// Nama status global mengikuti standar Denso (MSTR_RDY, bukan MSTR_READY)
+// Nama status global mengikuti standar Ndeso (MSTR_RDY, bukan MSTR_READY)
 var MAIN_EXPORTS = ["PWR_ON","PLC_GOOD","AUTO_MODE","IND_MODE","NO_FAULT","HOME_POST","AUTO_RUN","CYCLE_STOP","MSTR_RDY"];
 
 function stripAS(n){ return n.replace(/^AS_/,""); }
 function pad(n,w){ return ("0000"+n).slice(-w); }
-// Cari LSC (limit switch combination) yang komennya paling mirip sama device (dipakai buat motion fault dan AutoRunning)
+// Token komen buat matching sensor. Dipecah per KATA (spasi) doang, tanda baca di dalam kata dibuang tapi
+// angkanya tetap nempel ke kata induknya: "STOPPER-2" -> "STOPPER2", bukan ["STOPPER","2"]. Dua alasan:
+//  1. angka itu satu-satunya pembeda antar unit sejenis (STOPPER-2 vs STOPPER-5, POSITION-1 vs POSITION-2).
+//     Dulu kepecah lalu kebuang filter length>2, semua kandidat seri skor dan yang menang cuma yang paling
+//     awal di daftar I/O - salah sambung tanpa warning.
+//  2. kalau angkanya jadi token lepas, "TYPE-2"/"FEEDER-2" ikut nyantol ke "STOPPER-2" cuma gara-gara
+//     sama-sama punya "2" - cukup buat nembus ambang skor>=2 padahal gak ada hubungannya.
+// Gak ada filter panjang: kata arah 2 huruf (UP, DN, IN) justru sering jadi satu-satunya pembeda.
+// Aturan pecah katanya sengaja sama persis sama buildName() di genname.js biar konsisten sama penamaan.
+function cmtTokens(d){ return (d.komen||"").toUpperCase().split(/\s+/).map(function(w){ return w.replace(/[^A-Z0-9]/g,""); }).filter(Boolean); }
+function cmtScore(x,y){ var a1=cmtTokens(x),b1=cmtTokens(y),m=0; a1.forEach(function(w){ if(b1.indexOf(w)>=0) m++; }); return m; }
+// Stem nama tanpa prefix jenis. genname.js nurunin nama dari komen doang (prefix cuma ikut jenis), jadi
+// sensor dan aktuator dari komen yang sama pasti sestem: SOL_ST1_STP2_CHK <-> AS_ST1_STP2_CHK.
+// CR ikut dilucuti: aktuator gak selalu jenis SOL, solList emang nerima CR juga (mis. ST2 STOPPER-1 UP).
+function nameStem(n){ return (n||"").replace(/^(?:SOL|SRV|AS|LSC|LS|CR)_/,""); }
+
+// Cari LSC (limit switch combination) buat device (dipakai buat motion fault dan AutoRunning).
+// Exact stem match duluan (deterministik), fuzzy komen cuma fallback kalau penamaannya beda.
 function findLsc(dev,asPairs){
-    var tk=function(d){return (d.komen||"").toUpperCase().split(/[^A-Z0-9]+/).filter(function(w){return w.length>2;});};
-    var sc=function(x,y){var a1=tk(x),b1=tk(y),m=0;a1.forEach(function(w){if(b1.indexOf(w)>=0)m++;});return m;};
-    var best=null,bestScore=0;
+    var target=nameStem(dev.name), exact=null;
     asPairs.forEach(function(p){
         p.forEach(function(asDev){
-            var s=sc(dev,asDev);
-            if(s>=2 && s>bestScore){ bestScore=s; best="LSC_"+stripAS(asDev.name); }
+            if(!exact && nameStem(asDev.name)===target) exact="LSC_"+stripAS(asDev.name);
+        });
+    });
+    if(exact){ lscAudit.push(dev.komen+" -> "+exact+" (exact name stem)"); return exact; }
+
+    var best=null,bestScore=0,tied=[];
+    asPairs.forEach(function(p){
+        p.forEach(function(asDev){
+            var s=cmtScore(dev,asDev), nm="LSC_"+stripAS(asDev.name);
+            if(s<2) return;
+            if(s>bestScore){ bestScore=s; best=nm; tied=[nm]; }
+            else if(s===bestScore && tied.indexOf(nm)<0){ tied.push(nm); }
         });
     });
     if(best){
         lscAudit.push(dev.komen+" -> "+best+" (score "+bestScore+")");
-        if(bestScore===2) warnings.push('LSC match for "'+dev.komen+'" -> "'+best+'" is low-confidence (score 2, only 2 shared comment words) - verify manually.');
+        // Seri skor = matcher gak punya dasar buat milih, cuma kepilih gara-gara urutan I/O. Ini yang dulu
+        // bikin STOPPER-2/3/4 semua nyantol ke sensor STOPPER-5 tanpa satupun warning keluar.
+        if(tied.length>1) warnings.push('LSC match for "'+dev.komen+'" is AMBIGUOUS: '+tied.length+' candidates tied at score '+bestScore+' ('+tied.join(", ")+'), picked "'+best+'" by I/O order only - verify manually.');
+        else if(bestScore===2) warnings.push('LSC match for "'+dev.komen+'" -> "'+best+'" is low-confidence (score 2, only 2 shared comment words) - verify manually.');
     }
     return best;
 }
@@ -47,7 +75,7 @@ function MF(n,cmt){ var t="MF["+n+"]"; if(cmt) ARRAY_ELEMENTS[t]=cmt; return t; 
 // station lain), biar konsisten satu ladder gak setengah-setengah ada nama setengah cuma "ST1".
 var stationNamesMap = flow.get("stationNames") || {};
 function labelOf(k){ var n=(stationNamesMap[k]||"").trim(); return k+(n?(" "+n):""); }
-// Sysmac Program name gak boleh ada spasi (ganti underscore), cuma alfanumerik+underscore aman -
+// Susmax Program name gak boleh ada spasi (ganti underscore), cuma alfanumerik+underscore aman -
 // dipakai buat akhiran nama Program/ContentHeader DAN nama file download-nya (Prg010_ST1_ConveyorFeed).
 function sanitizeIdent(s){ return (s||"").trim().replace(/[^A-Za-z0-9]+/g,"_").replace(/^_+|_+$/g,""); }
 
@@ -103,13 +131,14 @@ function buildUnit(stKey, devs){
     // biasanya banyak kata sama, cuma beda 1 kata arah/posisi, jadi butuh presisi match tertinggi).
     var srvCmds = outputs.filter(function(d){return d.jenis==="SRV_CMD";});
     var srvLsList = inputs.filter(function(d){return d.jenis==="SRV_LS";});
-    function tokenize(d){ return (d.komen||"").toUpperCase().split(/[^A-Z0-9]+/).filter(function(w){return w.length>2;}); }
     var srvActus = srvCmds.map(function(cmd){
-        var a1=tokenize(cmd), best=null, bestScore=-1;
+        var best=null, bestScore=-1, tied=[];
         srvLsList.forEach(function(ls){
-            var b1=tokenize(ls), m=0; a1.forEach(function(w){ if(b1.indexOf(w)>=0) m++; });
-            if(m>bestScore){ bestScore=m; best=ls; }
+            var m=cmtScore(cmd,ls);
+            if(m>bestScore){ bestScore=m; best=ls; tied=[ls.name]; }
+            else if(m===bestScore && tied.indexOf(ls.name)<0){ tied.push(ls.name); }
         });
+        if(bestScore>0 && tied.length>1) warnings.push(stKey+': servo feedback for "'+cmd.komen+'" is AMBIGUOUS: '+tied.length+' candidates tied at score '+bestScore+' ('+tied.join(", ")+'), picked "'+best.name+'" by I/O order only - verify manually.');
         return { cmd:cmd, ls:(bestScore>0?best:null) };
     });
     var srvLscOf={}; srvActus.forEach(function(sa){ if(sa.ls) srvLscOf[sa.cmd.name]=sa.ls.name; });
@@ -121,7 +150,7 @@ function buildUnit(stKey, devs){
     var actuatorOverrides = flow.get("actuatorOverrides") || {};
 
     var ext=[],priv=[],glob=[],seen={},pseen={},nameCI={};
-    // Sysmac Studio nolak 2 variable yang beda cuma di huruf besar/kecil (mis. "LB232" vs "lb232")
+    // Susmax Studio nolak 2 variable yang beda cuma di huruf besar/kecil (mis. "LB232" vs "lb232")
     // sebagai "name already used" - simbol private/external eksternal (mis. bit condition yang
     // diketik user via node "+ Condition/bit") bisa kebetulan nabrak bit auto-generated (mis.
     // interlock Individual). Dedup case-insensitive di sini, nama pertama yang menang.
@@ -251,7 +280,7 @@ function buildUnit(stKey, devs){
     P("LB100","BOOL","All actuators at origin position"); P("LB105","BOOL","Unit returned to home position");
 
     // 8. Condition : lewat panel web, tiap station boleh punya sejumlah bit Condition BERNAMA,
-    // masing-masing = OR dari beberapa kombinasi AND-syarat (groups) - persis pola Denso PATTERN 3
+    // masing-masing = OR dari beberapa kombinasi AND-syarat (groups) - persis pola Ndeso PATTERN 3
     // (mis. LB300 "P&P Take Out Lowering Auto Start Condition" = (grupA) OR (grupB)). Station yang
     // belum disetel lewat panel tetap dapat 3 slot cadangan generik lama (LB300-LB302), zero regresi.
     var S8=[]; o=1;
@@ -346,7 +375,7 @@ function buildUnit(stKey, devs){
     P("LB400","BOOL","Automatic motion start");
     P("LB400_A","BOOL",stLabel+", Automatic motion start seal");
     P("LB400_B","BOOL",stLabel+", Automatic motion complete seal");
-    // START MOTION PROCESS (Denso Autorun.cxr). POSISI SEAL yang bikin pasangan LB400_A/LB400_B ini
+    // START MOTION PROCESS (Ndeso Autorun.cxr). POSISI SEAL yang bikin pasangan LB400_A/LB400_B ini
     // bener - salah taruh titik sambung seal-nya bikin ladder yang keliatan mirip tapi gak pernah
     // reset / gak pernah latch:
     //   LB400_A = (LB309 ANDNOT LB499 ANDNOT CYCLE_STOP  OR  seal LB400_A) AND AUTO_RUN ANDNOT LB400_B
@@ -402,7 +431,7 @@ function buildUnit(stKey, devs){
         return out;
     }
 
-    // PATTERN 3 Denso "Autorun Condition Running": semua varian ber-condition digabung jadi SATU
+    // PATTERN 3 Ndeso "Autorun Condition Running": semua varian ber-condition digabung jadi SATU
     // rung mutual-exclusion (satu network, N baris kondisi, N coil sejajar di 1 RightPowerRail) -
     // bukan rung terpisah per varian. LB400 gerbang bareng di depan tiap baris: (condition OR
     // seal-diri) ANDNOT latch varian lain yang juga ber-condition -> coil LB40x sendiri. LB400 di
@@ -464,7 +493,7 @@ function buildUnit(stKey, devs){
         // Bit eksternal (bukan node id di varian ini) dipakai langsung jadi kontak beneran di rung
         // (motionStep/join) - kalau belum kedeklarasi di manapun (bukan device/global, bukan spare
         // Condition section), deklarasikan sebagai private BOOL placeholder biar gak "operand tidak
-        // terdeklarasi" pas import Sysmac. Logic yang benar-benar drive bit ini tetap harus ditulis manual.
+        // terdeklarasi" pas import Susmax. Logic yang benar-benar drive bit ini tetap harus ditulis manual.
         function declareExternal(ref){
             if(nodeIds[ref]||GLOBALS[ref]) return;
             P(ref,"BOOL","External condition bit for motion sequence"+(condComments[ref]?": "+condComments[ref]:"")+" - define driving logic separately");
@@ -564,7 +593,7 @@ function buildUnit(stKey, devs){
     // LB499 dipindah ke antara rung LB400/mutex-group (LB401..) dan motion step pertama (LB410) -
     // BUKAN paling atas section. Valid, PLC scan siklik jadi rung boleh nunjuk bit yang baru
     // di-compute rung LAIN di bawahnya (kepakein nilai scan sebelumnya). evaluationOrder di-renumber
-    // ulang 1..N ngikutin urutan array yang baru, biar urutan tampil di Sysmac Studio (yang ngikutin
+    // ulang 1..N ngikutin urutan array yang baru, biar urutan tampil di Susmax Studio (yang ngikutin
     // evaluationOrder, bukan cuma posisi di XML) bener.
     S10.splice.apply(S10, [lb499InsertAt, 0].concat(S10.splice(preLB499Count)));
     S10 = S10.map(function(rungXml,idx){ return rungXml.replace(/evaluationOrder="\d+"/, 'evaluationOrder="'+(idx+1)+'"'); });
@@ -844,7 +873,7 @@ function progMulti(title,blocks,globVars){
      +'         xmlns:smcext="https://www.ia.omron.com/Smc"\n'
      +'         xsi:schemaLocation="https://www.ia.omron.com/Smc IEC61131_10_Ed1_0_SmcExt1_0_Spc1_0.xsd"\n'
      +'         schemaVersion="1"\n         xmlns="www.iec.ch/public/TC65SC65BWG7TF10">\n'
-     +'  <FileHeader companyName="PT. Denso Indonesia" productName="Sysmac Studio" productVersion="1.30.0.0" />\n'
+     +'  <FileHeader companyName="PT. Ndeso Indonesia" productName="Susmax Studio" productVersion="1.30.0.0" />\n'
      +'  <ContentHeader name="'+title+'" creationDateTime="2026-07-30T00:00:00">\n'
      +'    <AddData><Data name="https://www.ia.omron.com/Smc IEC61131_10_Ed1_0_SmcExt1_0_Spc1_0.xsd" handleUnknown="discard">'
      +'<smcext:DeviceInfo modelName="NX1P2" version="1.40" /></Data></AddData>\n  </ContentHeader>\n'
@@ -877,7 +906,7 @@ var elNames=Object.keys(ARRAY_ELEMENTS).sort(function(a,b){
     return ma[1]===mb[1] ? (ma[2]-mb[2]) : ma[1]<mb[1]?-1:1;
 });
 // baris array-level (AL, MF) buat paste awal ke tabel Global Variable, baris per elemen (AL[61], ...) buat isi Comment
-// setelah array di-expand di Sysmac Studio - lihat README bagian import
+// setelah array di-expand di Susmax Studio - lihat README bagian import
 var tsv="Name\tData type\tInitial value\tAT\tRetain\tConstant\tNetwork Publish\tComment\n"
       + gnames.map(function(n){ var g=GLOBALS[n];
             return [n,g.t,"","","False","False","Do not publish",g.d].join("\t"); }).join("\n")

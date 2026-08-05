@@ -1,4 +1,4 @@
-// ===== SG LIB : Sysmac IEC61131-10 XML builder (shared, jangan diedit per-node) =====
+// ===== SG LIB : Susmax IEC61131-10 XML builder (shared, jangan diedit per-node) =====
 function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/[\u2013\u2014]/g,'-').replace(/\u2192/g,'->').replace(/[^\x00-\x7F]/g,'');}
 function Rung(o,c){this.o=o;this.c=c;this.a=[];this.n=1;}
 Rung.prototype.rail=function(){var i=this.n++;this.a.push('<LdObject xsi:type="LeftPowerRail"><ConnectionPointOut connectionPointOutId="'+i+'" /></LdObject>');return i;};
@@ -18,7 +18,7 @@ function latch(o,trigs,bit,blocks,cmt){var r=new Rung(o,cmt);var rail=r.rail();v
 // mutual-exclusion group: SATU rung, satu kontak gate dipakai bareng (mis. LB400), tiap branches[i]
 // = {trigs:[[op,neg],...], bit:coilBit, blocks:[[op,neg],...]} jadi cabang paralel dari gate ->
 // (OR trigs OR seal-diri sendiri) -> AND blocks (interlock ANDNOT branch lain) -> coil sendiri.
-// Semua coil nyambung ke SATU RightPowerRail (banyak ConnectionPointIn) - persis network Denso
+// Semua coil nyambung ke SATU RightPowerRail (banyak ConnectionPointIn) - persis network Ndeso
 // "Autorun Condition Running" (LB400 di kiri, N baris kondisi mutual exclusion, N coil sejajar).
 function mutexGroup(o,gate,branches,cmt){
     var r=new Rung(o,cmt); var rail=r.rail();
@@ -38,7 +38,7 @@ function mutexGroup(o,gate,branches,cmt){
 // groups = [[[operand,negated],...], ...] -> tiap group AND-series jadi 1 cabang, semua cabang OR -> 1 coil
 // (Condition section: satu bit boleh dinyalain lewat beberapa kombinasi syarat berbeda)
 function orOfAnds(o,groups,out,cmt){var r=new Rung(o,cmt);var rail=r.rail();var ends=groups.map(function(g){var cur=rail;g.forEach(function(c){cur=r.ct(c[0],cur,c[1]);});return cur;});var x=ends.length>1?r.clm(out,ends):r.cl(out,ends[0]);r.rr([x]);return r.build();}
-// dual-aux confirm Denso (3 rung)
+// dual-aux confirm Ndeso (3 rung)
 function dualAux(o,sa,aa,sb,ab,out,cmt){return series(o,[[sa,false]],aa,cmt)+series(o+1,[[sb,false]],ab)+series(o+2,[[aa,false],[ab,false]],out);}
 // LS Combination 2 posisi (2 rung)
 function ls2(o,af,ab,lf,lb,cmt){return series(o,[[af,false],[ab,true]],lf,cmt)+series(o+1,[[ab,false],[af,true]],lb);}
@@ -48,7 +48,7 @@ function merge2(o,a,b,out,cmt){var r=new Rung(o,cmt);var rail=r.rail();var ids=[
 function chunkNot(o,list,outBit,auxPrefix,cmt,vsink){var m='',bits=[],ch=[],i;for(i=0;i<list.length;i+=6)ch.push(list.slice(i,i+6));if(ch.length===1){return {xml:series(o,ch[0].map(function(x){return [x,true];}),outBit,cmt),n:1};}
 ch.forEach(function(c,idx){var b=auxPrefix+'_'+(idx+1);bits.push(b);if(vsink)vsink.push(b);m+=series(o+idx,c.map(function(x){return [x,true];}),b,idx===0?cmt:null);});
 m+=series(o+ch.length,bits.map(function(b){return [b,false];}),outBit);return {xml:m,n:ch.length+1};}
-// Motion step Denso (AutoRunning): TR0=prevBit. cmd = TR0 ANDNOT confirm (bukan ANDNOT lsc - cmd
+// Motion step Ndeso (AutoRunning): TR0=prevBit. cmd = TR0 ANDNOT confirm (bukan ANDNOT lsc - cmd
 // harus tetap ON sampai confirm sendiri jadi TRUE, biar solenoid gak drop pas posisi baru kesentuh
 // dikit; ini persis idiom project asli Autorun.cxr sekali step-mode overlay-nya dibuang).
 // confirm = TR0 AND (sol AND lsc OR confirm). Confirm self-latch WAJIB refIn ke TR0, bukan
@@ -66,7 +66,7 @@ function motionStep(o,prevBit,sol,lsc,cmdBit,confirmBit,cmt){
 function vr(n,t,d){return '<Variable name="'+n+'"><Documentation xsi:type="SimpleText">'+esc(d||'')+'</Documentation><Type><TypeName>'+(t||'BOOL')+'</TypeName></Type></Variable>';}
 function sect(n,o,rungs){return '<BodyContent xsi:type="smcext:LdSection" name="'+esc(n)+'" evaluationOrder="'+o+'">'+rungs.join('')+'</BodyContent>';}
 function prog(name,ext,priv,sections,glob){
-return '<?xml version="1.0"?>\n<Project xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"\n         xmlns:smcext="https://www.ia.omron.com/Smc"\n         xsi:schemaLocation="https://www.ia.omron.com/Smc IEC61131_10_Ed1_0_SmcExt1_0_Spc1_0.xsd"\n         schemaVersion="1"\n         xmlns="www.iec.ch/public/TC65SC65BWG7TF10">\n  <FileHeader companyName="PT. Denso Indonesia" productName="Sysmac Studio" productVersion="1.30.0.0" />\n  <ContentHeader name="'+name+'" creationDateTime="2026-07-30T00:00:00">\n    <AddData><Data name="https://www.ia.omron.com/Smc IEC61131_10_Ed1_0_SmcExt1_0_Spc1_0.xsd" handleUnknown="discard"><smcext:DeviceInfo modelName="NX1P2" version="1.40" /></Data></AddData>\n  </ContentHeader>\n  <Types><GlobalNamespace><Program name="'+name+'">\n    <ExternalVars>\n'+ext.join('\n')+'\n    </ExternalVars>\n    <Vars accessSpecifier="private">\n'+priv.join('\n')+'\n    </Vars>\n    <MainBody>\n'+sections.join('\n')+'\n    </MainBody>\n  </Program></GlobalNamespace></Types>\n  <Instances><Configuration name="CE_Feeder_Machine"><Resource name="MainResource" resourceTypeName="">\n    <GlobalVars>\n'+glob.join('\n')+'\n    </GlobalVars>\n  </Resource></Configuration></Instances>\n</Project>\n';}
+return '<?xml version="1.0"?>\n<Project xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"\n         xmlns:smcext="https://www.ia.omron.com/Smc"\n         xsi:schemaLocation="https://www.ia.omron.com/Smc IEC61131_10_Ed1_0_SmcExt1_0_Spc1_0.xsd"\n         schemaVersion="1"\n         xmlns="www.iec.ch/public/TC65SC65BWG7TF10">\n  <FileHeader companyName="PT. Ndeso Indonesia" productName="Susmax Studio" productVersion="1.30.0.0" />\n  <ContentHeader name="'+name+'" creationDateTime="2026-07-30T00:00:00">\n    <AddData><Data name="https://www.ia.omron.com/Smc IEC61131_10_Ed1_0_SmcExt1_0_Spc1_0.xsd" handleUnknown="discard"><smcext:DeviceInfo modelName="NX1P2" version="1.40" /></Data></AddData>\n  </ContentHeader>\n  <Types><GlobalNamespace><Program name="'+name+'">\n    <ExternalVars>\n'+ext.join('\n')+'\n    </ExternalVars>\n    <Vars accessSpecifier="private">\n'+priv.join('\n')+'\n    </Vars>\n    <MainBody>\n'+sections.join('\n')+'\n    </MainBody>\n  </Program></GlobalNamespace></Types>\n  <Instances><Configuration name="CE_Feeder_Machine"><Resource name="MainResource" resourceTypeName="">\n    <GlobalVars>\n'+glob.join('\n')+'\n    </GlobalVars>\n  </Resource></Configuration></Instances>\n</Project>\n';}
 
 // ===== TON timer rung (Block typeName=TON + instanceName, Q -> coil) =====
 function ton(o,gate,preset,tmrInst,doneBit,cmt,alwaysOn){
