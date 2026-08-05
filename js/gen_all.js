@@ -94,6 +94,7 @@ ukeys.forEach(function(k,i){
 // station dengan banyak actuator gak kehabisan slot dan station kecil gak buang-buang array.
 var AL_MAIN_RESERVED = 10;
 var AL_BLOCK = {}, MF_BLOCK = {};
+var AL_SIZE, MF_SIZE, AL_USED = 0, MF_USED = 0;  // *_USED = slot yang beneran kepakai (dasar rekomendasi)
 (function computeArrayBlocks(){
     var alCursor = AL_MAIN_RESERVED, mfCursor = 0;
     ukeys.forEach(function(k){
@@ -114,8 +115,23 @@ var AL_BLOCK = {}, MF_BLOCK = {};
         MF_BLOCK[k] = { start: mfCursor+1, end: mfCursor+actCount };
         mfCursor += actCount;
     });
-    AL_SIZE = Math.max(100, alCursor);
-    MF_SIZE = Math.max(16, mfCursor);
+    AL_USED = alCursor; MF_USED = mfCursor;
+    // Ukuran array boleh disetel user lewat panel "Ukuran array" di web UI. Tapi TIDAK PERNAH boleh
+    // turun di bawah yang beneran kepakai - kalau dipaksa, alarm/motion-fault paling belakang bakal
+    // nunjuk index di luar array dan itu error pas import, bukan sekadar kurang rapi. Jadi angkanya
+    // dinaikin balik + warning, bukan diam-diam ngedrop slot.
+    var want = flow.get("arraySizes") || {};
+    function pickSize(raw, dflt, used, name){
+        var v = parseInt(raw, 10);
+        if(!isFinite(v) || v <= 0) return Math.max(dflt, used);
+        if(v < used){
+            warnings.push("Array "+name+" diminta "+v+" elemen, tapi "+used+" slot sudah kepakai - dinaikin ke "+used+".");
+            return used;
+        }
+        return v;
+    }
+    AL_SIZE = pickSize(want.al, 100, alCursor, "AL");
+    MF_SIZE = pickSize(want.mf, 16, mfCursor, "MF");
 })();
 var AL_TYPE = "ARRAY[1.."+AL_SIZE+"] OF BOOL";
 var MF_TYPE = "ARRAY[1.."+MF_SIZE+"] OF BOOL";
@@ -1029,14 +1045,25 @@ ukeys.forEach(function(k){ files.push(buildUnit(k,groups[k])); });
 // Index yang direservasi tapi belum kepakai (blok MAIN dan blok tiap station) tetap diisi komen "Spare"
 // biar keliatan di tabel Global Variable itu slot cadangan, bukan ketinggalan/hilang
 (function fillSpareArrayComments(){
-    function fillRange(fn,start,end,label){
-        for(var n=start;n<=end;n++){ var t=fn(n); if(!ARRAY_ELEMENTS[t]) ARRAY_ELEMENTS[t]="Spare, reserved for "+label; }
+    // Tiap slot kosong dikasih stub nama ber-nomor (AL069_, MF007_) di depan keterangannya. Gunanya
+    // biar pas dipakai nanti tinggal dilengkapin jadi nama beneran (AL069_PRESS_NG) - dan yang lebih
+    // penting, slot yang gak kepakai jadi PUNYA baris di TSV. Sebelum ini ekor array di luar blok
+    // MAIN/station gak dikomen sama sekali, jadi elemennya gak ke-emit dan di Susmax Studio
+    // kelihatan kosong melompong - gak kebedain antara "cadangan" dan "kelewat".
+    function fillRange(fn,prefix,start,end,label){
+        for(var n=start;n<=end;n++){
+            var t=fn(n);
+            if(!ARRAY_ELEMENTS[t]) ARRAY_ELEMENTS[t]=prefix+pad(n,3)+"_ Spare, reserved for "+label;
+        }
     }
-    fillRange(AL,1,AL_MAIN_RESERVED,"MAIN alarm group");
+    fillRange(AL,"AL",1,AL_MAIN_RESERVED,"MAIN alarm group");
     ukeys.forEach(function(k){
-        fillRange(AL, AL_BLOCK[k].start, AL_BLOCK[k].end, labelOf(k)+" alarm group");
-        fillRange(MF, MF_BLOCK[k].start, MF_BLOCK[k].end, labelOf(k)+" motion fault group");
+        fillRange(AL,"AL", AL_BLOCK[k].start, AL_BLOCK[k].end, labelOf(k)+" alarm group");
+        fillRange(MF,"MF", MF_BLOCK[k].start, MF_BLOCK[k].end, labelOf(k)+" motion fault group");
     });
+    // Sisa ekor sampai ujung array - fillRange nge-skip yang sudah keisi, jadi ini cuma nambal lubang.
+    fillRange(AL,"AL",1,AL_SIZE,"future use, not allocated to any group");
+    fillRange(MF,"MF",1,MF_SIZE,"future use, not allocated to any group");
 })();
 
 var gnames=Object.keys(GLOBALS).sort();
@@ -1060,5 +1087,7 @@ files.unshift({ name:"AllPrograms.xml", xml:progMulti("AllPrograms",blocks,globV
 
 msg.payload={ files:files, warnings:warnings.join("\n"), unitCount:ukeys.length,
               stats:files.map(function(f){return f.stats;}).join("\n"),
+              // Dipakai web UI buat nampilin rekomendasi ukuran array (minimal = yang kepakai sekarang)
+              arrayInfo:{ alUsed:AL_USED, mfUsed:MF_USED, alSize:AL_SIZE, mfSize:MF_SIZE },
               lscAudit:lscAudit.join("\n") };
 return msg;

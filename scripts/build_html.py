@@ -152,7 +152,10 @@ station (opsional) ikut ke komentar program yang di-generate (mis. <code>LB400_A
 <div class="settings-row">
   <label>Timer debounce PH/PX <input id="timerPhpx" placeholder="T#200MS"></label>
   <label>Timer motion-fault <input id="timerMotion" placeholder="T#5S"></label>
+  <label>Ukuran array AL <input id="alSize" type="number" min="1" placeholder="100"></label>
+  <label>Ukuran array MF <input id="mfSize" type="number" min="1" placeholder="16"></label>
 </div>
+<div id="arraySizeHint" class="hint" style="margin-top:2px"></div>
 <div id="stationNamesPanel" class="stname-panel"></div>
 
 <h2>Confirm Mode per aktuator (opsional)</h2>
@@ -342,7 +345,7 @@ function sortStations(keys) {
   });
 }
 
-var errEl, resEl, statsEl, warnEl, warnBoxEl, motionPanelEl, conditionPanelEl, stationNamesPanelEl, timerPhpxEl, timerMotionEl, confirmModePanelEl;
+var errEl, resEl, statsEl, warnEl, warnBoxEl, motionPanelEl, conditionPanelEl, stationNamesPanelEl, timerPhpxEl, timerMotionEl, confirmModePanelEl, alSizeEl, mfSizeEl, arraySizeHintEl;
 var flowStore = {};
 var lastSplitMsg = null;
 var stationNames = {}; // key station -> nama bebas (opsional), ngikut ke komen program (LB400_A/B dkk)
@@ -883,6 +886,18 @@ function importConditionJSON(stKey, jsonText) {
 function renderResults(payload) {
   resEl.innerHTML = '';
   statsEl.textContent = payload.stats;
+  // Rekomendasi ukuran array dihitung dari generate BARUSAN, bukan ditebak: alUsed/mfUsed itu jumlah
+  // slot yang beneran keisi. Angka di kotak input dibiarin apa adanya - user yang mutusin, kita cuma
+  // ngasih tau minimalnya berapa dan berapa yang lagi kepakai.
+  if (arraySizeHintEl) {
+    var ai = payload.arrayInfo;
+    arraySizeHintEl.textContent = ai
+      ? 'Terpakai sekarang: AL ' + ai.alUsed + ' slot, MF ' + ai.mfUsed + ' slot. '
+        + 'Array yang dibuat: AL[1..' + ai.alSize + '], MF[1..' + ai.mfSize + ']. '
+        + 'Rekomendasi beri kelonggaran, mis. AL ' + Math.max(100, Math.ceil((ai.alUsed * 1.5 + 10) / 10) * 10)
+        + ' dan MF ' + Math.max(16, Math.ceil((ai.mfUsed * 1.5 + 4) / 4) * 4) + ' biar masih ada slot buat alarm baru.'
+      : '';
+  }
   warnEl.textContent = payload.warnings || '';
   warnBoxEl.style.display = payload.warnings ? 'block' : 'none';
 
@@ -953,6 +968,7 @@ function regenerate() {
   });
   flowStore.stationNames = stationNames;
   flowStore.timerDefaults = { phpx: timerPhpxEl ? timerPhpxEl.value : '', motion: timerMotionEl ? timerMotionEl.value : '' };
+  flowStore.arraySizes = { al: alSizeEl ? alSizeEl.value : '', mf: mfSizeEl ? mfSizeEl.value : '' };
   flowStore.actuatorOverrides = actuatorOverrides;
   try {
     // Salinan wrapper baru tiap panggil - gen_all.js nge-reassign msg.payload di baris terakhirnya,
@@ -1664,6 +1680,7 @@ function exportProjectJSON() {
     io: document.getElementById('ioText').value,
     stationNames: stationNames,
     timerDefaults: { phpx: timerPhpxEl ? timerPhpxEl.value : '', motion: timerMotionEl ? timerMotionEl.value : '' },
+    arraySizes: { al: alSizeEl ? alSizeEl.value : '', mf: mfSizeEl ? mfSizeEl.value : '' },
     actuatorOverrides: actuatorOverrides,
     motionSequences: motionSequences,
     conditionDefs: conditionDefs
@@ -1687,6 +1704,8 @@ function importProjectJSON(jsonText) {
   Object.keys(parsed.stationNames || {}).forEach(function (k) { stationNames[k] = String(parsed.stationNames[k] || '').trim(); });
   if (timerPhpxEl) timerPhpxEl.value = (parsed.timerDefaults && parsed.timerDefaults.phpx) || '';
   if (timerMotionEl) timerMotionEl.value = (parsed.timerDefaults && parsed.timerDefaults.motion) || '';
+  if (alSizeEl) alSizeEl.value = (parsed.arraySizes && parsed.arraySizes.al) || '';
+  if (mfSizeEl) mfSizeEl.value = (parsed.arraySizes && parsed.arraySizes.mf) || '';
   actuatorOverrides = {};
   Object.keys(parsed.actuatorOverrides || {}).forEach(function (k) { actuatorOverrides[k] = parsed.actuatorOverrides[k]; });
 
@@ -1749,6 +1768,11 @@ motionPanelEl = document.getElementById('motionPanel');
 conditionPanelEl = document.getElementById('conditionPanel');
 stationNamesPanelEl = document.getElementById('stationNamesPanel');
 confirmModePanelEl = document.getElementById('confirmModePanel');
+alSizeEl = document.getElementById('alSize');
+mfSizeEl = document.getElementById('mfSize');
+arraySizeHintEl = document.getElementById('arraySizeHint');
+alSizeEl.addEventListener('change', function () { if (lastSplitMsg) regenerate(); });
+mfSizeEl.addEventListener('change', function () { if (lastSplitMsg) regenerate(); });
 timerPhpxEl = document.getElementById('timerPhpx');
 timerMotionEl = document.getElementById('timerMotion');
 timerPhpxEl.addEventListener('change', function () { if (lastSplitMsg) regenerate(); });
