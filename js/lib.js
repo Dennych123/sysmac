@@ -63,6 +63,27 @@ function motionStep(o,prevBit,sol,lsc,cmdBit,confirmBit,cmt){
   r.rr([cmdCoil,confCoil]);
   return r.build();
 }
+// Satu cabang blok judgement (IF-ELSE), sepasang dipakai bareng buat Y dan N:
+//   prevBit AND (kondisi OR cabang-ini) ANDNOT cabang-lawan -> cabang-ini
+// Tiga sifat yang bikin ini beda dari series() biasa:
+//   HOLD  - begitu keputusan diambil, cabangnya nyangkut lewat seal. Tanpa ini, kondisi yang kedip
+//           (sensor mantul, benda bergetar) bikin cabang lepas di tengah jalan dan langkah sesudahnya
+//           ikut mati.
+//   MUTEX - ANDNOT cabang lawan, jadi Y dan N MUSTAHIL nyala barengan sekali salah satu ngunci.
+//   RESET - seal-nya seri di belakang prevBit, jadi pas step sebelumnya drop (cycle kelar/di-stop)
+//           dua-duanya lepas sendiri, gak perlu rung reset terpisah.
+// Seal-nya WAJIB refIn ke titik SETELAH prevBit (tr0), bukan ke LeftPowerRail - PATTERN 4, sama
+// kayak confirm di motionStep(); salah di sini bikin cabang nyangkut selamanya tanpa error import.
+function judgeBranch(o,prevBit,condBit,condNeg,bit,otherBit,cmt){
+  var r=new Rung(o,cmt); var rail=r.rail();
+  var tr0=r.ct(prevBit,rail);
+  var trig=r.ct(condBit,tr0,condNeg);
+  var seal=r.ct(bit,tr0);
+  var gate=r.ctm(otherBit,[trig,seal],true);
+  var coil=r.cl(bit,gate);
+  r.rr([coil]);
+  return r.build();
+}
 function vr(n,t,d){return '<Variable name="'+n+'"><Documentation xsi:type="SimpleText">'+esc(d||'')+'</Documentation><Type><TypeName>'+(t||'BOOL')+'</TypeName></Type></Variable>';}
 function sect(n,o,rungs){return '<BodyContent xsi:type="smcext:LdSection" name="'+esc(n)+'" evaluationOrder="'+o+'">'+rungs.join('')+'</BodyContent>';}
 function prog(name,ext,priv,sections,glob){

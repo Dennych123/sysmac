@@ -2,8 +2,8 @@
 
 Generator program Imron Susmax Studio (IEC 61131-10 XML) dari IO list,
 mengikuti standar pemrograman terstruktur PT. Ndeso Indonesia.
-Dipaketkan sebagai `index.html` standalone (tanpa Node-RED) dan sebagai
-flow Node-RED dashboard.
+Dipaketkan sebagai `index.html` standalone - satu file, tanpa dependensi
+eksternal, tanpa server, jalan offline dari `file://`.
 
 ## Alur
 
@@ -25,16 +25,26 @@ sisanya masuk ke program MAIN.
 ## Cara build
 
 ```bash
-python3 scripts/build_html.py   # -> index.html standalone, tinggal dibuka di browser
-python3 scripts/build.py        # -> flow JSON, siap di-import ke Node-RED
-node scripts/test.js            # jalankan seluruh node tanpa Node-RED, lalu validasi hasil
+python3 scripts/build_html.py           # -> index.html standalone, tinggal dibuka di browser
+node tests/run.js                       # SELURUH suite: pipeline + harness per-area
+node scripts/core.js project.json out/  # generate dari CLI, tanpa browser
 ```
 
-`index.html` (buka langsung, tidak butuh server) menempel semua logic `js/*.js`
-jadi satu file lewat `build_html.py` - tempel IO list, klik Generate, download
-hasilnya. `build.py` juga menempelkan `js/lib.js` ke setiap node generator
-secara otomatis. Jangan menyalin isi lib ke file generator, dan jangan edit
-`index.html` langsung - edit `js/*.js` lalu build ulang.
+`tests/run.js` membaca `index.html`, jadi build dulu baru test kalau yang diubah
+ada di `scripts/build_html.py`.
+
+Sebelum mengubah kode, baca **[CLAUDE.md](CLAUDE.md)** - berisi jebakan yang tidak
+kelihatan dari kode (escape Python di template, aturan seal contact, kontrak kode
+warning). Daftar pekerjaan yang belum selesai ada di **[TODO.md](TODO.md)**.
+
+`index.html` menempel semua logic `js/*.js` jadi satu file lewat `build_html.py` -
+tempel IO list, klik Generate, download hasilnya. Jangan edit `index.html`
+langsung: edit `js/*.js` lalu build ulang.
+
+`scripts/core.js` menjalankan pipeline yang sama di Node, langsung dari `js/*.js`
+tanpa build apa pun. Dipakai `test.js`, dan bisa dipakai sendiri buat batch/CI.
+`js/gen_all.js` butuh helper dari `js/lib.js` - keduanya digabung otomatis, jadi
+jangan menyalin isi lib ke file generator.
 
 ### Pengaturan (nama station, timer default)
 
@@ -262,8 +272,10 @@ kecek manual - kepercayaan cocoknya lemah, gampang salah pasang device mirip.
 | `js/split.js` | Pemisahan per station |
 | `js/gen_all.js` | Pembangkit seluruh program |
 | `scripts/build_html.py` | Perakit `index.html` standalone |
-| `scripts/build.py` | Perakit flow JSON Node-RED |
-| `scripts/test.js` | Uji jalan dan validasi |
+| `scripts/core.js` | Runner pipeline headless (modul + CLI) |
+| `scripts/test.js` | Uji pipeline end-to-end |
+| `tests/run.js` | Penjalan seluruh suite |
+| `tests/*.test.js` | Harness per-area (editor, warning, array, blok, JSON, grid IO) |
 | `index.html` | Hasil build, jangan diedit langsung |
 
 ## Uji yang dijalankan `test.js`

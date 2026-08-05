@@ -16,42 +16,119 @@ HTML = '''<!doctype html>
 <meta charset="utf-8">
 <title>Susmax Program Generator</title>
 <style>
-  :root{--fg:#1c2430;--muted:#5c6673;--line:#dde1e7;--card:#fff;--bg:#f4f6f8;--accent:#2563eb;--accent-dk:#1d4ed8;--radius:8px}
+  /* Tool ini dipakai di layar PC dan isinya padat teks. Dua keputusan dasar di sini:
+     (1) lebar ikut layar sampai 1680px - tabel IO, kanvas flowchart, dan JSON semuanya butuh ruang
+         horizontal; dikurung 1040px bikin semuanya kesempitan dan sering wrap gak perlu.
+     (2) teks sekunder DINAIKIN kontras dan ukurannya. Sebelumnya .hint 11px warna #5c6673 - itu
+         gabungan terburuk: kecil DAN pudar, padahal isinya penjelasan yang justru perlu dibaca. */
+  :root{
+    --fg:#111827;--muted:#4b5563;--faint:#6b7280;
+    --line:#d6dbe3;--line-soft:#e6eaf0;--card:#fff;--bg:#f1f4f8;
+    --accent:#2563eb;--accent-dk:#1d4ed8;--accent-soft:#eff5ff;
+    --ok:#15803d;--warn:#b45309;--danger:#b91c1c;
+    --radius:8px;--shadow:0 1px 2px rgba(16,24,40,.06),0 1px 3px rgba(16,24,40,.08);
+  }
   *{box-sizing:border-box}
-  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;max-width:1040px;margin:24px auto;padding:0 16px;color:var(--fg);background:var(--bg);line-height:1.45}
-  h1{font-size:19px;font-weight:600;margin:0 0 4px}
-  h2{font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:.03em;color:var(--muted);margin:22px 0 6px;padding-bottom:4px;border-bottom:1px solid var(--line)}
-  textarea{width:100%;box-sizing:border-box;font-family:Consolas,Menlo,monospace;font-size:12px;border:1px solid var(--line);border-radius:6px;padding:8px}
-  #ioText{height:220px}
-  button{padding:8px 16px;font-size:13px;cursor:pointer;background:var(--accent);color:#fff;border:none;border-radius:6px;margin-top:8px;transition:background .12s}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
+       max-width:1680px;margin:0 auto;padding:24px 28px 64px;color:var(--fg);background:var(--bg);
+       font-size:14px;line-height:1.55;-webkit-font-smoothing:antialiased}
+  h1{font-size:22px;font-weight:650;margin:0 0 2px;letter-spacing:-.01em}
+  /* Judul section: teks penuh kontras + garis aksen di kiri, bukan huruf kapital abu-abu kecil yang
+     dulu malah kebaca lebih lemah dari isinya. */
+  h2{font-size:15px;font-weight:650;color:var(--fg);margin:32px 0 8px;padding:0 0 0 10px;
+     border-left:3px solid var(--accent);line-height:1.3}
+  code{font-family:Consolas,Menlo,monospace;font-size:.92em;background:var(--accent-soft);
+       border:1px solid #dbe6fb;border-radius:4px;padding:1px 4px}
+  textarea{width:100%;box-sizing:border-box;font-family:Consolas,Menlo,monospace;font-size:12.5px;
+           line-height:1.5;border:1px solid var(--line);border-radius:6px;padding:10px;background:var(--card);
+           color:var(--fg)}
+  textarea:focus,input:focus,select:focus{outline:2px solid var(--accent);outline-offset:1px;border-color:var(--accent)}
+  #ioText{height:240px}
+
+  /* ===== Editor IO list mode tabel ===== */
+  .io-tabs{display:flex;align-items:center;gap:6px;margin:8px 0 6px}
+  .io-tab{background:transparent;color:var(--muted);border:1px solid var(--line);padding:6px 14px;margin:0;
+          font-size:13px;font-weight:500;border-radius:6px}
+  .io-tab:hover{background:#e8edf5;color:var(--fg)}
+  .io-tab.active{background:var(--accent);border-color:var(--accent);color:#fff}
+  .io-count{margin-left:auto;font-size:12.5px;color:var(--muted)}
+  .io-grid-scroll{max-height:460px;overflow:auto;border:1px solid var(--line);border-radius:7px;background:var(--card)}
+  #ioGrid{border-collapse:separate;border-spacing:0;width:100%;font-size:12.5px}
+  #ioGrid th{position:sticky;top:0;z-index:1;background:#eef2f8;text-align:left;font-weight:600;font-size:12px;
+             color:var(--muted);padding:8px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
+  #ioGrid td{padding:3px 6px;border-bottom:1px solid var(--line-soft);vertical-align:middle}
+  #ioGrid tr:last-child td{border-bottom:none}
+  #ioGrid tr:hover td{background:#f8fafc}
+  #ioGrid .rn{color:var(--faint);font-size:11px;text-align:right;width:38px;font-family:Consolas,monospace}
+  #ioGrid input,#ioGrid select{font-size:12.5px;padding:5px 6px;border:1px solid var(--line);border-radius:5px;
+                               background:#fff;color:var(--fg);width:100%}
+  #ioGrid input{font-family:Consolas,monospace}
+  #ioGrid .c-addr{width:130px}
+  #ioGrid .c-jenis{width:150px}
+  #ioGrid .c-io{width:92px}
+  #ioGrid .c-st{width:64px}
+  #ioGrid .c-del{width:34px}
+  #ioGrid .bad input,#ioGrid .bad select{border-color:var(--danger);background:#fef2f2}
+  #ioGrid .st-tag{display:inline-block;font-family:Consolas,monospace;font-size:11px;padding:1px 6px;border-radius:4px;
+                  background:#eef2ff;color:#3730a3;border:1px solid #dbe0fb}
+  #ioGrid .st-tag.main{background:#f1f5f9;color:#475569;border-color:#e2e8f0}
+  #ioGrid .rm{background:#e5e7eb;color:#374151;padding:3px 8px;margin:0;font-size:12px;line-height:1}
+  #ioGrid .rm:hover{background:var(--danger);color:#fff}
+  .io-grid-bar{display:flex;align-items:center;gap:8px;margin-top:8px;flex-wrap:wrap}
+  .io-add{background:#374151;padding:6px 12px;margin:0;font-size:12.5px}
+  .io-add:hover{background:#1f2937}
+  .io-problems{font-size:12.5px;color:var(--danger);font-weight:500}
+  .io-problems.ok{color:var(--ok);font-weight:400}
+  button{padding:8px 16px;font-size:13px;font-weight:500;cursor:pointer;background:var(--accent);color:#fff;
+         border:none;border-radius:6px;margin-top:8px;transition:background .12s,box-shadow .12s}
   button:hover{background:var(--accent-dk)}
-  button.dl{background:#37424f;padding:4px 10px;margin:0}
-  button.dl:hover{background:#232a33}
-  .hint{font-size:11px;color:var(--muted);margin:4px 0}
-  #err{white-space:pre-wrap;color:#b91c1c;font-family:Consolas,monospace;font-size:12px;margin-top:10px}
-  #stats{white-space:pre-wrap;color:var(--fg);font-family:Consolas,monospace;font-size:11px;margin-top:12px;background:var(--card);border:1px solid var(--line);border-radius:6px;padding:10px}
+  button:focus-visible{outline:2px solid var(--fg);outline-offset:2px}
+  button.dl{background:#374151;padding:5px 11px;margin:0}
+  button.dl:hover{background:#1f2937}
+  #genBtn{font-size:14px;padding:10px 22px;box-shadow:var(--shadow)}
+  .hint{font-size:12.5px;color:var(--muted);margin:6px 0;max-width:110ch}
+  #err{white-space:pre-wrap;color:var(--danger);font-family:Consolas,monospace;font-size:12.5px;margin-top:10px}
+  #stats{white-space:pre-wrap;color:var(--fg);font-family:Consolas,monospace;font-size:12px;line-height:1.6;
+         margin-top:14px;background:var(--card);border:1px solid var(--line);border-radius:7px;padding:12px 14px;
+         box-shadow:var(--shadow);overflow-x:auto}
 
-  .warn-box{display:none;background:#fff8e6;border:1px solid #f0c36d;border-left:4px solid #e6a817;border-radius:6px;padding:10px 12px;margin-top:10px}
-  .warn-box b{color:#8a5a00;font-size:12px}
-  #warn{white-space:pre-wrap;color:#7a4a00;font-family:Consolas,monospace;font-size:11px;margin-top:4px}
+  .warn-box{display:none;background:#fffbeb;border:1px solid #fcd34d;border-left:4px solid #d97706;
+            border-radius:7px;padding:12px 14px;margin-top:12px}
+  .warn-box b{color:#92400e;font-size:13px}
+  #warn{color:#78350f;font-size:12.5px;line-height:1.6;margin-top:6px}
+  .warn-grp{font-weight:650;color:#92400e;margin:8px 0 2px;font-size:12.5px}
+  .warn-grp:first-child{margin-top:2px}
+  .warn-item{display:flex;gap:8px;align-items:baseline;padding:2px 0 2px 4px}
+  .warn-code{flex:none;font-family:Consolas,monospace;font-size:11px;background:#fef3c7;border:1px solid #fcd34d;
+             border-radius:3px;padding:0 5px;color:#92400e}
 
-  .settings-row{display:flex;flex-wrap:wrap;gap:14px;margin:6px 0}
-  .settings-row label{font-size:11px;color:var(--muted);display:flex;flex-direction:column;gap:3px}
-  .settings-row input{font-family:Consolas,monospace;font-size:12px;padding:6px 8px;border:1px solid var(--line);border-radius:6px;width:130px}
-  .stname-panel{display:none;flex-wrap:wrap;gap:10px;margin:8px 0}
-  .stname-lbl{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted);background:var(--card);border:1px solid var(--line);border-radius:6px;padding:5px 8px}
-  .stname-lbl b{color:var(--fg);font-family:Consolas,monospace}
-  .stname-input{font-family:Segoe UI,Arial,sans-serif;font-size:12px;padding:4px 6px;border:1px solid var(--line);border-radius:4px;width:160px}
-  .cm-row{flex-direction:column;align-items:flex-start;gap:4px}
-  .cm-row select{font-family:Segoe UI,Arial,sans-serif;font-size:11px;padding:3px 5px;border:1px solid var(--line);border-radius:4px}
-  .cm-row .cm-manual{display:flex;gap:4px}
-  .cm-row .cm-manual input{font-family:Consolas,monospace;font-size:11px;padding:3px 5px;border:1px solid var(--line);border-radius:4px;width:110px}
+  .settings-row{display:flex;flex-wrap:wrap;gap:16px;margin:10px 0}
+  .settings-row label{font-size:12.5px;color:var(--muted);display:flex;flex-direction:column;gap:4px;font-weight:500}
+  .settings-row input{font-family:Consolas,monospace;font-size:13px;padding:7px 9px;border:1px solid var(--line);
+                      border-radius:6px;width:140px;background:var(--card);color:var(--fg)}
+  .stname-panel{display:none;flex-wrap:wrap;gap:10px;margin:10px 0}
+  .stname-lbl{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--muted);background:var(--card);
+              border:1px solid var(--line);border-radius:7px;padding:7px 10px;box-shadow:var(--shadow)}
+  .stname-lbl b{color:var(--fg);font-family:Consolas,monospace;font-size:12.5px}
+  .stname-input{font-family:inherit;font-size:12.5px;padding:5px 8px;border:1px solid var(--line);border-radius:5px;width:180px}
+  .cm-row{flex-direction:column;align-items:flex-start;gap:5px;min-width:230px;border-left:3px solid transparent}
+  .cm-head{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+  /* Merah = generator gak nemu sensornya sama sekali, harus disetel. Kuning = ketemu tapi tebakannya
+     lemah, jalan tapi layak dicek. Aktuator yang sudah dioverride balik netral. */
+  .cm-row.cm-missing{border-left-color:var(--danger);background:#fef2f2;border-color:#fca5a5}
+  .cm-row.cm-check{border-left-color:#d97706;background:#fffbeb;border-color:#fcd34d}
+  .cm-badge{font-size:10.5px;font-weight:600;padding:1px 6px;border-radius:3px;white-space:nowrap}
+  .cm-badge-missing{background:#fee2e2;color:#991b1b;border:1px solid #fca5a5}
+  .cm-badge-check{background:#fef3c7;color:#92400e;border:1px solid #fcd34d}
+  .cm-row select{font-family:inherit;font-size:12.5px;padding:5px 7px;border:1px solid var(--line);border-radius:5px;background:#fff}
+  .cm-row .cm-manual{display:flex;gap:5px}
+  .cm-row .cm-manual input{font-family:Consolas,monospace;font-size:12px;padding:5px 7px;border:1px solid var(--line);border-radius:5px;width:130px}
 
   .single{background:#eef4ff;border:1px solid #bcd3f9;border-radius:var(--radius);padding:12px 14px;margin:14px 0}
   .single .t{font-weight:600;margin-bottom:2px}
   .single .d{font-size:11px;color:var(--muted);margin-bottom:8px}
   details.per-program{margin-top:10px}
-  details.per-program>summary{cursor:pointer;font-size:12px;color:var(--muted);padding:6px 2px;list-style:none}
+  details.per-program>summary{cursor:pointer;font-size:13px;color:var(--fg);font-weight:500;padding:7px 2px;list-style:none}
   details.per-program>summary::-webkit-details-marker{display:none}
   details.per-program>summary::before{content:"▸ ";color:var(--accent)}
   details.per-program[open]>summary::before{content:"▾ "}
@@ -99,13 +176,24 @@ HTML = '''<!doctype html>
   .gnode-rect.alarm{fill:#b91c1c;stroke:#8f1717}
   .gnode-handle.port-n{fill:#e5e7eb}
   .gport-text{font-size:8px;fill:#111;font-family:Consolas,monospace;pointer-events:none;text-anchor:middle}
+  .graph-hint{font-size:11px;color:#8a4008;background:#fff7ed;border:1px solid #fed7aa;border-radius:4px;padding:5px 8px;margin-top:4px}
   .gnode-rect.selected{stroke:#f1c40f;stroke-width:3}
-  .gnode-rect.anchor{fill:#37424f;stroke:#232a33;cursor:default;rx:14}
+  .gnode-rect.anchor{fill:#37424f;stroke:#232a33;cursor:move;rx:14}
   .gedge-line.anchor{stroke:#9aa3ad;stroke-dasharray:3,2}
-  .gnode-text{fill:#fff;font-size:9px;font-family:Consolas,monospace}
+  .gnode-text{fill:#fff;font-size:10.5px;font-family:Consolas,monospace}
   .gnode-del{fill:#b91c1c;cursor:pointer}
-  .gnode-del-text{fill:#fff;font-size:9px;text-anchor:middle;font-family:Consolas,monospace}
+  .gnode-del-text{fill:#fff;font-size:9px;text-anchor:middle;font-family:Consolas,monospace;pointer-events:none}
   .gnode-handle{fill:#f1c40f;stroke:#333;stroke-width:1;cursor:crosshair}
+  /* Tombol hapus dan bulatan sambung cuma muncul pas kursor di atas node-nya (atau node lagi
+     keselect). Dulu semuanya kelihatan sekaligus - di flowchart 8 node itu 16 bulatan berwarna yang
+     bersaing perhatian sama isi diagramnya sendiri. pointer-events ikut dimatikan pas tersembunyi,
+     biar gak ada target klik tak kasatmata. */
+  .gnode .gnode-del,.gnode .gnode-del-text,.gnode .gnode-handle,.gnode .gport-text{
+    opacity:0;pointer-events:none;transition:opacity .1s}
+  .gnode:hover .gnode-del,.gnode:hover .gnode-handle,
+  .gnode.sel .gnode-del,.gnode.sel .gnode-handle{opacity:1;pointer-events:auto}
+  .gnode:hover .gnode-del-text,.gnode:hover .gport-text,
+  .gnode.sel .gnode-del-text,.gnode.sel .gport-text{opacity:1}
   .gedge-line{stroke:#8a93a0;stroke-width:2;cursor:pointer}
   .gedge-line:hover{stroke:#b91c1c}
   .gedge-line.selected{stroke:#f1c40f;stroke-width:3}
@@ -131,14 +219,44 @@ HTML = '''<!doctype html>
   .json-io .json-msg{font-size:10px;margin-top:4px;white-space:pre-wrap}
   .json-io .json-msg.ok{color:#1e8449}
   .json-io .json-msg.err{color:#b91c1c}
-  details.project-json{border:1px solid var(--line);border-radius:6px;padding:8px 10px;margin:10px 0;background:var(--card)}
-  details.project-json>summary{font-size:12px;font-weight:600;color:var(--fg)}
-  .project-json textarea{height:160px}
+  details.project-json{border:1px solid var(--line);border-radius:8px;padding:12px 14px;margin:14px 0;
+                       background:var(--card);box-shadow:var(--shadow)}
+  details.project-json>summary{font-size:13.5px;font-weight:600;color:var(--fg);cursor:pointer}
+  .project-json textarea{height:180px}
+
+  /* Section yang bisa dilipat (mis. Confirm Mode). Dipakai buat bagian OPSIONAL yang kalau selalu
+     kebuka cuma makan tinggi layar - ringkasannya tetap kelihatan di summary jadi gak perlu dibuka
+     kecuali memang mau diubah. */
+  details.fold{border:1px solid var(--line);border-radius:8px;background:var(--card);margin:14px 0;
+               padding:0 14px;box-shadow:var(--shadow)}
+  details.fold>summary{cursor:pointer;padding:12px 0;list-style:none;display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+  details.fold>summary::-webkit-details-marker{display:none}
+  details.fold>summary::before{content:"\\25B8";color:var(--accent);font-size:12px}
+  details.fold[open]>summary::before{content:"\\25BE"}
+  details.fold[open]{padding-bottom:14px}
+  .fold-t{font-size:15px;font-weight:650;color:var(--fg)}
+  .fold-sub{font-size:12.5px;color:var(--faint)}
+  .fold-sub.attn{color:var(--warn);font-weight:600}
 </style>
 </head>
 <body>
 <h1>Susmax Program Generator</h1>
-<p class="hint">Tempel IO list: Alamat / Jenis / IN-OUT / Komen (pisah TAB). Komen ada ST1/ST2/ST3 -&gt; masuk program unit. Tanpa ST -&gt; program MAIN.</p>
+<p class="hint">Alamat / Jenis / IN-OUT / Komen. Komen memuat ST1/ST2/ST3 -&gt; masuk program unit, tanpa ST -&gt; program MAIN.
+Mode <b>Tabel</b> bikin kolom Jenis dan IN/OUT jadi pilihan, jadi gak bisa salah ketik. Mode <b>Teks</b> buat tempel
+massal dari Excel (pisah TAB) - dua-duanya isi yang sama, ganti mode kapan saja.</p>
+<div class="io-tabs">
+  <button type="button" class="io-tab active" id="ioTabGrid">Tabel</button>
+  <button type="button" class="io-tab" id="ioTabText">Teks (TSV)</button>
+  <span class="io-count" id="ioCount"></span>
+</div>
+<div id="ioGridWrap">
+  <div class="io-grid-scroll"><table id="ioGrid"><tbody></tbody></table></div>
+  <div class="io-grid-bar">
+    <button type="button" class="io-add" id="ioAddRow">+ Baris</button>
+    <button type="button" class="io-add" id="ioPaste">Tempel dari clipboard</button>
+    <span class="io-problems" id="ioProblems"></span>
+  </div>
+</div>
 <textarea id="ioText" placeholder="CH000_00&#9;PB&#9;IN&#9;NOT EMERGENCY STOP"></textarea>
 <div><button id="genBtn">Generate Program</button></div>
 <div id="err"></div>
@@ -151,10 +269,15 @@ station (opsional) ikut ke komentar program yang di-generate (mis. <code>LB400_A
 <div class="settings-row">
   <label>Timer debounce PH/PX <input id="timerPhpx" placeholder="T#200MS"></label>
   <label>Timer motion-fault <input id="timerMotion" placeholder="T#5S"></label>
+  <label>Ukuran array AL <input id="alSize" type="number" min="1" placeholder="100"></label>
+  <label>Ukuran array MF <input id="mfSize" type="number" min="1" placeholder="16"></label>
+  <label>Slot per station <input id="stationBlock" type="number" min="1" placeholder="30"></label>
 </div>
+<div id="arraySizeHint" class="hint" style="margin-top:2px"></div>
 <div id="stationNamesPanel" class="stname-panel"></div>
 
-<h2>Confirm Mode per aktuator (opsional)</h2>
+<details id="confirmModeBox" class="fold">
+<summary><span class="fold-t">Confirm Mode per aktuator</span> <span class="fold-sub" id="confirmModeSummary">opsional - buka kalau ada aktuator yang perlu dioverride</span></summary>
 <p class="hint">Default (Auto) - pencocokan sensor otomatis (findLsc buat silinder, best-match komen buat
 servo). <b>Open-loop</b> - aktuator sengaja gak punya sensor by design (mis. DANDORI LOCK, PART FEEDER
 START) - skip fault-detection DAN skip warning "no matching limit switch" sama sekali. <b>Manual</b> -
@@ -162,8 +285,9 @@ override pencocokan otomatis yang salah/low-confidence, isi sendiri nama bit kon
 distel Open-loop, aktuator itu gak bisa dipakai di Motion Sequence (butuh bit konfirmasi buat lanjut
 ke step berikutnya).</p>
 <div id="confirmModePanel" class="stname-panel"></div>
+</details>
 
-<details class="json-io project-json">
+<details class="json-io project-json" open>
   <summary>Project JSON (Import/Export SEMUA - IO list, Motion Sequence, Condition, nama station, timer default sekaligus)</summary>
   <p class="hint">Simpan/pulihkan seluruh kerjaan sekali tempel, gak perlu per-station. Import langsung
   jalanin Generate ulang pakai IO list di dalamnya, GANTI seluruh project yang lagi ke-buka.</p>
@@ -192,7 +316,16 @@ kuning ke node LAIN (boleh ke arah manapun, asal gak muter balik) buat bikin dep
 2+ dependency dapat badge AND/OR - klik toggle. "+ Condition/bit" bikin node rujukan bit yang sudah
 ada: tinggal PILIH dari dropdown Condition yang kamu bikin di kotak Condition di bawah (daftarnya
 ikut ke-update otomatis), atau pilih "bit lain (ketik manual)" buat nunjuk sensor/bit di luar itu.
-Dropdown yang sama juga dipakai buat Condition pemilih varian. Klik node/panah buat SELECT (kuning), tekan Delete/
+Dropdown yang sama juga dipakai buat Condition pemilih varian.</p>
+<p class="hint">Baris <b>Blok:</b> nambahin langkah non-motion: <b>IF/ELSE</b> (judgement - satu masuk,
+dua keluar lewat port <b>Y</b> kanan dan <b>N</b> bawah; cabangnya nge-HOLD sekali keputusan diambil
+dan saling interlock jadi mustahil nyala barengan), <b>SET/RESET mem</b> (bit memory latching - semua
+trigger set dan reset buat satu bit digabung jadi SATU rung, jadi gak ada coil dobel), dan
+<b>ALARM</b> (dapat slot AL[] otomatis, nyangkut sendiri, lalu masuk grup kategori yang dipilih).
+Buat nyatuin cabang seperti pola Ndeso, tarik <b>kedua</b> port Y dan N ke node yang sama lalu klik
+badge-nya jadi <b>OR</b>. Klik satu blok buat nampilin panel <b>Edit blok</b> di bawah kanvas - bit,
+kategori, dan komennya bisa dibetulin tanpa hapus-bikin-ulang. Bulatan <b>START</b>/<b>END</b> bisa
+diseret; klik ganda buat balikin ke posisi otomatis. Klik node/panah buat SELECT (kuning), tekan Delete/
 Backspace buat hapus yang keselect. Seret node cuma buat rapihin posisi. Station yang gak disentuh
 tetap pakai kerangka placeholder biasa. Tiap station juga punya kotak <b>Import/Export JSON</b> di
 bawah - bisa tempel JSON hasil AI atau bikinan sendiri (format: array varian
@@ -305,6 +438,186 @@ function buildJsonIORow(ta, msg, getText, doImport, fileName) {
   return row;
 }
 
+// ===== Editor IO list mode tabel =====
+// Textarea TSV tetap jadi SUMBER KEBENARAN - seluruh pipeline, Project JSON, dan import/export
+// membacanya. Tabel ini murni permukaan edit yang baca-tulis teks yang sama, jadi gak ada satu pun
+// jalur lama yang perlu diubah dan tempel-massal dari Excel tetap jalan lewat mode Teks.
+// Daftar jenis diambil dari PRE di genname.js - kalau ada jenis baru di sana, tambahin di sini juga.
+var IO_JENIS = [
+  ['PB', 'Push button'], ['SS', 'Selector switch'], ['LS', 'Limit switch'],
+  ['CR', 'Relay / contactor'], ['PH', 'Photo sensor'], ['PX', 'Proximity sensor'],
+  ['AS', 'Auto switch silinder (dipasangkan 2 arah)'], ['SRV_LS', 'Feedback posisi servo'],
+  ['PL', 'Pilot lamp'], ['BZ', 'Buzzer'], ['2P', 'Tombol 2 tangan'],
+  ['SOL', 'Solenoid valve'], ['SRV_CMD', 'Command servo (N posisi)']
+];
+var IO_IN_ONLY = { PB:1, SS:1, LS:1, PH:1, PX:1, AS:1, SRV_LS:1, '2P':1 };
+var IO_OUT_ONLY = { PL:1, BZ:1, SOL:1, SRV_CMD:1 };   // CR bisa dua-duanya
+
+var ioRows = [];        // [{address,jenis,io,komen}]
+var ioView = 'grid';
+
+// Pemisah baris dibikin lewat new RegExp dari string, bukan regex literal. Alasannya: HTML di
+// build_html.py itu string Python biasa, jadi escape baris-baru yang ditulis tunggal bakal ditelan
+// Python duluan dan regex literal-nya rusak. Di dalam string, escape-nya ditulis dobel dan aman.
+var IO_LINE_RE = new RegExp('[\\r\\n]+');
+
+function ioParseText(txt) {
+  return String(txt || '').split(IO_LINE_RE).filter(function (l) { return l.trim() !== ''; })
+    .map(function (l) {
+      var c = l.split('\\t');
+      return { address: (c[0] || '').trim(), jenis: (c[1] || '').trim().toUpperCase(),
+               io: (c[2] || '').trim().toUpperCase(), komen: (c[3] || '').trim() };
+    });
+}
+function ioRowsToText(rows) {
+  return rows.map(function (r) { return [r.address, r.jenis, r.io, r.komen].join('\\t'); }).join('\\n');
+}
+// Station diturunkan dari komen persis seperti split.js, biar yang kelihatan di tabel = yang bakal
+// kejadian pas generate, bukan tebakan terpisah yang bisa beda.
+function ioStationOf(komen) {
+  var m = /\\bST\\s*(\\d+)/i.exec(String(komen || ''));
+  return m ? 'ST' + m[1] : 'MAIN';
+}
+
+// SATU-SATUNYA cara yang benar buat ngeset IO list dari kode. Nulis langsung ke textarea gak cukup:
+// mode Tabel itu tampilan default, dan dia baca dari ioRows - kalau gak di-reload, pipeline jalan
+// pakai teks baru (aktuator muncul) tapi tabelnya masih nampilin isi lama. Persis itu yang kejadian
+// waktu import Project JSON.
+function setIoText(text) {
+  var ta = document.getElementById('ioText');
+  if (ta) ta.value = String(text || '');
+  ioLoadFromText();
+  renderIoGrid();
+}
+
+function ioSyncToText() {
+  var ta = document.getElementById('ioText');
+  if (ta) ta.value = ioRowsToText(ioRows);
+}
+function ioLoadFromText() {
+  var ta = document.getElementById('ioText');
+  ioRows = ioParseText(ta ? ta.value : '');
+}
+
+// Masalah yang dicek SAMA dengan validate.js - tujuannya user lihat errornya di baris yang salah,
+// sebelum klik Generate, bukan sebagai satu blok teks sesudahnya.
+function ioProblems() {
+  var bad = {}, seen = {}, dup = {};
+  ioRows.forEach(function (r, i) {
+    var miss = !r.address || !r.jenis || !r.io;
+    if (miss) bad[i] = 'Alamat, Jenis, dan IN/OUT wajib diisi';
+    if (r.address && r.io) {
+      var k = r.io + '|' + r.address;
+      if (seen[k] !== undefined) { dup[k] = true; bad[i] = 'Alamat ' + r.address + ' (' + r.io + ') dipakai lebih dari sekali'; bad[seen[k]] = bad[seen[k]] || ('Alamat ' + r.address + ' (' + r.io + ') dipakai lebih dari sekali'); }
+      else seen[k] = i;
+    }
+  });
+  return bad;
+}
+
+function renderIoGrid() {
+  var tb = document.querySelector('#ioGrid tbody');
+  if (!tb) return;
+  var bad = ioProblems();
+  tb.innerHTML = '';
+
+  var thead = document.querySelector('#ioGrid thead');
+  if (!thead) {
+    thead = document.createElement('thead');
+    var hr = document.createElement('tr');
+    ['#', 'Alamat', 'Jenis', 'IN/OUT', 'Komen', 'Program', ''].forEach(function (h) {
+      var th = document.createElement('th'); th.textContent = h; hr.appendChild(th);
+    });
+    thead.appendChild(hr);
+    document.getElementById('ioGrid').insertBefore(thead, tb);
+  }
+
+  ioRows.forEach(function (r, i) {
+    var tr = document.createElement('tr');
+    if (bad[i]) { tr.className = 'bad'; tr.title = bad[i]; }
+
+    var tdN = document.createElement('td'); tdN.className = 'rn'; tdN.textContent = (i + 1); tr.appendChild(tdN);
+
+    function cell(cls) { var td = document.createElement('td'); td.className = cls; tr.appendChild(td); return td; }
+    function commit() { ioSyncToText(); renderIoGrid(); ioUpdateCount(); }
+
+    var addr = document.createElement('input');
+    addr.value = r.address; addr.placeholder = 'CH0_00';
+    addr.addEventListener('change', function () { r.address = addr.value.trim(); commit(); });
+    cell('c-addr').appendChild(addr);
+
+    var sel = document.createElement('select');
+    var blank = document.createElement('option'); blank.value = ''; blank.textContent = '- pilih -'; sel.appendChild(blank);
+    IO_JENIS.forEach(function (j) {
+      var o = document.createElement('option'); o.value = j[0]; o.textContent = j[0] + ' - ' + j[1]; sel.appendChild(o);
+    });
+    // Jenis di luar daftar (mis. dari file lama) tetap dimunculin, kalau nggak nilainya ilang diam-diam
+    if (r.jenis && !IO_JENIS.some(function (j) { return j[0] === r.jenis; })) {
+      var ox = document.createElement('option'); ox.value = r.jenis; ox.textContent = r.jenis + ' - tidak dikenal'; sel.appendChild(ox);
+    }
+    sel.value = r.jenis || '';
+    sel.addEventListener('change', function () {
+      r.jenis = sel.value;
+      // Jenis yang cuma masuk akal satu arah langsung ngisi IN/OUT-nya - satu sumber salah input hilang
+      if (IO_IN_ONLY[r.jenis]) r.io = 'IN';
+      else if (IO_OUT_ONLY[r.jenis]) r.io = 'OUT';
+      commit();
+    });
+    cell('c-jenis').appendChild(sel);
+
+    var ioSel = document.createElement('select');
+    ['', 'IN', 'OUT'].forEach(function (v) {
+      var o = document.createElement('option'); o.value = v; o.textContent = v || '- pilih -'; ioSel.appendChild(o);
+    });
+    ioSel.value = r.io || '';
+    ioSel.addEventListener('change', function () { r.io = ioSel.value; commit(); });
+    cell('c-io').appendChild(ioSel);
+
+    var km = document.createElement('input');
+    km.value = r.komen; km.placeholder = 'ST1 STOPPER-2 CHUCK';
+    km.addEventListener('change', function () { r.komen = km.value.trim(); commit(); });
+    cell('').appendChild(km);
+
+    var st = ioStationOf(r.komen);
+    var tag = document.createElement('span');
+    tag.className = 'st-tag' + (st === 'MAIN' ? ' main' : ''); tag.textContent = st;
+    tag.title = st === 'MAIN' ? 'Komen gak menyebut ST<n>, masuk program MAIN' : 'Masuk program ' + st;
+    cell('c-st').appendChild(tag);
+
+    var rm = document.createElement('button');
+    rm.type = 'button'; rm.className = 'rm'; rm.textContent = 'x'; rm.title = 'Hapus baris';
+    rm.addEventListener('click', function () { ioRows.splice(i, 1); commit(); });
+    cell('c-del').appendChild(rm);
+
+    tb.appendChild(tr);
+  });
+  ioUpdateCount();
+}
+
+function ioUpdateCount() {
+  var bad = ioProblems();
+  var n = Object.keys(bad).length;
+  var cnt = document.getElementById('ioCount');
+  if (cnt) cnt.textContent = ioRows.length + ' baris';
+  var pr = document.getElementById('ioProblems');
+  if (pr) {
+    pr.textContent = n ? (n + ' baris bermasalah - lihat kotak merah') : (ioRows.length ? 'Semua baris valid' : '');
+    pr.className = 'io-problems' + (n ? '' : ' ok');
+  }
+}
+
+function setIoView(v) {
+  ioView = v;
+  var grid = document.getElementById('ioGridWrap'), ta = document.getElementById('ioText');
+  var tg = document.getElementById('ioTabGrid'), tt = document.getElementById('ioTabText');
+  if (v === 'grid') { ioLoadFromText(); renderIoGrid(); }
+  else { ioSyncToText(); }
+  grid.style.display = v === 'grid' ? 'block' : 'none';
+  ta.style.display = v === 'grid' ? 'none' : 'block';
+  tg.className = 'io-tab' + (v === 'grid' ? ' active' : '');
+  tt.className = 'io-tab' + (v === 'text' ? ' active' : '');
+}
+
 function downloadFile(name, text) {
   var b = new Blob([text], {type:'text/plain'});
   var u = URL.createObjectURL(b);
@@ -332,7 +645,14 @@ function sortStations(keys) {
   });
 }
 
-var errEl, resEl, statsEl, warnEl, warnBoxEl, motionPanelEl, conditionPanelEl, stationNamesPanelEl, timerPhpxEl, timerMotionEl, confirmModePanelEl;
+var errEl, resEl, statsEl, warnEl, warnBoxEl, motionPanelEl, conditionPanelEl, stationNamesPanelEl, timerPhpxEl, timerMotionEl, confirmModePanelEl, alSizeEl, mfSizeEl, stationBlockEl, arraySizeHintEl;
+// Warning generate terakhir. warnList = versi terstruktur ({level,code,station,message}); string-nya
+// cuma disimpen buat fallback. Konsumen di sini WAJIB nyantol ke `code`, bukan nyocokin teks pesan -
+// teksnya bisa berubah kapan saja tanpa siapa pun sadar ada yang rusak.
+var lastWarnings = '';
+var lastWarnList = [];
+// Sekali user buka/tutup Confirm Mode sendiri, kita berhenti maksa bukain - keputusannya dia.
+var confirmModeTouched = false;
 var flowStore = {};
 var lastSplitMsg = null;
 var stationNames = {}; // key station -> nama bebas (opsional), ngikut ke komen program (LB400_A/B dkk)
@@ -434,13 +754,25 @@ function addBlockNode(st, vIdx, spec) {
 // aja yang udah dia bikin di kotak Condition. Sekarang daftarnya ditarik langsung dari conditionState
 // station itu. Opsi ketik-manual tetap disediain, karena `after` node maupun condition varian sah juga
 // nunjuk bit DI LUAR Condition section (sensor, LSC, atau bit warisan dari JSON import).
+function pad3(n) { return ('000' + n).slice(-3); }
+
 function conditionBitOptions(stKey, current) {
   var out = [], seen = {};
-  (conditionState[stKey] || []).forEach(function (d) {
-    if (!d.bit || seen[d.bit]) return;
-    seen[d.bit] = true;
-    out.push({ value: d.bit, label: d.bit + (d.name ? ' - ' + d.name : '') });
+  function add(bit, label) {
+    if (!bit || seen[bit]) return;
+    seen[bit] = true;
+    out.push({ value: bit, label: label });
+  }
+  // Bit yang dikosongin di panel Condition TETAP dibikin generator, namanya LB300+i (gen_all section 8).
+  // Jadi baris itu gak boleh di-skip di dropdown - kalau di-skip, bit yang beneran ada malah gak kelihatan.
+  (conditionState[stKey] || []).forEach(function (d, i) {
+    var bit = d.bit || ('LB' + pad3(300 + i));
+    add(bit, bit + (d.name ? ' - ' + d.name : (d.bit ? '' : ' - auto (bit dikosongin)')));
   });
+  // Station tanpa Condition custom tetap dapat 3 slot cadangan generik LB300-LB302 dari generator.
+  // Tanpa ini, LB300 yang jelas-jelas dibikin malah ketulis "(di luar daftar)" - persis kebalikan
+  // dari kenyataannya.
+  for (var s = 0; s < 3; s++) add('LB' + pad3(300 + s), 'LB' + pad3(300 + s) + ' - slot cadangan');
   // Nilai yang LAGI kepasang tapi gak ada di daftar (hasil import JSON, atau Condition-nya keburu
   // dihapus) wajib tetap muncul sebagai opsi. Kalau nggak, select jatuh ke opsi pertama dan diam-diam
   // ngubah setelan user tiap panel dirender ulang.
@@ -449,6 +781,10 @@ function conditionBitOptions(stKey, current) {
 }
 
 var BIT_MANUAL = '(manual)';
+
+// Pesan sekali-pakai di bawah kanvas varian tertentu, mis. alasan sambungan ditolak.
+// Bentuknya {key: vKey, text}. Dibersihin tiap kali ada aksi sambung berikutnya.
+var graphHint = null;
 
 // Sengaja cuma dengerin 'change', bukan 'input': handler-nya manggil regenerate(), dan kalau dipasang
 // di 'input' tiap ketikan bakal ngerender ulang panel lalu ngerebut fokus dari kolomnya sendiri.
@@ -553,6 +889,14 @@ function removeNode(st, vIdx, id) {
   if (selected && selected.stKey === st && selected.vIdx === vIdx && selected.id === id) selected = null;
 }
 
+// Ubah satu field blok yang lagi keselect (sol / cond / bit / category / comment). Sebelum ini blok
+// cuma bisa dibikin, gak bisa dibetulin - salah pilih bit berarti hapus lalu bikin ulang, dan semua
+// panah yang udah nyambung ke situ ikut hilang.
+function setNodeField(st, vIdx, id, key, value) {
+  var n = findNode(st, vIdx, id);
+  if (n) n[key] = typeof value === 'string' ? value.trim() : value;
+}
+
 function toggleJoin(st, vIdx, id) {
   var n = findNode(st, vIdx, id);
   if (n) n.join = (n.join === 'OR') ? 'AND' : 'OR';
@@ -575,22 +919,51 @@ var ALARM_CAT_LABEL = { emergency: 'Emergency stop', autostop: 'Auto stop', cycl
 function refBase(ref) { var s = String(ref), i = s.indexOf('#'); return i < 0 ? s : s.slice(0, i); }
 function refPort(ref) { var s = String(ref), i = s.indexOf('#'); return i < 0 ? '' : s.slice(i + 1); }
 
+// Komen blok ikut tampil di label, bukan cuma kesimpen di state. Tanpa ini semua blok alarm kelihatan
+// "ALARM Fault stop" persis sama dan semua judgement cuma beda nama bit - padahal justru komennya yang
+// bilang blok itu ngapain. Node melebar sendiri ngikutin label (nodeW), jadi aman dipanjangin.
+// Peta nama simbol -> komen IO list. Dibangun ulang tiap pipeline jalan.
+var devKomen = {};
+function rebuildDevKomen() {
+  devKomen = {};
+  if (!lastSplitMsg) return;
+  var g = lastSplitMsg.payload;
+  Object.keys(g).forEach(function (k) {
+    (g[k] || []).forEach(function (d) { if (d.name) devKomen[d.name] = d.komen || ''; });
+  });
+}
+
+// Nama aktuator di kanvas pakai KOMEN IO-nya, bukan nama simbol. "ST2 SERVO CENTER POS1" langsung
+// kebayang bendanya; "SRV_ST2_SRV_CTR_POS1" harus diterjemahin dulu di kepala tiap kali baca.
+// Prefix "ST2 " dibuang karena kotak diagramnya memang sudah milik station itu - ngulang nomornya di
+// tiap node cuma makan lebar. Nama simbolnya tetap ada di tooltip, dan yang dipakai JSON maupun
+// generator tetap simbol - ini murni yang dilihat mata.
+function deviceLabel(sym) {
+  var k = devKomen[sym];
+  if (!k) return sym;
+  var s = String(k).replace(/^ST\\s*\\d+\\s*/i, '').replace(/\\s+/g, ' ').trim();
+  return s || sym;
+}
+
 function nodeLabel(n) {
   var t = n.type || 'motion';
-  if (t === 'condition') return n.bit + (n.comment ? ' *' : '');
-  if (t === 'motion')    return n.sol;
-  if (t === 'decision')  return '? ' + (n.cond || '(bit?)');
-  if (t === 'setmem')    return 'SET ' + (n.bit || '(bit?)');
-  if (t === 'resetmem')  return 'RST ' + (n.bit || '(bit?)');
-  if (t === 'alarm')     return 'ALARM ' + (ALARM_CAT_LABEL[n.category] || n.category || 'faultstop');
+  var c = (n.comment || '').trim();
+  var tail = c ? ' - ' + c : '';
+  if (t === 'condition') return n.bit + (c ? ' *' : '');
+  if (t === 'motion')    return deviceLabel(n.sol);
+  if (t === 'decision')  return '? ' + (n.cond || '(bit?)') + tail;
+  if (t === 'setmem')    return 'SET ' + (n.bit || '(bit?)') + tail;
+  if (t === 'resetmem')  return 'RST ' + (n.bit || '(bit?)') + tail;
+  if (t === 'alarm')     return 'ALARM ' + (ALARM_CAT_LABEL[n.category] || n.category || 'faultstop') + tail;
   return t;
 }
 
 // Lebar node ngikutin panjang label, gak dipotong lagi. Dulu label dipangkas 15 char jadi
 // "SOL_ST1_STP4_.." - dua stopper beda kelihatan sama persis di canvas, gak bisa dibedain.
-// Font .gnode-text 9px monospace = ~5.4px/char; +16 buat padding kiri-kanan. Minimal tetap
-// NODE_W biar node berlabel pendek gak jadi kotak kecil.
-function nodeW(n) { return Math.max(NODE_W, Math.ceil(nodeLabel(n).length * 5.4) + 16); }
+// Font .gnode-text 10.5px Consolas = ~6.1px/char (advance monospace ~0.55em, dilebihin dikit biar
+// aman); +18 buat padding kiri-kanan. Minimal tetap NODE_W biar node berlabel pendek gak jadi kotak
+// kecil. ANGKA INI TERIKAT ke font-size .gnode-text - ubah salah satu, ubah dua-duanya.
+function nodeW(n) { return Math.max(NODE_W, Math.ceil(nodeLabel(n).length * 6.1) + 18); }
 
 // Titik sambung kabel dipilih dinamis: SISI node yang paling searah ke lawan bicaranya (atas, bawah,
 // kiri, atau kanan), bukan selalu kanan->kiri kayak dulu. Bandingin kemiringan garis pusat-ke-pusat
@@ -645,13 +1018,18 @@ function serializeNode(n) {
 function variantsToJSON(stKey) {
   var variants = (motionState[stKey] || []).map(function (v) {
     var motionNodes = v.nodes.filter(function (n) { return (n.type || 'motion') !== 'condition'; });
-    return {
+    var out = {
       condition: v.condition || '',
       comment: v.comment || '',
       conditionComments: conditionCommentsOf(v),
       conditionPositions: conditionPositionsOf(v),
       nodes: motionNodes.map(serializeNode)
     };
+    // Cuma ditulis kalau user beneran pernah nggeser. Kalau selalu ditulis, posisi hasil hitung
+    // otomatis jadi beku - graph berubah tapi START/END-nya nyangkut di tempat lama.
+    if (v.startPos) out.startPos = { x: Math.round(v.startPos.x), y: Math.round(v.startPos.y) };
+    if (v.endPos) out.endPos = { x: Math.round(v.endPos.x), y: Math.round(v.endPos.y) };
+    return out;
   });
   return JSON.stringify(variants, null, 2);
 }
@@ -698,6 +1076,14 @@ function importSequenceJSON(stKey, jsonText) {
     if (!Array.isArray(raw.nodes)) return 'Varian ke-' + (vi + 1) + ' butuh field "nodes" (array)';
     var v = { condition: String(raw.condition || '').trim(), comment: String(raw.comment || '').trim(), nodes: [] };
     var allPositioned = true; // turun jadi false begitu ada satu node tanpa x/y valid
+    // Posisi START/END manual ikut kebawa. Kalau JSON-nya gak bawa (atau angkanya ngaco), dibiarkan
+    // kosong supaya balik ke penempatan otomatis - bukan dipaksa ke 0,0 di pojok.
+    ['startPos', 'endPos'].forEach(function (k) {
+      var p = raw[k];
+      if (!p) return;
+      var ax = Number(p.x), ay = Number(p.y);
+      if (isFinite(ax) && isFinite(ay)) v[k] = { x: Math.max(0, ax), y: Math.max(0, ay) };
+    });
     for (var ni = 0; ni < raw.nodes.length; ni++) {
       var n = raw.nodes[ni] || {};
       var where = 'Varian ke-' + (vi + 1) + ' node ke-' + (ni + 1);
@@ -840,11 +1226,54 @@ function importConditionJSON(stKey, jsonText) {
   return null;
 }
 
+// Warning dikelompokkan per station. Sebelumnya cuma satu blok teks panjang - kalau 3 station
+// masing-masing ngeluh, semuanya nyampur dan susah tau mana punya siapa. Kode-nya ikut ditampilin
+// karena itu yang stabil dan bisa dicari, teks pesannya bisa berubah.
+function renderWarnings(list, raw) {
+  warnEl.innerHTML = '';
+  if (!list || !list.length) { warnEl.textContent = raw || ''; return; }
+  var byStation = {};
+  list.forEach(function (w) { var k = w.station || 'Umum'; (byStation[k] = byStation[k] || []).push(w); });
+  Object.keys(byStation).sort().forEach(function (st) {
+    var h = document.createElement('div'); h.className = 'warn-grp';
+    h.textContent = st + ' - ' + byStation[st].length + ' warning';
+    warnEl.appendChild(h);
+    byStation[st].forEach(function (w) {
+      var d = document.createElement('div'); d.className = 'warn-item';
+      var c = document.createElement('span'); c.className = 'warn-code'; c.textContent = w.code;
+      d.appendChild(c);
+      // Prefix "ST1: " dibuang - sudah jadi judul grupnya, gak perlu diulang tiap baris
+      d.appendChild(document.createTextNode(w.message.replace(/^[A-Za-z0-9_]+:\\s*/, '')));
+      warnEl.appendChild(d);
+    });
+  });
+}
+
 function renderResults(payload) {
   resEl.innerHTML = '';
   statsEl.textContent = payload.stats;
-  warnEl.textContent = payload.warnings || '';
+  // Rekomendasi ukuran array dihitung dari generate BARUSAN, bukan ditebak: alUsed/mfUsed itu jumlah
+  // slot yang beneran keisi. Angka di kotak input dibiarin apa adanya - user yang mutusin, kita cuma
+  // ngasih tau minimalnya berapa dan berapa yang lagi kepakai.
+  if (arraySizeHintEl) {
+    var ai = payload.arrayInfo;
+    // Rekomendasi = tepat sebesar yang DIALOKASI (blok per-station sudah termasuk padding spare),
+    // dibulatkan ke atas kelipatan 10. Nambahin kelonggaran lagi di atas padding cuma bikin ratusan
+    // baris spare yang gak ada gunanya.
+    arraySizeHintEl.textContent = ai
+      ? 'Terisi: AL ' + ai.alFilled + ', MF ' + ai.mfFilled + ' slot. '
+        + 'Dialokasi (termasuk spare ' + ai.stationBlock + '/station): AL ' + ai.alUsed + ', MF ' + ai.mfUsed + '. '
+        + 'Array dibuat: AL[1..' + ai.alSize + '], MF[1..' + ai.mfSize + ']. '
+        + 'Rekomendasi minimal AL ' + Math.ceil(ai.alUsed / 10) * 10 + ', MF ' + Math.ceil(ai.mfUsed / 10) * 10 + '.'
+      : '';
+  }
+  lastWarnings = payload.warnings || '';
+  lastWarnList = payload.warnList || [];
+  renderWarnings(lastWarnList, lastWarnings);
   warnBoxEl.style.display = payload.warnings ? 'block' : 'none';
+  // Panel Confirm Mode diwarnai dari warnList generate INI - kalau gak dirender ulang di sini,
+  // sorotan merahnya nyangkut di hasil generate sebelumnya.
+  if (lastSplitMsg && confirmModePanelEl) renderConfirmModePanel();
 
   if (payload.files.length) {
     var single = document.createElement('div');
@@ -913,6 +1342,8 @@ function regenerate() {
   });
   flowStore.stationNames = stationNames;
   flowStore.timerDefaults = { phpx: timerPhpxEl ? timerPhpxEl.value : '', motion: timerMotionEl ? timerMotionEl.value : '' };
+  flowStore.arraySizes = { al: alSizeEl ? alSizeEl.value : '', mf: mfSizeEl ? mfSizeEl.value : '',
+                           stationBlock: stationBlockEl ? stationBlockEl.value : '' };
   flowStore.actuatorOverrides = actuatorOverrides;
   try {
     // Salinan wrapper baru tiap panggil - gen_all.js nge-reassign msg.payload di baris terakhirnya,
@@ -922,6 +1353,27 @@ function regenerate() {
   } catch (e) {
     errEl.textContent = 'Error: ' + e.message;
   }
+}
+
+// Titik masuk (root) dan titik akhir (leaf) sebuah varian. Dipisah dari renderVariantGraph biar bisa
+// diuji tanpa DOM - ini logika yang nentuin ke mana panah START dan END digambar, dan salah sedikit
+// aja gambarnya langsung nyeritain alur yang beda dari ladder-nya.
+function graphEnds(nodes) {
+  var nodeIds = {}; nodes.forEach(function (n) { nodeIds[n.id] = true; });
+  var isStep = function (n) { return (n.type || 'motion') !== 'condition'; };
+  var referencedIds = {};
+  nodes.forEach(function (n) {
+    (n.after || []).forEach(function (ref) { var b = refBase(ref); if (nodeIds[b]) referencedIds[b] = true; });
+  });
+  var roots = nodes.filter(function (n) {
+    return isStep(n) && !(n.after || []).some(function (ref) { return nodeIds[refBase(ref)]; });
+  });
+  var leaves = nodes.filter(function (n) { return isStep(n) && !referencedIds[n.id]; });
+  return {
+    nodeIds: nodeIds, roots: roots, leaves: leaves,
+    targets: roots.length ? roots : nodes.filter(isStep),
+    sources: leaves.length ? leaves : nodes.filter(isStep)
+  };
 }
 
 function renderVariantGraph(stKey, vIdx) {
@@ -934,29 +1386,43 @@ function renderVariantGraph(stKey, vIdx) {
     if (n.x + nodeW(n) > maxX) maxX = n.x + nodeW(n);
   });
 
-  // Node "Start"/"Finish" - MURNI visual, dihitung tiap render dari graph SEKARANG, gak disimpen di
-  // state/JSON, gak bisa diklik/geser/hapus. Start nyambung ke tiap node motion yang gak nunjuk node
-  // motion lain (root), Finish nyambung DARI tiap node motion yang gak ada yang nunjuk dia (leaf) -
+  // Node "Start"/"Finish" - MURNI visual, gak ikut jadi rung. Sambungannya dihitung tiap render dari
+  // graph SEKARANG, tapi POSISINYA bisa digeser dan disimpan (variant.startPos/endPos) - selama belum
+  // pernah digeser, posisinya ngikut rata-rata node tujuan/asal seperti dulu.
+  // Start nyambung ke tiap node yang gak nunjuk node
+  // lain (root), Finish nyambung DARI tiap node yang gak ada yang nunjuk dia (leaf) -
   // biar kelihatan jelas dari mana mulai dan kemana berakhirnya sequence-nya. Lingkaran kecil (logo
   // flowchart terminal biasa). Titik sambungnya ikut sideAnchor kayak kabel antar-node: karena Start
   // selalu di atas dan Finish di bawah, sisi yang kepilih ya tetap atas/bawah - tapi sekarang nempel
   // ke sisi terdekat kalau node-nya digeser jauh ke samping, gak lagi maksa ke tengah atas/bawah.
-  var nodeIds = {}; nodes.forEach(function (n) { nodeIds[n.id] = true; });
-  var referencedIds = {};
-  nodes.forEach(function (n) { (n.after || []).forEach(function (ref) { if (nodeIds[ref]) referencedIds[ref] = true; }); });
-  var roots = nodes.filter(function (n) { return n.type === 'motion' && !(n.after || []).some(function (ref) { return nodeIds[ref]; }); });
-  var leaves = nodes.filter(function (n) { return n.type === 'motion' && !referencedIds[n.id]; });
-  var fallbackTargets = roots.length ? roots : nodes.filter(function (n) { return n.type === 'motion'; });
-  var fallbackSources = leaves.length ? leaves : nodes.filter(function (n) { return n.type === 'motion'; });
+  // refBase() WAJIB di sini. Rujukan cabang decision bentuknya "d1#Y" - tanpa dikupas port-nya dia
+  // gak match id node manapun, jadi node yang SUDAH nunggu hasil judgement kebaca sebagai root dan
+  // ikut ditarik START. Gambarnya lalu bohong: kelihatan jalan barengan padahal ladder-nya nunggu.
+  // Semua tipe blok ikut dihitung (bukan cuma motion): sequence sah dimulai dari judgement, dan sah
+  // berakhir di alarm. Yang dikecualikan cuma "condition" - itu penanda bit rujukan, bukan langkah.
+  var ends = graphEnds(nodes);
+  var nodeIds = ends.nodeIds;
+  var fallbackTargets = ends.targets, fallbackSources = ends.sources;
+  // Posisi START/END: kalau user pernah nggeser, pakai yang disimpan; kalau belum, hitung otomatis
+  // dari rata-rata node tujuan/asal seperti sebelumnya.
+  var startFixed = variant.startPos, endFixed = variant.endPos;
   function avgCenterX(list, fallbackX) {
     if (!list.length) return fallbackX;
     var sum = 0; list.forEach(function (n) { sum += nodeCenter(n).x; });
     return sum / list.length;
   }
-  var startAnchor = { x: avgCenterX(fallbackTargets, 20 + NODE_W / 2) - ANCHOR_R, y: 18 - ANCHOR_R };
-  var finishAnchor = { x: avgCenterX(fallbackSources, 20 + NODE_W / 2) - ANCHOR_R, y: maxY + 22 };
+  var startAnchor = startFixed
+    ? { x: startFixed.x, y: startFixed.y }
+    : { x: avgCenterX(fallbackTargets, 20 + NODE_W / 2) - ANCHOR_R, y: 18 - ANCHOR_R };
+  var finishAnchor = endFixed
+    ? { x: endFixed.x, y: endFixed.y }
+    : { x: avgCenterX(fallbackSources, 20 + NODE_W / 2) - ANCHOR_R, y: maxY + 22 };
 
-  var svg = svgEl('svg', { class: 'graph-canvas', width: Math.max(620, maxX + 40), height: Math.max(160, finishAnchor.y + ANCHOR_R * 2 + 30) });
+  // Kanvas harus ikut melar kalau START/END digeser ke luar batas node - kalau enggak, bulatannya
+  // kepotong dan gak bisa diseret balik.
+  var needW = Math.max(maxX, startAnchor.x + ANCHOR_R * 2, finishAnchor.x + ANCHOR_R * 2);
+  var needH = Math.max(maxY, startAnchor.y + ANCHOR_R * 2, finishAnchor.y + ANCHOR_R * 2);
+  var svg = svgEl('svg', { class: 'graph-canvas', width: Math.max(620, needW + 40), height: Math.max(160, needH + 30) });
   var markerId = 'arrow-' + stKey + '-' + vIdx;
   var defs = svgEl('defs');
   var marker = svgEl('marker', { id: markerId, markerWidth: 8, markerHeight: 8, refX: 7, refY: 4, orient: 'auto' });
@@ -978,19 +1444,36 @@ function renderVariantGraph(stKey, vIdx) {
       'marker-end': 'url(#' + markerId + ')'
     }));
   }
-  function anchorNode(pos, label) {
+  function anchorNode(pos, label, which) {
     var cx = pos.x + ANCHOR_R, cy = pos.y + ANCHOR_R;
     var g = svgEl('g');
-    g.appendChild(svgEl('circle', { class: 'gnode-rect anchor', cx: cx, cy: cy, r: ANCHOR_R }));
+    var circle = svgEl('circle', { class: 'gnode-rect anchor', cx: cx, cy: cy, r: ANCHOR_R });
+    g.appendChild(circle);
     var t = svgEl('text', { class: 'gnode-text', x: cx, y: cy + 3, 'text-anchor': 'middle' });
     t.textContent = label;
     g.appendChild(t);
+    var tip = svgEl('title');
+    tip.textContent = label + ' - seret buat mindahin, klik ganda buat balikin ke posisi otomatis';
+    g.appendChild(tip);
+    g.addEventListener('mousedown', function (ev) {
+      ev.stopPropagation();
+      var bb = svg.getBoundingClientRect();
+      dragState = { mode: 'anchor', stKey: stKey, vIdx: vIdx, which: which,
+                    offX: ev.clientX - bb.left - pos.x, offY: ev.clientY - bb.top - pos.y };
+    });
+    // Klik ganda = lupakan posisi manual, balik ngikut rata-rata node lagi.
+    g.addEventListener('dblclick', function (ev) {
+      ev.stopPropagation();
+      var v = motionState[stKey][vIdx];
+      if (which === 'start') delete v.startPos; else delete v.endPos;
+      renderMotionPanel();
+    });
     svg.appendChild(g);
     return { cx: cx, cy: cy };
   }
-  var startC = anchorNode(startAnchor, 'START');
+  var startC = anchorNode(startAnchor, 'START', 'start');
   fallbackTargets.forEach(function (n) { anchorEdgeDown(startC.cx, startC.cy + ANCHOR_R, n); });
-  var finishC = anchorNode(finishAnchor, 'END');
+  var finishC = anchorNode(finishAnchor, 'END', 'end');
   fallbackSources.forEach(function (n) { anchorEdgeUp(n, finishC.cx, finishC.cy - ANCHOR_R); });
 
   nodes.forEach(function (n) {
@@ -1027,11 +1510,31 @@ function renderVariantGraph(stKey, vIdx) {
   }
 
   nodes.forEach(function (n) {
-    var g = svgEl('g', { transform: 'translate(' + n.x + ',' + n.y + ')' });
     var isSelNode = selected && selected.kind === 'node' && selected.stKey === stKey && selected.vIdx === vIdx && selected.id === n.id;
+    // class "gnode" yang bikin aturan hover di CSS kena; "sel" nahan kontrolnya tetap kelihatan
+    // selama node-nya keselect, jadi habis diklik gak perlu cari-cari bulatannya lagi.
+    var g = svgEl('g', { class: 'gnode' + (isSelNode ? ' sel' : ''), transform: 'translate(' + n.x + ',' + n.y + ')' });
 
-    if (n.type === 'condition' && n.comment) {
-      var titleEl = svgEl('title'); titleEl.textContent = n.comment; g.appendChild(titleEl);
+    // Tooltip buat SEMUA blok berkomen, bukan cuma condition - berguna kalau komennya panjang dan
+    // label di kanvas jadi lebar; hover tetap nampilin teks utuhnya. Node syarat SELALU dapat tooltip
+    // walau gak berkomen, isinya arah sambungan - itu yang paling sering bikin bingung: dia cuma bisa
+    // jadi SUMBER, dan nyeret ke arah dia bakal ditolak diam-diam.
+    var tipTxt = n.comment || '';
+    // Node motion: tooltip nampilin nama simbol yang sebenarnya, karena label di kanvas sekarang
+    // pakai komen. Itu yang dipakai di JSON dan ladder, jadi harus tetap gampang dilihat.
+    if (ntype === 'motion') {
+      tipTxt = n.sol + (devKomen[n.sol] ? '\\n' + devKomen[n.sol] : '');
+    }
+    if (ntype === 'condition') {
+      // Backslash-nya WAJIB dobel di sini. HTML di build_html.py itu string Python BIASA (bukan raw),
+      // jadi escape tunggal bakal ditelan Python jadi baris baru beneran dan literal JS-nya kebuka.
+      // Konvensi yang sama dipakai placeholder JSON di atas (tab-nya juga ditulis dobel).
+      tipTxt = 'Syarat: ' + n.bit + (n.comment ? ' - ' + n.comment : '') +
+        '\\nTarik dari bulatan kuning ke langkah yang harus NUNGGU bit ini.' +
+        '\\nGak bisa jadi tujuan panah: bit ini didrive di luar flowchart (Condition section / sensor).';
+    }
+    if (tipTxt) {
+      var titleEl = svgEl('title'); titleEl.textContent = tipTxt; g.appendChild(titleEl);
     }
 
     var w = nodeW(n);
@@ -1110,6 +1613,13 @@ function onDocMouseMove(ev) {
   } else if (dragState.mode === 'connect') {
     dragState.x = ev.clientX - bb.left; dragState.y = ev.clientY - bb.top;
     renderMotionPanel();
+  } else if (dragState.mode === 'anchor') {
+    var variant = motionState[dragState.stKey] && motionState[dragState.stKey][dragState.vIdx];
+    if (!variant) return;
+    var pos = { x: Math.max(0, Math.round(ev.clientX - bb.left - dragState.offX)),
+                y: Math.max(0, Math.round(ev.clientY - bb.top - dragState.offY)) };
+    if (dragState.which === 'start') variant.startPos = pos; else variant.endPos = pos;
+    renderMotionPanel();
   }
 }
 
@@ -1125,7 +1635,17 @@ function onDocMouseUp(ev) {
       var target = nodes.filter(function (n) {
         return mx >= n.x && mx <= n.x + nodeW(n) && my >= n.y && my <= n.y + NODE_H;
       })[0];
-      if (target) addEdge(dragState.stKey, dragState.vIdx, dragState.fromId, target.id);
+      // Penolakan sambungan dulu diem total - user cuma lihat panahnya ilang tanpa tau kenapa.
+      graphHint = null;
+      if (target) {
+        var ok = addEdge(dragState.stKey, dragState.vIdx, dragState.fromId, target.id);
+        if (!ok) {
+          graphHint = { key: key, text: (target.type || 'motion') === 'condition'
+            ? 'Blok syarat "' + target.bit + '" gak bisa jadi TUJUAN panah - dia sumber. '
+              + 'Tarik dari bulatan kuningnya ke langkah yang harus nunggu bit ini.'
+            : 'Sambungan ditolak: tujuannya sama dengan sumbernya, panahnya sudah ada, atau bakal bikin alur muter.' };
+        }
+      }
     }
   }
   dragState = null;
@@ -1184,7 +1704,10 @@ function renderMotionPanel() {
 
       var toolbar = document.createElement('div'); toolbar.className = 'graph-toolbar';
       names.forEach(function (n) {
-        var btn = document.createElement('button'); btn.className = 'avail-btn'; btn.textContent = '+ ' + n;
+        var btn = document.createElement('button'); btn.className = 'avail-btn';
+        // Sama seperti label node: yang dibaca komen, simbolnya di tooltip
+        btn.textContent = '+ ' + deviceLabel(n);
+        btn.title = n + (devKomen[n] ? ' - ' + devKomen[n] : '');
         btn.addEventListener('click', function () { addMotionNode(stKey, vIdx, n); renderMotionPanel(); regenerate(); });
         toolbar.appendChild(btn);
       });
@@ -1196,7 +1719,10 @@ function renderMotionPanel() {
         var def = (conditionState[stKey] || []).filter(function (d) { return d.bit === val; })[0];
         if (def && def.name) condCmtInput.value = def.name;
       });
-      var condBtn = document.createElement('button'); condBtn.className = 'add-cond'; condBtn.textContent = '+ Condition/bit';
+      var condBtn = document.createElement('button'); condBtn.className = 'add-cond'; condBtn.textContent = '+ Syarat/bit';
+      condBtn.title = 'Taruh bit yang SUDAH ada (Condition section, sensor, memory) sebagai SYARAT. '
+        + 'Tarik dari bulatan kuningnya ke langkah yang harus nunggu bit itu ON. '
+        + 'Arahnya satu jalur: dia sumber, gak bisa jadi tujuan panah - logic yang nyalain bit itu ditulis di luar flowchart.';
       condBtn.addEventListener('click', function () {
         if (addConditionNode(stKey, vIdx, condNodePick.get(), condCmtInput.value)) {
           condNodePick.reset(); condCmtInput.value = ''; renderMotionPanel(); regenerate();
@@ -1248,14 +1774,70 @@ function renderMotionPanel() {
 
       vbox.appendChild(renderVariantGraph(stKey, vIdx));
 
+      if (graphHint && graphHint.key === vKey(stKey, vIdx)) {
+        var hintEl = document.createElement('div');
+        hintEl.className = 'graph-hint';
+        hintEl.textContent = graphHint.text;
+        vbox.appendChild(hintEl);
+      }
+
       if (selected && selected.kind === 'node' && selected.stKey === stKey && selected.vIdx === vIdx) {
         var selNode = findNode(stKey, vIdx, selected.id);
-        if (selNode && selNode.type === 'condition') {
-          var editRow = document.createElement('div'); editRow.className = 'row';
-          var editLbl = document.createElement('b'); editLbl.textContent = 'Komen bit "' + selNode.bit + '":';
-          var editInput = document.createElement('input'); editInput.value = selNode.comment || ''; editInput.placeholder = '(opsional)'; editInput.style.width = '260px';
-          editInput.addEventListener('change', function () { setNodeComment(stKey, vIdx, selNode.id, editInput.value); regenerate(); });
-          editRow.appendChild(editLbl); editRow.appendChild(editInput);
+        if (selNode) {
+          // Panel edit blok terpilih. Semua handler pakai event 'change' (kejadiannya pas blur), jadi
+          // renderMotionPanel() di sini gak ngerebut fokus di tengah ngetik - dan perlu dipanggil biar
+          // label di kanvas ikut berubah, karena komen sekarang ditampilin di sana.
+          var selType = selNode.type || 'motion';
+          var editRow = document.createElement('div'); editRow.className = 'graph-toolbar';
+          var editLbl = document.createElement('b');
+          editLbl.textContent = 'Edit blok "' + nodeLabel(selNode) + '":';
+          editLbl.style.fontSize = '11px';
+          editRow.appendChild(editLbl);
+
+          function applyEdit(key, value) {
+            setNodeField(stKey, vIdx, selNode.id, key, value);
+            renderMotionPanel(); regenerate();
+          }
+
+          if (selType === 'motion') {
+            var solSel = document.createElement('select');
+            names.forEach(function (nm) {
+              var o = document.createElement('option'); o.value = nm;
+              o.textContent = deviceLabel(nm) + (devKomen[nm] ? '  (' + nm + ')' : '');
+              solSel.appendChild(o);
+            });
+            solSel.value = selNode.sol;
+            solSel.addEventListener('change', function () { applyEdit('sol', solSel.value); });
+            editRow.appendChild(solSel);
+
+          } else if (selType === 'decision') {
+            editRow.appendChild(makeBitPicker(stKey, selNode.cond || '', '-- kondisi --',
+              function (val) { applyEdit('cond', val); }).el);
+
+          } else if (selType === 'setmem' || selType === 'resetmem') {
+            editRow.appendChild(makeBitPicker(stKey, selNode.bit || '', '-- bit memory --',
+              function (val) { applyEdit('bit', val); }).el);
+
+          } else if (selType === 'alarm') {
+            var catSel = document.createElement('select');
+            ALARM_CATS.forEach(function (c) {
+              var o = document.createElement('option'); o.value = c; o.textContent = ALARM_CAT_LABEL[c]; catSel.appendChild(o);
+            });
+            catSel.value = selNode.category || 'faultstop';
+            catSel.addEventListener('change', function () { applyEdit('category', catSel.value); });
+            editRow.appendChild(catSel);
+          }
+
+          // Node "condition" id-nya SAMA dengan nama bitnya, jadi bitnya gak bisa diubah di sini -
+          // itu bakal ngubah id dan mutusin semua panah yang nyambung. Hapus lalu bikin ulang.
+          if (selType !== 'motion') {
+            var editInput = document.createElement('input');
+            editInput.value = selNode.comment || '';
+            editInput.placeholder = 'komen blok (opsional)';
+            editInput.style.width = '220px';
+            editInput.addEventListener('change', function () { applyEdit('comment', editInput.value); });
+            editRow.appendChild(editInput);
+          }
           vbox.appendChild(editRow);
         }
       }
@@ -1422,6 +2004,25 @@ function renderStationNamesPanel() {
   stationNamesPanelEl.style.display = 'flex';
 }
 
+// Status satu aktuator menurut generate terakhir, dipakai buat mewarnai bloknya di panel Confirm Mode.
+//   missing = generator gak nemu sensor sama sekali (lsc_not_found) -> WAJIB disetel Open-loop/Manual
+//   check   = ketemu tapi gak yakin (ambigu / skor rendah) -> jalan, tapi layak diverifikasi
+// Dicocokin lewat warnList[].device, jadi kalau kalimat warning-nya diubah, penyorotan ini gak ikut
+// rusak - itu inti dari kenapa warning distruktur.
+var CM_MISSING = { lsc_not_found: 1 };
+var CM_CHECK = { lsc_ambiguous: 1, lsc_low_confidence: 1, servo_feedback_ambiguous: 1 };
+function ioFlagOf(deviceName) {
+  var hit = null;
+  lastWarnList.forEach(function (w) {
+    if (w.device !== deviceName) return;
+    if (CM_MISSING[w.code]) hit = { kind: 'missing', message: w.message };
+    else if (CM_CHECK[w.code] && (!hit || hit.kind !== 'missing')) hit = { kind: 'check', message: w.message };
+  });
+  // Sudah disetel manual/open-loop = keluhannya sudah diurus, jangan disorot lagi
+  if (hit && actuatorOverrides[deviceName]) return null;
+  return hit;
+}
+
 function renderConfirmModePanel() {
   confirmModePanelEl.innerHTML = '';
   if (!lastSplitMsg) { confirmModePanelEl.style.display = 'none'; return; }
@@ -1433,10 +2034,21 @@ function renderConfirmModePanel() {
     devs.forEach(function (d) {
       any = true;
       var ov = actuatorOverrides[d.name] || { mode: 'auto' };
-      var row = document.createElement('div'); row.className = 'stname-lbl cm-row';
-      var head = document.createElement('div');
+      // Warna blok = status aktuator ini, dicocokin lewat warnList[].device (nama simbol), bukan
+      // dari teks warning. Angka "3 aktuator belum ketemu sensornya" gak ada gunanya kalau yang mana
+      // -nya harus dicari sendiri di daftar panjang.
+      var flag = ioFlagOf(d.name);
+      var row = document.createElement('div'); row.className = 'stname-lbl cm-row' + (flag ? ' cm-' + flag.kind : '');
+      if (flag) row.title = flag.message;
+      var head = document.createElement('div'); head.className = 'cm-head';
       var b = document.createElement('b'); b.textContent = stKey + ' / ' + d.name;
       head.appendChild(b);
+      if (flag) {
+        var badge = document.createElement('span');
+        badge.className = 'cm-badge cm-badge-' + flag.kind;
+        badge.textContent = flag.kind === 'missing' ? 'tanpa sensor' : 'perlu dicek';
+        head.appendChild(badge);
+      }
       row.appendChild(head);
       var sel = document.createElement('select');
       ['auto', 'openloop', 'manual'].forEach(function (m) {
@@ -1465,6 +2077,59 @@ function renderConfirmModePanel() {
     });
   });
   confirmModePanelEl.style.display = any ? 'flex' : 'none';
+  updateConfirmModeSummary(stations.length);
+}
+
+// Section Confirm Mode itu OPSIONAL dan panjang - kalau selalu kebuka dia dorong Motion Sequence jauh
+// ke bawah padahal seringnya gak disentuh sama sekali. Jadi dia dilipat, TAPI ringkasannya tetap
+// kebaca di summary, dan otomatis kebuka kalau ada yang beneran perlu diurus (aktuator tanpa sensor
+// yang belum disetel). Sekali sudah disetel, dia gak maksa buka lagi - itu arti "collapse setelah
+// selesai confirm": yang nutup bukan timer, tapi hilangnya alasan buat kebuka.
+function updateConfirmModeSummary(stationCount) {
+  var box = document.getElementById('confirmModeBox');
+  var sub = document.getElementById('confirmModeSummary');
+  if (!box || !sub) return;
+  var total = 0, over = 0;
+  if (lastSplitMsg) {
+    var g = lastSplitMsg.payload;
+    Object.keys(g).forEach(function (k) {
+      if (k === 'MAIN') return;
+      (g[k] || []).forEach(function (d) {
+        if (d.io === 'OUT' && (d.jenis === 'CR' || d.jenis === 'SOL' || d.jenis === 'SRV_CMD')) {
+          total++;
+          if (actuatorOverrides[d.name]) over++;
+        }
+      });
+    });
+  }
+  // "Perlu perhatian" = generator gak nemu limit switch buat aktuator yang masih Auto. Dicek lewat
+  // KODE warning, bukan nyocokin kalimatnya - kalau teksnya diubah, pencocokan teks bakal diam-diam
+  // berhenti jalan dan section ini gak pernah kebuka lagi padahal ada yang perlu diurus.
+  var needs = lastWarnList.filter(function (w) { return w.code === 'lsc_not_found'; }).length;
+  if (!total) { sub.textContent = 'generate dulu buat lihat daftar aktuator'; sub.className = 'fold-sub'; return; }
+  // Sebutin NAMA aktuatornya, bukan cuma jumlahnya - angka doang bikin user harus nyisir daftar
+  // sendiri. Bloknya juga diwarnai merah di panel, jadi ketemunya cepat.
+  var missing = lastWarnList.filter(function (w) {
+    return w.code === 'lsc_not_found' && w.device && !actuatorOverrides[w.device];
+  }).map(function (w) { return w.device; });
+  missing = missing.filter(function (d, i) { return missing.indexOf(d) === i; });
+  var check = lastWarnList.filter(function (w) {
+    return CM_CHECK[w.code] && w.device && !actuatorOverrides[w.device];
+  }).map(function (w) { return w.device; });
+  check = check.filter(function (d, i) { return check.indexOf(d) === i && missing.indexOf(d) < 0; });
+
+  if (missing.length) {
+    var shown = missing.slice(0, 3).join(', ') + (missing.length > 3 ? ', +' + (missing.length - 3) + ' lagi' : '');
+    sub.textContent = missing.length + ' tanpa sensor (blok merah): ' + shown + ' - setel Open-loop atau Manual';
+    sub.className = 'fold-sub attn';
+    if (!confirmModeTouched) box.open = true;
+  } else if (check.length) {
+    sub.textContent = check.length + ' cocokan sensor perlu dicek (blok kuning): ' + check.slice(0, 3).join(', ');
+    sub.className = 'fold-sub attn';
+  } else {
+    sub.textContent = over + ' dari ' + total + ' aktuator dioverride, sisanya Auto - semua sensor ketemu';
+    sub.className = 'fold-sub';
+  }
 }
 
 // ===== Project JSON: SEMUA state (IO list + motionSequences + conditionDefs + nama station + timer
@@ -1485,6 +2150,8 @@ function exportProjectJSON() {
     io: document.getElementById('ioText').value,
     stationNames: stationNames,
     timerDefaults: { phpx: timerPhpxEl ? timerPhpxEl.value : '', motion: timerMotionEl ? timerMotionEl.value : '' },
+    arraySizes: { al: alSizeEl ? alSizeEl.value : '', mf: mfSizeEl ? mfSizeEl.value : '',
+                  stationBlock: stationBlockEl ? stationBlockEl.value : '' },
     actuatorOverrides: actuatorOverrides,
     motionSequences: motionSequences,
     conditionDefs: conditionDefs
@@ -1500,7 +2167,7 @@ function importProjectJSON(jsonText) {
   }
   if (typeof parsed.io !== 'string' || !parsed.io.trim()) return 'Field "io" (IO list, string) wajib ada dan gak boleh kosong';
 
-  document.getElementById('ioText').value = parsed.io;
+  setIoText(parsed.io);   // WAJIB lewat setIoText - tabel IO harus ikut kebaca ulang, bukan cuma textarea
   runFullPipeline(); // parse+split+generate dulu biar station-nya kekenal sebelum import motion/condition per-station
   if (errEl.textContent) return 'Generate IO list dari project JSON gagal: ' + errEl.textContent;
 
@@ -1508,6 +2175,9 @@ function importProjectJSON(jsonText) {
   Object.keys(parsed.stationNames || {}).forEach(function (k) { stationNames[k] = String(parsed.stationNames[k] || '').trim(); });
   if (timerPhpxEl) timerPhpxEl.value = (parsed.timerDefaults && parsed.timerDefaults.phpx) || '';
   if (timerMotionEl) timerMotionEl.value = (parsed.timerDefaults && parsed.timerDefaults.motion) || '';
+  if (alSizeEl) alSizeEl.value = (parsed.arraySizes && parsed.arraySizes.al) || '';
+  if (mfSizeEl) mfSizeEl.value = (parsed.arraySizes && parsed.arraySizes.mf) || '';
+  if (stationBlockEl) stationBlockEl.value = (parsed.arraySizes && parsed.arraySizes.stationBlock) || '';
   actuatorOverrides = {};
   Object.keys(parsed.actuatorOverrides || {}).forEach(function (k) { actuatorOverrides[k] = parsed.actuatorOverrides[k]; });
 
@@ -1549,6 +2219,7 @@ function runFullPipeline() {
     if (v[1]) { errEl.textContent = v[1].payload; return; }
     msg = runNode(SPLIT_JS, v[0], flowStore);
     lastSplitMsg = msg;
+    rebuildDevKomen();   // label kanvas ambil komen dari sini, harus segar sebelum panel dirender
   } catch (e) {
     errEl.textContent = 'Error: ' + e.message;
     return;
@@ -1570,11 +2241,48 @@ motionPanelEl = document.getElementById('motionPanel');
 conditionPanelEl = document.getElementById('conditionPanel');
 stationNamesPanelEl = document.getElementById('stationNamesPanel');
 confirmModePanelEl = document.getElementById('confirmModePanel');
+(function () {
+  var cmBox = document.getElementById('confirmModeBox');
+  if (cmBox) cmBox.addEventListener('toggle', function () { confirmModeTouched = true; });
+})();
+alSizeEl = document.getElementById('alSize');
+mfSizeEl = document.getElementById('mfSize');
+stationBlockEl = document.getElementById('stationBlock');
+arraySizeHintEl = document.getElementById('arraySizeHint');
+[alSizeEl, mfSizeEl, stationBlockEl].forEach(function (el) {
+  el.addEventListener('change', function () { if (lastSplitMsg) regenerate(); });
+});
 timerPhpxEl = document.getElementById('timerPhpx');
 timerMotionEl = document.getElementById('timerMotion');
 timerPhpxEl.addEventListener('change', function () { if (lastSplitMsg) regenerate(); });
 timerMotionEl.addEventListener('change', function () { if (lastSplitMsg) regenerate(); });
-document.getElementById('genBtn').addEventListener('click', runFullPipeline);
+document.getElementById('ioTabGrid').addEventListener('click', function () { setIoView('grid'); });
+document.getElementById('ioTabText').addEventListener('click', function () { setIoView('text'); });
+document.getElementById('ioAddRow').addEventListener('click', function () {
+  ioRows.push({ address: '', jenis: '', io: '', komen: '' });
+  ioSyncToText(); renderIoGrid();
+});
+document.getElementById('ioPaste').addEventListener('click', function () {
+  readTextFromClipboard().then(function (t) {
+    var rows = ioParseText(t);
+    if (!rows.length) { window.alert('Clipboard gak berisi baris TSV (Alamat/Jenis/IN-OUT/Komen).'); return; }
+    // Ditambahin, bukan nimpa - biar tempelan kedua gak diam-diam ngapus yang pertama
+    ioRows = ioRows.concat(rows);
+    ioSyncToText(); renderIoGrid();
+  }).catch(function (e) {
+    window.alert('Gagal baca clipboard (' + e.message + '). Pakai mode "Teks (TSV)" lalu tempel manual.');
+  });
+});
+// Textarea diedit langsung -> tabel ikut, biar dua mode gak pernah beda isi
+document.getElementById('ioText').addEventListener('change', function () {
+  if (ioView === 'text') { ioLoadFromText(); ioUpdateCount(); }
+});
+setIoView('grid');
+document.getElementById('genBtn').addEventListener('click', function () {
+  // Mode tabel: pastiin textarea sudah sinkron sebelum pipeline baca isinya
+  if (ioView === 'grid') ioSyncToText();
+  runFullPipeline();
+});
 (function () {
   var ta = document.getElementById('projectJsonTa');
   var msg = document.getElementById('projectJsonMsg');
@@ -1597,6 +2305,35 @@ out = (HTML
        .replace('__VALIDATE_JS__', json.dumps(VALIDATE))
        .replace('__SPLIT_JS__', json.dumps(SPLIT))
        .replace('__GEN_ALL_JS__', json.dumps(GEN_ALL)))
+
+# HTML di atas itu string Python BIASA, bukan raw. Jadi escape yang dimaksudkan buat JS atau CSS
+# (\n, \t, \25B8) diterjemahkan Python duluan dan hasilnya rusak diam-diam: \n jadi baris baru
+# sungguhan yang mutus literal JS, \25 jadi karakter kontrol oktal yang bikin CSS-nya salah. Sudah
+# kejadian tiga kali, jadi sekarang dijaga di sini: escape buat JS/CSS WAJIB ditulis dobel (\\n),
+# dan build gagal keras kalau ada karakter kontrol nyasar di output.
+bad = [(i, ord(c)) for i, c in enumerate(out) if ord(c) < 32 and c not in '\n\r\t']
+if bad:
+    ctx = out[max(0, bad[0][0] - 70):bad[0][0] + 30].replace('\n', ' ')
+    raise SystemExit(
+        "BUILD GAGAL: %d karakter kontrol di output (escape ketelan Python - tulis dobel, mis. \\\\n).\n"
+        "  offset %d, kode %d\n  konteks: ...%s..." % (len(bad), bad[0][0], bad[0][1], ctx))
+
+# Cek karakter kontrol di atas TIDAK menangkap kasus \n dan \r yang ketelan, karena baris baru itu
+# karakter yang sah - yang rusak cuma STRUKTUR JS-nya (literal kebuka, komentar kepotong dua). Jadi
+# outputnya dicek sintaks beneran pakai `node --check`. Kalau node gak ada, dilewat dengan pesan -
+# build tetap jalan, tapi jaringnya berkurang.
+import re as _re, subprocess as _sp, tempfile as _tf, shutil as _sh
+_scripts = _re.findall(r'<script>(.*?)</script>', out, _re.S)
+if _sh.which('node'):
+    for _i, _js in enumerate(_scripts):
+        _fh = _tf.NamedTemporaryFile('w', suffix='.js', delete=False, encoding='utf-8')
+        _fh.write(_js); _fh.close()
+        _r = _sp.run(['node', '--check', _fh.name], capture_output=True, text=True)
+        os.unlink(_fh.name)
+        if _r.returncode != 0:
+            raise SystemExit("BUILD GAGAL: blok <script> #%d sintaksnya rusak.\n%s" % (_i + 1, _r.stderr.strip()))
+else:
+    print("catatan: node tidak ada di PATH, cek sintaks JS dilewati")
 
 outpath = os.path.join(_D, 'index.html')
 open(outpath, 'w', encoding='utf-8').write(out)

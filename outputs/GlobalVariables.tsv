@@ -172,7 +172,7 @@ LSC_ST3_EJC_BWD	BOOL			False	False	Do not publish	ST3 EJECTOR BACKWARD position 
 LSC_ST3_EJC_FWD	BOOL			False	False	Do not publish	ST3 EJECTOR FORWARD position confirmed
 LSC_ST3_PSH_BWD	BOOL			False	False	Do not publish	ST3 PUSHER BACKWARD position confirmed
 LSC_ST3_PSH_FWD	BOOL			False	False	Do not publish	ST3 PUSHER FORWARD position confirmed
-MF	ARRAY[1..16] OF BOOL			False	False	Do not publish	Cylinder motion fault table
+MF	ARRAY[1..90] OF BOOL			False	False	Do not publish	Cylinder motion fault table
 MSTR_RDY	BOOL			False	False	Do not publish	Machine status from main program
 NOT_EMG_STOP	BOOL			False	False	Do not publish	NOT EMERGENCY STOP
 NO_FAULT	BOOL			False	False	Do not publish	Machine status from main program
@@ -315,30 +315,189 @@ AL[1]	BOOL			False	False	Do not publish	Emergency stop button pressed
 AL[2]	BOOL			False	False	Do not publish	Fuse disconnected
 AL[3]	BOOL			False	False	Do not publish	Air source pressure lost
 AL[4]	BOOL			False	False	Do not publish	Safety cover or light curtain open
-AL[5]	BOOL			False	False	Do not publish	Spare, reserved for MAIN alarm group
-AL[6]	BOOL			False	False	Do not publish	Spare, reserved for MAIN alarm group
-AL[7]	BOOL			False	False	Do not publish	Spare, reserved for MAIN alarm group
-AL[8]	BOOL			False	False	Do not publish	Spare, reserved for MAIN alarm group
-AL[9]	BOOL			False	False	Do not publish	Spare, reserved for MAIN alarm group
-AL[10]	BOOL			False	False	Do not publish	Spare, reserved for MAIN alarm group
+AL[5]	BOOL			False	False	Do not publish	AL005_ Spare
+AL[6]	BOOL			False	False	Do not publish	AL006_ Spare
+AL[7]	BOOL			False	False	Do not publish	AL007_ Spare
+AL[8]	BOOL			False	False	Do not publish	AL008_ Spare
+AL[9]	BOOL			False	False	Do not publish	AL009_ Spare
+AL[10]	BOOL			False	False	Do not publish	AL010_ Spare
 AL[11]	BOOL			False	False	Do not publish	Dual sensor fault, both ends detected at the same time: ST1 STOPPER-5 CHUCK / ST1 STOPPER-5 UNCHUCK
 AL[12]	BOOL			False	False	Do not publish	Dual sensor fault, both ends detected at the same time: ST1 LEFT DIVIDER BACKWARD / ST1 LEFT DIVIDER FORWARD
 AL[13]	BOOL			False	False	Do not publish	Dual sensor fault, both ends detected at the same time: ST1 RIGHT DIVIDER BACKWARD / ST1 RIGHT DIVIDER FORWARD
 AL[14]	BOOL			False	False	Do not publish	Dual sensor fault, both ends detected at the same time: ST1 STOPPER-2 CHUCK / ST1 STOPPER-2 UNCHUCK
 AL[15]	BOOL			False	False	Do not publish	Dual sensor fault, both ends detected at the same time: ST1 STOPPER-3 CHUCK / ST1 STOPPER-3 UNCHUCK
 AL[16]	BOOL			False	False	Do not publish	Dual sensor fault, both ends detected at the same time: ST1 STOPPER-4 CHUCK / ST1 STOPPER-4 UNCHUCK
-AL[17]	BOOL			False	False	Do not publish	Dual sensor fault, both ends detected at the same time: ST2 STOPPER-1 UP / ST2 STOPPER-1 DOWN
-AL[18]	BOOL			False	False	Do not publish	Dual sensor fault, both ends detected at the same time: ST3 EJECTOR FORWARD / ST3 EJECTOR BACKWARD
-AL[19]	BOOL			False	False	Do not publish	Dual sensor fault, both ends detected at the same time: ST3 PUSHER FORWARD / ST3 PUSHER BACKWARD
+AL[17]	BOOL			False	False	Do not publish	AL017_ Spare
+AL[18]	BOOL			False	False	Do not publish	AL018_ Spare
+AL[19]	BOOL			False	False	Do not publish	AL019_ Spare
+AL[20]	BOOL			False	False	Do not publish	AL020_ Spare
+AL[21]	BOOL			False	False	Do not publish	AL021_ Spare
+AL[22]	BOOL			False	False	Do not publish	AL022_ Spare
+AL[23]	BOOL			False	False	Do not publish	AL023_ Spare
+AL[24]	BOOL			False	False	Do not publish	AL024_ Spare
+AL[25]	BOOL			False	False	Do not publish	AL025_ Spare
+AL[26]	BOOL			False	False	Do not publish	AL026_ Spare
+AL[27]	BOOL			False	False	Do not publish	AL027_ Spare
+AL[28]	BOOL			False	False	Do not publish	AL028_ Spare
+AL[29]	BOOL			False	False	Do not publish	AL029_ Spare
+AL[30]	BOOL			False	False	Do not publish	AL030_ Spare
+AL[31]	BOOL			False	False	Do not publish	AL031_ Spare
+AL[32]	BOOL			False	False	Do not publish	AL032_ Spare
+AL[33]	BOOL			False	False	Do not publish	AL033_ Spare
+AL[34]	BOOL			False	False	Do not publish	AL034_ Spare
+AL[35]	BOOL			False	False	Do not publish	AL035_ Spare
+AL[36]	BOOL			False	False	Do not publish	AL036_ Spare
+AL[37]	BOOL			False	False	Do not publish	AL037_ Spare
+AL[38]	BOOL			False	False	Do not publish	AL038_ Spare
+AL[39]	BOOL			False	False	Do not publish	AL039_ Spare
+AL[40]	BOOL			False	False	Do not publish	AL040_ Spare
+AL[41]	BOOL			False	False	Do not publish	Dual sensor fault, both ends detected at the same time: ST2 STOPPER-1 UP / ST2 STOPPER-1 DOWN
+AL[42]	BOOL			False	False	Do not publish	AL042_ Spare
+AL[43]	BOOL			False	False	Do not publish	AL043_ Spare
+AL[44]	BOOL			False	False	Do not publish	AL044_ Spare
+AL[45]	BOOL			False	False	Do not publish	AL045_ Spare
+AL[46]	BOOL			False	False	Do not publish	AL046_ Spare
+AL[47]	BOOL			False	False	Do not publish	AL047_ Spare
+AL[48]	BOOL			False	False	Do not publish	AL048_ Spare
+AL[49]	BOOL			False	False	Do not publish	AL049_ Spare
+AL[50]	BOOL			False	False	Do not publish	AL050_ Spare
+AL[51]	BOOL			False	False	Do not publish	AL051_ Spare
+AL[52]	BOOL			False	False	Do not publish	AL052_ Spare
+AL[53]	BOOL			False	False	Do not publish	AL053_ Spare
+AL[54]	BOOL			False	False	Do not publish	AL054_ Spare
+AL[55]	BOOL			False	False	Do not publish	AL055_ Spare
+AL[56]	BOOL			False	False	Do not publish	AL056_ Spare
+AL[57]	BOOL			False	False	Do not publish	AL057_ Spare
+AL[58]	BOOL			False	False	Do not publish	AL058_ Spare
+AL[59]	BOOL			False	False	Do not publish	AL059_ Spare
+AL[60]	BOOL			False	False	Do not publish	AL060_ Spare
+AL[61]	BOOL			False	False	Do not publish	AL061_ Spare
+AL[62]	BOOL			False	False	Do not publish	AL062_ Spare
+AL[63]	BOOL			False	False	Do not publish	AL063_ Spare
+AL[64]	BOOL			False	False	Do not publish	AL064_ Spare
+AL[65]	BOOL			False	False	Do not publish	AL065_ Spare
+AL[66]	BOOL			False	False	Do not publish	AL066_ Spare
+AL[67]	BOOL			False	False	Do not publish	AL067_ Spare
+AL[68]	BOOL			False	False	Do not publish	AL068_ Spare
+AL[69]	BOOL			False	False	Do not publish	AL069_ Spare
+AL[70]	BOOL			False	False	Do not publish	AL070_ Spare
+AL[71]	BOOL			False	False	Do not publish	Dual sensor fault, both ends detected at the same time: ST3 EJECTOR FORWARD / ST3 EJECTOR BACKWARD
+AL[72]	BOOL			False	False	Do not publish	Dual sensor fault, both ends detected at the same time: ST3 PUSHER FORWARD / ST3 PUSHER BACKWARD
+AL[73]	BOOL			False	False	Do not publish	AL073_ Spare
+AL[74]	BOOL			False	False	Do not publish	AL074_ Spare
+AL[75]	BOOL			False	False	Do not publish	AL075_ Spare
+AL[76]	BOOL			False	False	Do not publish	AL076_ Spare
+AL[77]	BOOL			False	False	Do not publish	AL077_ Spare
+AL[78]	BOOL			False	False	Do not publish	AL078_ Spare
+AL[79]	BOOL			False	False	Do not publish	AL079_ Spare
+AL[80]	BOOL			False	False	Do not publish	AL080_ Spare
+AL[81]	BOOL			False	False	Do not publish	AL081_ Spare
+AL[82]	BOOL			False	False	Do not publish	AL082_ Spare
+AL[83]	BOOL			False	False	Do not publish	AL083_ Spare
+AL[84]	BOOL			False	False	Do not publish	AL084_ Spare
+AL[85]	BOOL			False	False	Do not publish	AL085_ Spare
+AL[86]	BOOL			False	False	Do not publish	AL086_ Spare
+AL[87]	BOOL			False	False	Do not publish	AL087_ Spare
+AL[88]	BOOL			False	False	Do not publish	AL088_ Spare
+AL[89]	BOOL			False	False	Do not publish	AL089_ Spare
+AL[90]	BOOL			False	False	Do not publish	AL090_ Spare
+AL[91]	BOOL			False	False	Do not publish	AL091_ Spare
+AL[92]	BOOL			False	False	Do not publish	AL092_ Spare
+AL[93]	BOOL			False	False	Do not publish	AL093_ Spare
+AL[94]	BOOL			False	False	Do not publish	AL094_ Spare
+AL[95]	BOOL			False	False	Do not publish	AL095_ Spare
+AL[96]	BOOL			False	False	Do not publish	AL096_ Spare
+AL[97]	BOOL			False	False	Do not publish	AL097_ Spare
+AL[98]	BOOL			False	False	Do not publish	AL098_ Spare
+AL[99]	BOOL			False	False	Do not publish	AL099_ Spare
+AL[100]	BOOL			False	False	Do not publish	AL100_ Spare
 MF[1]	BOOL			False	False	Do not publish	Cylinder motion fault, solenoid energised but position not confirmed: ST1 LEFT DIVIDER BACKWARD / ST1 LEFT DIVIDER FORWARD
 MF[2]	BOOL			False	False	Do not publish	Cylinder motion fault, solenoid energised but position not confirmed: ST1 RIGHT DIVIDER BACKWARD / ST1 RIGHT DIVIDER FORWARD
 MF[3]	BOOL			False	False	Do not publish	Cylinder motion fault, solenoid energised but position not confirmed: ST1 STOPPER-2 CHUCK / ST1  STOPPER-2 UNCHUCK
 MF[4]	BOOL			False	False	Do not publish	Cylinder motion fault, solenoid energised but position not confirmed: ST1  STOPPER-3 CHUCK / ST1  STOPPER-3 UNCHUCK
 MF[5]	BOOL			False	False	Do not publish	Cylinder motion fault, solenoid energised but position not confirmed: ST1  STOPPER-4 CHUCK / ST1  STOPPER-4 UNCHUCK
 MF[6]	BOOL			False	False	Do not publish	Cylinder motion fault, solenoid energised but position not confirmed: ST1  STOPPER-5 CHUCK / ST1  STOPPER-5 UNCHUCK
-MF[7]	BOOL			False	False	Do not publish	Spare, reserved for ST1 motion fault group
-MF[8]	BOOL			False	False	Do not publish	Spare, reserved for ST1 motion fault group
-MF[9]	BOOL			False	False	Do not publish	Spare, reserved for ST1 motion fault group
-MF[10]	BOOL			False	False	Do not publish	Cylinder motion fault, solenoid energised but position not confirmed: ST2  STOPPER-1 UP / ST2  STOPPER-1 DOWN
-MF[11]	BOOL			False	False	Do not publish	Cylinder motion fault, solenoid energised but position not confirmed: ST3  EJECTOR FORWARD / ST3  EJECTOR BACKWARD
-MF[12]	BOOL			False	False	Do not publish	Cylinder motion fault, solenoid energised but position not confirmed: ST3  PUSHER FORWARD / ST3  PUSHER BACKWARD
+MF[7]	BOOL			False	False	Do not publish	MF007_ Spare
+MF[8]	BOOL			False	False	Do not publish	MF008_ Spare
+MF[9]	BOOL			False	False	Do not publish	MF009_ Spare
+MF[10]	BOOL			False	False	Do not publish	MF010_ Spare
+MF[11]	BOOL			False	False	Do not publish	MF011_ Spare
+MF[12]	BOOL			False	False	Do not publish	MF012_ Spare
+MF[13]	BOOL			False	False	Do not publish	MF013_ Spare
+MF[14]	BOOL			False	False	Do not publish	MF014_ Spare
+MF[15]	BOOL			False	False	Do not publish	MF015_ Spare
+MF[16]	BOOL			False	False	Do not publish	MF016_ Spare
+MF[17]	BOOL			False	False	Do not publish	MF017_ Spare
+MF[18]	BOOL			False	False	Do not publish	MF018_ Spare
+MF[19]	BOOL			False	False	Do not publish	MF019_ Spare
+MF[20]	BOOL			False	False	Do not publish	MF020_ Spare
+MF[21]	BOOL			False	False	Do not publish	MF021_ Spare
+MF[22]	BOOL			False	False	Do not publish	MF022_ Spare
+MF[23]	BOOL			False	False	Do not publish	MF023_ Spare
+MF[24]	BOOL			False	False	Do not publish	MF024_ Spare
+MF[25]	BOOL			False	False	Do not publish	MF025_ Spare
+MF[26]	BOOL			False	False	Do not publish	MF026_ Spare
+MF[27]	BOOL			False	False	Do not publish	MF027_ Spare
+MF[28]	BOOL			False	False	Do not publish	MF028_ Spare
+MF[29]	BOOL			False	False	Do not publish	MF029_ Spare
+MF[30]	BOOL			False	False	Do not publish	MF030_ Spare
+MF[31]	BOOL			False	False	Do not publish	Cylinder motion fault, solenoid energised but position not confirmed: ST2  STOPPER-1 UP / ST2  STOPPER-1 DOWN
+MF[32]	BOOL			False	False	Do not publish	MF032_ Spare
+MF[33]	BOOL			False	False	Do not publish	MF033_ Spare
+MF[34]	BOOL			False	False	Do not publish	MF034_ Spare
+MF[35]	BOOL			False	False	Do not publish	MF035_ Spare
+MF[36]	BOOL			False	False	Do not publish	MF036_ Spare
+MF[37]	BOOL			False	False	Do not publish	MF037_ Spare
+MF[38]	BOOL			False	False	Do not publish	MF038_ Spare
+MF[39]	BOOL			False	False	Do not publish	MF039_ Spare
+MF[40]	BOOL			False	False	Do not publish	MF040_ Spare
+MF[41]	BOOL			False	False	Do not publish	MF041_ Spare
+MF[42]	BOOL			False	False	Do not publish	MF042_ Spare
+MF[43]	BOOL			False	False	Do not publish	MF043_ Spare
+MF[44]	BOOL			False	False	Do not publish	MF044_ Spare
+MF[45]	BOOL			False	False	Do not publish	MF045_ Spare
+MF[46]	BOOL			False	False	Do not publish	MF046_ Spare
+MF[47]	BOOL			False	False	Do not publish	MF047_ Spare
+MF[48]	BOOL			False	False	Do not publish	MF048_ Spare
+MF[49]	BOOL			False	False	Do not publish	MF049_ Spare
+MF[50]	BOOL			False	False	Do not publish	MF050_ Spare
+MF[51]	BOOL			False	False	Do not publish	MF051_ Spare
+MF[52]	BOOL			False	False	Do not publish	MF052_ Spare
+MF[53]	BOOL			False	False	Do not publish	MF053_ Spare
+MF[54]	BOOL			False	False	Do not publish	MF054_ Spare
+MF[55]	BOOL			False	False	Do not publish	MF055_ Spare
+MF[56]	BOOL			False	False	Do not publish	MF056_ Spare
+MF[57]	BOOL			False	False	Do not publish	MF057_ Spare
+MF[58]	BOOL			False	False	Do not publish	MF058_ Spare
+MF[59]	BOOL			False	False	Do not publish	MF059_ Spare
+MF[60]	BOOL			False	False	Do not publish	MF060_ Spare
+MF[61]	BOOL			False	False	Do not publish	Cylinder motion fault, solenoid energised but position not confirmed: ST3  EJECTOR FORWARD / ST3  EJECTOR BACKWARD
+MF[62]	BOOL			False	False	Do not publish	Cylinder motion fault, solenoid energised but position not confirmed: ST3  PUSHER FORWARD / ST3  PUSHER BACKWARD
+MF[63]	BOOL			False	False	Do not publish	MF063_ Spare
+MF[64]	BOOL			False	False	Do not publish	MF064_ Spare
+MF[65]	BOOL			False	False	Do not publish	MF065_ Spare
+MF[66]	BOOL			False	False	Do not publish	MF066_ Spare
+MF[67]	BOOL			False	False	Do not publish	MF067_ Spare
+MF[68]	BOOL			False	False	Do not publish	MF068_ Spare
+MF[69]	BOOL			False	False	Do not publish	MF069_ Spare
+MF[70]	BOOL			False	False	Do not publish	MF070_ Spare
+MF[71]	BOOL			False	False	Do not publish	MF071_ Spare
+MF[72]	BOOL			False	False	Do not publish	MF072_ Spare
+MF[73]	BOOL			False	False	Do not publish	MF073_ Spare
+MF[74]	BOOL			False	False	Do not publish	MF074_ Spare
+MF[75]	BOOL			False	False	Do not publish	MF075_ Spare
+MF[76]	BOOL			False	False	Do not publish	MF076_ Spare
+MF[77]	BOOL			False	False	Do not publish	MF077_ Spare
+MF[78]	BOOL			False	False	Do not publish	MF078_ Spare
+MF[79]	BOOL			False	False	Do not publish	MF079_ Spare
+MF[80]	BOOL			False	False	Do not publish	MF080_ Spare
+MF[81]	BOOL			False	False	Do not publish	MF081_ Spare
+MF[82]	BOOL			False	False	Do not publish	MF082_ Spare
+MF[83]	BOOL			False	False	Do not publish	MF083_ Spare
+MF[84]	BOOL			False	False	Do not publish	MF084_ Spare
+MF[85]	BOOL			False	False	Do not publish	MF085_ Spare
+MF[86]	BOOL			False	False	Do not publish	MF086_ Spare
+MF[87]	BOOL			False	False	Do not publish	MF087_ Spare
+MF[88]	BOOL			False	False	Do not publish	MF088_ Spare
+MF[89]	BOOL			False	False	Do not publish	MF089_ Spare
+MF[90]	BOOL			False	False	Do not publish	MF090_ Spare
