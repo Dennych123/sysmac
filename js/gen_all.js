@@ -1095,20 +1095,18 @@ ukeys.forEach(function(k){ files.push(buildUnit(k,groups[k])); });
     // penting, slot yang gak kepakai jadi PUNYA baris di TSV. Sebelum ini ekor array di luar blok
     // MAIN/station gak dikomen sama sekali, jadi elemennya gak ke-emit dan di Susmax Studio
     // kelihatan kosong melompong - gak kebedain antara "cadangan" dan "kelewat".
-    function fillRange(fn,prefix,start,end,label){
+    // Komennya sengaja PENDEK: cuma stub bernomor + kata "Spare". Versi panjang dulu ("Spare, reserved
+    // for ST1 alarm group") kebaca ratusan kali di tabel dan malah bikin baris yang beneran penting
+    // tenggelam. Station pemiliknya gak hilang informasinya - itu kebaca dari nomornya sendiri lewat
+    // peta blok yang dicetak di stats, dan blok tiap station sekarang tetap (gak geser-geser lagi).
+    function fillRange(fn,prefix,start,end){
         for(var n=start;n<=end;n++){
             var t=fn(n);
-            if(!ARRAY_ELEMENTS[t]) ARRAY_ELEMENTS[t]=prefix+pad(n,3)+"_ Spare, reserved for "+label;
+            if(!ARRAY_ELEMENTS[t]) ARRAY_ELEMENTS[t]=prefix+pad(n,3)+"_ Spare";
         }
     }
-    fillRange(AL,"AL",1,AL_MAIN_RESERVED,"MAIN alarm group");
-    ukeys.forEach(function(k){
-        fillRange(AL,"AL", AL_BLOCK[k].start, AL_BLOCK[k].end, labelOf(k)+" alarm group");
-        fillRange(MF,"MF", MF_BLOCK[k].start, MF_BLOCK[k].end, labelOf(k)+" motion fault group");
-    });
-    // Sisa ekor sampai ujung array - fillRange nge-skip yang sudah keisi, jadi ini cuma nambal lubang.
-    fillRange(AL,"AL",1,AL_SIZE,"future use, not allocated to any group");
-    fillRange(MF,"MF",1,MF_SIZE,"future use, not allocated to any group");
+    fillRange(AL,"AL",1,AL_SIZE);
+    fillRange(MF,"MF",1,MF_SIZE);
 })();
 
 var gnames=Object.keys(GLOBALS).sort();
@@ -1123,7 +1121,14 @@ var tsv="Name\tData type\tInitial value\tAT\tRetain\tConstant\tNetwork Publish\t
             return [n,g.t,"","","False","False","Do not publish",g.d].join("\t"); }).join("\n")
       + (elNames.length ? "\n" + elNames.map(function(n){
             return [n,"BOOL","","","False","False","Do not publish",ARRAY_ELEMENTS[n]].join("\t"); }).join("\n") : "");
-files.push({ name:"GlobalVariables.tsv", xml:tsv, stats:"GLOBAL: "+gnames.length+" variable, "+elNames.length+" array element comment" });
+// Peta blok dicetak di stats, bukan diulang-ulang di tiap komen spare: satu baris ini nggantiin
+// ratusan "reserved for ST1 alarm group" dan lebih gampang dibaca sekali lihat.
+var blockMap = "MAIN AL[1.."+AL_MAIN_RESERVED+"]  |  " + ukeys.map(function(k){
+    return k+" AL["+AL_BLOCK[k].start+".."+AL_BLOCK[k].end+"] MF["+MF_BLOCK[k].start+".."+MF_BLOCK[k].end+"]";
+}).join("  |  ");
+files.push({ name:"GlobalVariables.tsv", xml:tsv,
+             stats:"GLOBAL: "+gnames.length+" variable, "+elNames.length+" array element comment"
+                  +"\nARRAY BLOCK ("+STATION_BLOCK+" slot/station): "+blockMap });
 
 var globVars=gnames.map(function(n){ return "      "+vr(n,GLOBALS[n].t,GLOBALS[n].d); });
 var blocks=files.filter(function(f){ return f.name.slice(-4)===".xml"; }).map(function(f){ return extractProgram(f.xml); }).filter(Boolean);
