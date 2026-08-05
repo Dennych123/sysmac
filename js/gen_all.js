@@ -644,9 +644,9 @@ function buildUnit(stKey, devs){
                 var yBit="LB"+pad(600+decN,3), nBit="LB"+pad(601+decN,3); decN+=2;
                 if(decN>100){ warnings.push(stKey+": decision block range LB600-LB699 exhausted, later judgement blocks will collide."); }
                 var dlabel=node.comment||cbit;
-                P(yBit,"BOOL","Judgement YES: "+dlabel); P(nBit,"BOOL","Judgement NO: "+dlabel);
-                S10.push(series(o++,[[prevBit,false],[cbit,false]],yBit,"["+variantLabel+"] Judgement "+dlabel+" -> YES ("+cbit+" on)"));
-                S10.push(series(o++,[[prevBit,false],[cbit,true]],nBit,"["+variantLabel+"] Judgement "+dlabel+" -> NO ("+cbit+" off)"));
+                P(yBit,"BOOL","Judgement YES (held): "+dlabel); P(nBit,"BOOL","Judgement NO (held): "+dlabel);
+                S10.push(judgeBranch(o++,prevBit,cbit,false,yBit,nBit,"["+variantLabel+"] Judgement "+dlabel+" -> YES ("+cbit+" on), held, interlocked with "+nBit));
+                S10.push(judgeBranch(o++,prevBit,cbit,true, nBit,yBit,"["+variantLabel+"] Judgement "+dlabel+" -> NO ("+cbit+" off), held, interlocked with "+yBit));
                 branchBitOf[node.id]={Y:yBit,N:nBit}; stepDone[node.id]=true;
 
             } else if(ntype==="setmem"||ntype==="resetmem"){

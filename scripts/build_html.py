@@ -100,7 +100,7 @@ HTML = '''<!doctype html>
   .gnode-handle.port-n{fill:#e5e7eb}
   .gport-text{font-size:8px;fill:#111;font-family:Consolas,monospace;pointer-events:none;text-anchor:middle}
   .gnode-rect.selected{stroke:#f1c40f;stroke-width:3}
-  .gnode-rect.anchor{fill:#37424f;stroke:#232a33;cursor:default;rx:14}
+  .gnode-rect.anchor{fill:#37424f;stroke:#232a33;cursor:move;rx:14}
   .gedge-line.anchor{stroke:#9aa3ad;stroke-dasharray:3,2}
   .gnode-text{fill:#fff;font-size:9px;font-family:Consolas,monospace}
   .gnode-del{fill:#b91c1c;cursor:pointer}
@@ -650,13 +650,18 @@ function serializeNode(n) {
 function variantsToJSON(stKey) {
   var variants = (motionState[stKey] || []).map(function (v) {
     var motionNodes = v.nodes.filter(function (n) { return (n.type || 'motion') !== 'condition'; });
-    return {
+    var out = {
       condition: v.condition || '',
       comment: v.comment || '',
       conditionComments: conditionCommentsOf(v),
       conditionPositions: conditionPositionsOf(v),
       nodes: motionNodes.map(serializeNode)
     };
+    // Cuma ditulis kalau user beneran pernah nggeser. Kalau selalu ditulis, posisi hasil hitung
+    // otomatis jadi beku - graph berubah tapi START/END-nya nyangkut di tempat lama.
+    if (v.startPos) out.startPos = { x: Math.round(v.startPos.x), y: Math.round(v.startPos.y) };
+    if (v.endPos) out.endPos = { x: Math.round(v.endPos.x), y: Math.round(v.endPos.y) };
+    return out;
   });
   return JSON.stringify(variants, null, 2);
 }
@@ -703,6 +708,14 @@ function importSequenceJSON(stKey, jsonText) {
     if (!Array.isArray(raw.nodes)) return 'Varian ke-' + (vi + 1) + ' butuh field "nodes" (array)';
     var v = { condition: String(raw.condition || '').trim(), comment: String(raw.comment || '').trim(), nodes: [] };
     var allPositioned = true; // turun jadi false begitu ada satu node tanpa x/y valid
+    // Posisi START/END manual ikut kebawa. Kalau JSON-nya gak bawa (atau angkanya ngaco), dibiarkan
+    // kosong supaya balik ke penempatan otomatis - bukan dipaksa ke 0,0 di pojok.
+    ['startPos', 'endPos'].forEach(function (k) {
+      var p = raw[k];
+      if (!p) return;
+      var ax = Number(p.x), ay = Number(p.y);
+      if (isFinite(ax) && isFinite(ay)) v[k] = { x: Math.max(0, ax), y: Math.max(0, ay) };
+    });
     for (var ni = 0; ni < raw.nodes.length; ni++) {
       var n = raw.nodes[ni] || {};
       var where = 'Varian ke-' + (vi + 1) + ' node ke-' + (ni + 1);
@@ -960,9 +973,11 @@ function renderVariantGraph(stKey, vIdx) {
     if (n.x + nodeW(n) > maxX) maxX = n.x + nodeW(n);
   });
 
-  // Node "Start"/"Finish" - MURNI visual, dihitung tiap render dari graph SEKARANG, gak disimpen di
-  // state/JSON, gak bisa diklik/geser/hapus. Start nyambung ke tiap node motion yang gak nunjuk node
-  // motion lain (root), Finish nyambung DARI tiap node motion yang gak ada yang nunjuk dia (leaf) -
+  // Node "Start"/"Finish" - MURNI visual, gak ikut jadi rung. Sambungannya dihitung tiap render dari
+  // graph SEKARANG, tapi POSISINYA bisa digeser dan disimpan (variant.startPos/endPos) - selama belum
+  // pernah digeser, posisinya ngikut rata-rata node tujuan/asal seperti dulu.
+  // Start nyambung ke tiap node yang gak nunjuk node
+  // lain (root), Finish nyambung DARI tiap node yang gak ada yang nunjuk dia (leaf) -
   // biar kelihatan jelas dari mana mulai dan kemana berakhirnya sequence-nya. Lingkaran kecil (logo
   // flowchart terminal biasa). Titik sambungnya ikut sideAnchor kayak kabel antar-node: karena Start
   // selalu di atas dan Finish di bawah, sisi yang kepilih ya tetap atas/bawah - tapi sekarang nempel
@@ -975,15 +990,26 @@ function renderVariantGraph(stKey, vIdx) {
   var ends = graphEnds(nodes);
   var nodeIds = ends.nodeIds;
   var fallbackTargets = ends.targets, fallbackSources = ends.sources;
+  // Posisi START/END: kalau user pernah nggeser, pakai yang disimpan; kalau belum, hitung otomatis
+  // dari rata-rata node tujuan/asal seperti sebelumnya.
+  var startFixed = variant.startPos, endFixed = variant.endPos;
   function avgCenterX(list, fallbackX) {
     if (!list.length) return fallbackX;
     var sum = 0; list.forEach(function (n) { sum += nodeCenter(n).x; });
     return sum / list.length;
   }
-  var startAnchor = { x: avgCenterX(fallbackTargets, 20 + NODE_W / 2) - ANCHOR_R, y: 18 - ANCHOR_R };
-  var finishAnchor = { x: avgCenterX(fallbackSources, 20 + NODE_W / 2) - ANCHOR_R, y: maxY + 22 };
+  var startAnchor = startFixed
+    ? { x: startFixed.x, y: startFixed.y }
+    : { x: avgCenterX(fallbackTargets, 20 + NODE_W / 2) - ANCHOR_R, y: 18 - ANCHOR_R };
+  var finishAnchor = endFixed
+    ? { x: endFixed.x, y: endFixed.y }
+    : { x: avgCenterX(fallbackSources, 20 + NODE_W / 2) - ANCHOR_R, y: maxY + 22 };
 
-  var svg = svgEl('svg', { class: 'graph-canvas', width: Math.max(620, maxX + 40), height: Math.max(160, finishAnchor.y + ANCHOR_R * 2 + 30) });
+  // Kanvas harus ikut melar kalau START/END digeser ke luar batas node - kalau enggak, bulatannya
+  // kepotong dan gak bisa diseret balik.
+  var needW = Math.max(maxX, startAnchor.x + ANCHOR_R * 2, finishAnchor.x + ANCHOR_R * 2);
+  var needH = Math.max(maxY, startAnchor.y + ANCHOR_R * 2, finishAnchor.y + ANCHOR_R * 2);
+  var svg = svgEl('svg', { class: 'graph-canvas', width: Math.max(620, needW + 40), height: Math.max(160, needH + 30) });
   var markerId = 'arrow-' + stKey + '-' + vIdx;
   var defs = svgEl('defs');
   var marker = svgEl('marker', { id: markerId, markerWidth: 8, markerHeight: 8, refX: 7, refY: 4, orient: 'auto' });
@@ -1005,19 +1031,36 @@ function renderVariantGraph(stKey, vIdx) {
       'marker-end': 'url(#' + markerId + ')'
     }));
   }
-  function anchorNode(pos, label) {
+  function anchorNode(pos, label, which) {
     var cx = pos.x + ANCHOR_R, cy = pos.y + ANCHOR_R;
     var g = svgEl('g');
-    g.appendChild(svgEl('circle', { class: 'gnode-rect anchor', cx: cx, cy: cy, r: ANCHOR_R }));
+    var circle = svgEl('circle', { class: 'gnode-rect anchor', cx: cx, cy: cy, r: ANCHOR_R });
+    g.appendChild(circle);
     var t = svgEl('text', { class: 'gnode-text', x: cx, y: cy + 3, 'text-anchor': 'middle' });
     t.textContent = label;
     g.appendChild(t);
+    var tip = svgEl('title');
+    tip.textContent = label + ' - seret buat mindahin, klik ganda buat balikin ke posisi otomatis';
+    g.appendChild(tip);
+    g.addEventListener('mousedown', function (ev) {
+      ev.stopPropagation();
+      var bb = svg.getBoundingClientRect();
+      dragState = { mode: 'anchor', stKey: stKey, vIdx: vIdx, which: which,
+                    offX: ev.clientX - bb.left - pos.x, offY: ev.clientY - bb.top - pos.y };
+    });
+    // Klik ganda = lupakan posisi manual, balik ngikut rata-rata node lagi.
+    g.addEventListener('dblclick', function (ev) {
+      ev.stopPropagation();
+      var v = motionState[stKey][vIdx];
+      if (which === 'start') delete v.startPos; else delete v.endPos;
+      renderMotionPanel();
+    });
     svg.appendChild(g);
     return { cx: cx, cy: cy };
   }
-  var startC = anchorNode(startAnchor, 'START');
+  var startC = anchorNode(startAnchor, 'START', 'start');
   fallbackTargets.forEach(function (n) { anchorEdgeDown(startC.cx, startC.cy + ANCHOR_R, n); });
-  var finishC = anchorNode(finishAnchor, 'END');
+  var finishC = anchorNode(finishAnchor, 'END', 'end');
   fallbackSources.forEach(function (n) { anchorEdgeUp(n, finishC.cx, finishC.cy - ANCHOR_R); });
 
   nodes.forEach(function (n) {
@@ -1138,6 +1181,13 @@ function onDocMouseMove(ev) {
     renderMotionPanel();
   } else if (dragState.mode === 'connect') {
     dragState.x = ev.clientX - bb.left; dragState.y = ev.clientY - bb.top;
+    renderMotionPanel();
+  } else if (dragState.mode === 'anchor') {
+    var variant = motionState[dragState.stKey] && motionState[dragState.stKey][dragState.vIdx];
+    if (!variant) return;
+    var pos = { x: Math.max(0, Math.round(ev.clientX - bb.left - dragState.offX)),
+                y: Math.max(0, Math.round(ev.clientY - bb.top - dragState.offY)) };
+    if (dragState.which === 'start') variant.startPos = pos; else variant.endPos = pos;
     renderMotionPanel();
   }
 }
