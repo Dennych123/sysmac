@@ -102,8 +102,15 @@ var AL_BLOCK = {}, MF_BLOCK = {};
         // servo SRV_CMD itu mandiri (1 MF slot per command, gak dipair) - beda dari actus yang 1 pair = 1 slot
         var actCount = pairUp(devs.filter(function(d){return d.io==="OUT" && (d.jenis==="CR"||d.jenis==="SOL");})).length
                      + devs.filter(function(d){return d.io==="OUT" && d.jenis==="SRV_CMD";}).length;
-        AL_BLOCK[k] = { start: alCursor+1, end: alCursor+asCount };
-        alCursor += asCount;
+        // Alarm yang dipasang user lewat blok "alarm" di flowchart AutoRunning ikut makan slot AL,
+        // jadi HARUS kehitung di sini. Kalau enggak, blok station kekecilan dan alarm flowchart-nya
+        // bakal ke-skip gara-gara "AL alarm block full" padahal array-nya masih bisa digedein.
+        var alarmCount = 0;
+        (((flow.get("motionSequences")||{})[k])||[]).forEach(function(v){
+            ((v&&v.nodes)||[]).forEach(function(n){ if(n && n.type==="alarm") alarmCount++; });
+        });
+        AL_BLOCK[k] = { start: alCursor+1, end: alCursor+asCount+alarmCount };
+        alCursor += asCount + alarmCount;
         MF_BLOCK[k] = { start: mfCursor+1, end: mfCursor+actCount };
         mfCursor += actCount;
     });
@@ -256,6 +263,30 @@ function buildUnit(stKey, devs){
         r.rr([coil]); S6.push(r.build());
         fltList.push(mf); mfN++;
     });
+    // ===== Alarm dari blok flowchart (AutoRunning) =====
+    // Bit-nya WAJIB dialokasi di sini, SEBELUM integ() dipanggil di bawah: integ() yang merangkai
+    // "grup alarm bersih" (chunkNot semua bit alarm -> LB13x/LB14x/LB15x). Kalau alarm baru dibikin
+    // pas section AutoRunning digenerate (jauh di bawah), dia gak akan pernah kebawa ke grup manapun,
+    // jadi coil-nya nyala tapi mesin gak berhenti - persis jenis kegagalan diam yang paling bahaya.
+    // Rung coil-nya sendiri tetap dibikin nanti di AutoRunning, pakai bit hasil alokasi di sini.
+    var ALARM_GROUPS = { emergency:[], autostop:[], cyclestop:[], faultstop:[], warning:[] };
+    var alarmBitOf = {};
+    (((flow.get("motionSequences")||{})[stKey])||[]).forEach(function(v,vIdx){
+        ((v&&v.nodes)||[]).forEach(function(n){
+            if(!n || n.type!=="alarm") return;
+            var cat = n.category;
+            if(!ALARM_GROUPS[cat]){
+                if(cat) warnings.push(stKey+': flowchart alarm "'+(n.comment||n.id)+'" has unknown category "'+cat+'", treated as faultstop.');
+                cat = "faultstop";
+            }
+            if(alN>alCap){ warnings.push(stKey+': AL alarm block full, flowchart alarm "'+(n.comment||n.id)+'" skipped.'); return; }
+            var cmt = "Flowchart alarm ("+cat+"): "+(n.comment||n.id);
+            var bit = AL(alN, cmt); alN++;
+            alarmBitOf[vIdx+"/"+n.id] = bit;
+            ALARM_GROUPS[cat].push(bit);
+        });
+    });
+
     var chunkAux=[];
     function integ(list,a1,a2,out,label){
         if(!list.length){ S6.push(series(o++,[["GSB000",false]],a1,label)); }
@@ -264,11 +295,11 @@ function buildUnit(stKey, devs){
         S6.push(series(o++,[[a1,false],[a2,false]],out,null));
         P(a1,"BOOL",label+" detection auxiliary"); P(a2,"BOOL",label+" design auxiliary"); P(out,"BOOL",label+" clear");
     }
-    integ([],"LB130","LB131","LB134","Emergency stop group");
-    integ([],"LB135","LB136","LB139","Auto stop group");
-    integ([],"LB140","LB141","LB144","Cycle stop group");
-    integ(fltList,"LB145","LB146","LB149","Fault stop group");
-    integ([],"LB150","LB151","LB154","Warning notice group");
+    integ(ALARM_GROUPS.emergency,"LB130","LB131","LB134","Emergency stop group");
+    integ(ALARM_GROUPS.autostop,"LB135","LB136","LB139","Auto stop group");
+    integ(ALARM_GROUPS.cyclestop,"LB140","LB141","LB144","Cycle stop group");
+    integ(fltList.concat(ALARM_GROUPS.faultstop),"LB145","LB146","LB149","Fault stop group");
+    integ(ALARM_GROUPS.warning,"LB150","LB151","LB154","Warning notice group");
     chunkAux.forEach(function(b){ P(b,"BOOL","Partial alarm group result"); });
     S6.push(series(o++,[["LB134",false],["LB139",false],["LB144",false],["LB149",false]],"LB160","No fault present in this unit"));
     P("LB160","BOOL","No fault present in this unit");
@@ -416,7 +447,17 @@ function buildUnit(stKey, devs){
     var variants=((flow.get("motionSequences")||{})[stKey])||[];
     var solByName={}; actus.forEach(function(a){ solByName[a[0].name]=a[0]; solByName[a[1].name]=a[1]; });
     srvActus.forEach(function(sa){ solByName[sa.cmd.name]=sa.cmd; });
-    var stepCount=0, joinN=0, varN=0, cmdBitOf={}, variantDoneBits=[];
+    var stepCount=0, joinN=0, varN=0, decN=0, cmdBitOf={}, variantDoneBits=[];
+    // Memory set/reset dikumpulin se-STATION (bukan per varian): satu bit memory boleh di-SET di varian
+    // A dan di-RESET di varian B, dan dua-duanya harus ketemu di SATU rung latch. Kalau tiap varian
+    // bikin rung sendiri buat bit yang sama, coil-nya dobel dan yang belakangan menang - bug senyap.
+    var memSets={}, memResets={}, memCmt={};
+
+    // Cabang blok decision dirujuk pakai "idNode#Y" / "idNode#N". Sengaja '#', BUKAN '.', karena alamat
+    // bit PLC sendiri pakai titik (mis. "0001.06") - kalau titik dipakai jadi pemisah port, alamat
+    // kayak gitu bakal kepotong jadi id "0001" + port "06".
+    function refBase(ref){ var s=String(ref), i=s.indexOf("#"); return i<0?s:s.slice(0,i); }
+    function refPort(ref){ var s=String(ref), i=s.indexOf("#"); return i<0?"":s.slice(i+1); }
 
     function topoSort(nodes){
         var byId={}; nodes.forEach(function(n){ byId[n.id]=n; });
@@ -424,7 +465,7 @@ function buildUnit(stKey, devs){
         function visit(n){
             if(visited[n.id]||visiting[n.id]) return; // cycle guard - editor sudah cegah, ini jaga-jaga
             visiting[n.id]=true;
-            (n.after||[]).forEach(function(ref){ if(byId[ref]) visit(byId[ref]); });
+            (n.after||[]).forEach(function(ref){ var b=byId[refBase(ref)]; if(b) visit(b); });
             visiting[n.id]=false; visited[n.id]=true; out.push(n);
         }
         nodes.forEach(visit);
@@ -486,10 +527,15 @@ function buildUnit(stKey, devs){
     variants.forEach(function(variant,vIdx){
         var nodes=topoSort(variant.nodes||[]);
         var nodeIds={}; nodes.forEach(function(n){ nodeIds[n.id]=true; });
-        var confirmBitOf={}, referenced={};
-        function resolveBit(ref){ return nodeIds[ref] ? confirmBitOf[ref] : ref; }
+        var confirmBitOf={}, referenced={}, branchBitOf={}, stepDone={};
+        function resolveBit(ref){
+            var b=refBase(ref), p=refPort(ref);
+            if(!nodeIds[b]) return ref;                       // bit eksternal, dipakai apa adanya
+            if(branchBitOf[b]) return branchBitOf[b][p==="N"?"N":"Y"];
+            return confirmBitOf[b];
+        }
         var condComments=variant.conditionComments||{};
-        function bitTxt(ref){ return nodeIds[ref] ? ref : (condComments[ref] ? (ref+" ["+condComments[ref]+"]") : ref); }
+        function bitTxt(ref){ return nodeIds[refBase(ref)] ? ref : (condComments[ref] ? (ref+" ["+condComments[ref]+"]") : ref); }
         // Bit eksternal (bukan node id di varian ini) dipakai langsung jadi kontak beneran di rung
         // (motionStep/join) - kalau belum kedeklarasi di manapun (bukan device/global, bukan spare
         // Condition section), deklarasikan sebagai private BOOL placeholder biar gak "operand tidak
@@ -518,23 +564,42 @@ function buildUnit(stKey, devs){
             rootBit=gateBit2;
         }
 
-        var variantEndBits=[];
+        var variantEndBits=[], portRef={};
+        function nodeTitle(n){
+            var t=n.type||"motion";
+            if(t==="motion")   return n.sol;
+            if(t==="decision") return 'judgement "'+(n.comment||n.cond||n.id)+'"';
+            if(t==="setmem")   return 'set memory "'+(n.bit||n.id)+'"';
+            if(t==="resetmem") return 'reset memory "'+(n.bit||n.id)+'"';
+            if(t==="alarm")    return 'alarm "'+(n.comment||n.id)+'"';
+            return t+' "'+n.id+'"';
+        }
+
         nodes.forEach(function(node){
-            var dev=solByName[node.sol];
-            if(!dev){ warnings.push(stKey+': motion sequence references unknown solenoid "'+node.sol+'", step skipped.'); return; }
-            var devOv=actuatorOverrides[dev.name];
-            var lsc=(devOv && devOv.mode==="manual" && devOv.lscA) ? devOv.lscA : (srvLscOf[dev.name] || findLsc(dev,asPairs));
-            if(!lsc){ warnings.push(stKey+': no matching limit switch for "'+node.sol+'" in motion sequence, step skipped.'); return; }
+            var ntype=node.type||"motion";
+            // Node "condition" cuma penanda bit rujukan di editor - gak punya rung sendiri.
+            if(ntype==="condition") return;
+
+            var dev=null, lsc=null;
+            if(ntype==="motion"){
+                dev=solByName[node.sol];
+                if(!dev){ warnings.push(stKey+': motion sequence references unknown solenoid "'+node.sol+'", step skipped.'); return; }
+                var devOv=actuatorOverrides[dev.name];
+                lsc=(devOv && devOv.mode==="manual" && devOv.lscA) ? devOv.lscA : (srvLscOf[dev.name] || findLsc(dev,asPairs));
+                if(!lsc){ warnings.push(stKey+': no matching limit switch for "'+node.sol+'" in motion sequence, step skipped.'); return; }
+            }
 
             var after=(node.after||[]).filter(function(ref){
-                if(nodeIds[ref] && confirmBitOf[ref]===undefined){
-                    warnings.push(stKey+': motion step "'+node.sol+'" depends on a skipped step "'+ref+'", dependency ignored.');
+                var b=refBase(ref);
+                if(nodeIds[b] && !stepDone[b]){
+                    warnings.push(stKey+': flowchart step '+nodeTitle(node)+' depends on a skipped step "'+ref+'", dependency ignored.');
                     return false;
                 }
                 return true;
             });
-            after.forEach(function(ref){ if(!nodeIds[ref]) declareExternal(ref); });
+            after.forEach(function(ref){ if(!nodeIds[refBase(ref)]) declareExternal(ref); });
 
+            var stepLabel = (ntype==="motion") ? dev.komen : nodeTitle(node);
             var prevBit;
             if(!after.length){
                 prevBit=rootBit;
@@ -542,27 +607,83 @@ function buildUnit(stKey, devs){
                 prevBit=resolveBit(after[0]);
             } else {
                 var joinBit="LB"+pad(500+joinN,3); joinN++;
-                P(joinBit,"BOOL",(node.join==="OR"?"Any of":"All of")+" "+after.length+" condition(s) before "+dev.komen);
+                P(joinBit,"BOOL",(node.join==="OR"?"Any of":"All of")+" "+after.length+" condition(s) before "+stepLabel);
                 var bits=after.map(resolveBit);
-                var commented=after.filter(function(ref){ return !nodeIds[ref] && condComments[ref]; });
-                var jcmt="Join ("+(node.join==="OR"?"OR":"AND")+") before motion "+(stepCount+1)+": "+dev.komen+
+                var commented=after.filter(function(ref){ return !nodeIds[refBase(ref)] && condComments[ref]; });
+                var jcmt="Join ("+(node.join==="OR"?"OR":"AND")+") before "+stepLabel+
                     (commented.length ? " ["+commented.map(bitTxt).join(", ")+"]" : "");
                 if(node.join==="OR") S10.push(orMany(o++, bits, joinBit, jcmt));
                 else S10.push(series(o++, bits.map(function(b){return [b,false];}), joinBit, jcmt));
                 prevBit=joinBit;
             }
-            after.forEach(function(ref){ if(nodeIds[ref]) referenced[ref]=true; });
+            after.forEach(function(ref){
+                var b=refBase(ref);
+                if(!nodeIds[b]) return;
+                referenced[b]=true;
+                portRef[b+"#"+(refPort(ref)==="N"?"N":"Y")]=true;
+            });
 
-            var cmdBit="LB"+pad(410+stepCount*2,3), confirmBit="LB"+pad(411+stepCount*2,3);
-            P(cmdBit,"BOOL","Automatic command, "+dev.komen); P(confirmBit,"BOOL","Automatic complete, "+dev.komen);
-            S10.push(motionStep(o++, prevBit, node.sol, lsc, cmdBit, confirmBit, "["+variantLabel+"] Motion "+(stepCount+1)+": "+dev.komen));
-            // Akumulasi, JANGAN overwrite - satu solenoid fisik bisa dikomando dari node di lebih
-            // dari 1 varian mutual-exclusion (mis. "single seal" vs "double seal" pakai aktuator
-            // sama) - semua cmdBit-nya wajib nyampe ke AutoOutput, bukan cuma varian yang belakangan.
-            (cmdBitOf[node.sol]=cmdBitOf[node.sol]||[]).push(cmdBit);
-            confirmBitOf[node.id]=confirmBit; stepCount++;
+            if(ntype==="motion"){
+                var cmdBit="LB"+pad(410+stepCount*2,3), confirmBit="LB"+pad(411+stepCount*2,3);
+                P(cmdBit,"BOOL","Automatic command, "+dev.komen); P(confirmBit,"BOOL","Automatic complete, "+dev.komen);
+                S10.push(motionStep(o++, prevBit, node.sol, lsc, cmdBit, confirmBit, "["+variantLabel+"] Motion "+(stepCount+1)+": "+dev.komen));
+                // Akumulasi, JANGAN overwrite - satu solenoid fisik bisa dikomando dari node di lebih
+                // dari 1 varian mutual-exclusion (mis. "single seal" vs "double seal" pakai aktuator
+                // sama) - semua cmdBit-nya wajib nyampe ke AutoOutput, bukan cuma varian yang belakangan.
+                (cmdBitOf[node.sol]=cmdBitOf[node.sol]||[]).push(cmdBit);
+                confirmBitOf[node.id]=confirmBit; stepCount++; stepDone[node.id]=true;
+
+            } else if(ntype==="decision"){
+                // IF-ELSE pola Ndeso: satu titik masuk, dua step-bit keluar (Y dan N) yang saling
+                // eksklusif karena dibedain kontak kondisi normal vs negated. Penyatuan cabangnya
+                // TIDAK dipaksa di sini - node hilirnya tinggal nunjuk "id#Y" dan "id#N" sekaligus
+                // dengan join OR, jadi mekanisme join yang sudah ada yang ngerjain (LB421/LB422 -> OR).
+                var cbit=String(node.cond||"").trim();
+                if(!cbit){ warnings.push(stKey+': decision block '+nodeTitle(node)+' has no condition bit, block skipped.'); return; }
+                declareExternal(cbit);
+                var yBit="LB"+pad(600+decN,3), nBit="LB"+pad(601+decN,3); decN+=2;
+                if(decN>100){ warnings.push(stKey+": decision block range LB600-LB699 exhausted, later judgement blocks will collide."); }
+                var dlabel=node.comment||cbit;
+                P(yBit,"BOOL","Judgement YES: "+dlabel); P(nBit,"BOOL","Judgement NO: "+dlabel);
+                S10.push(series(o++,[[prevBit,false],[cbit,false]],yBit,"["+variantLabel+"] Judgement "+dlabel+" -> YES ("+cbit+" on)"));
+                S10.push(series(o++,[[prevBit,false],[cbit,true]],nBit,"["+variantLabel+"] Judgement "+dlabel+" -> NO ("+cbit+" off)"));
+                branchBitOf[node.id]={Y:yBit,N:nBit}; stepDone[node.id]=true;
+
+            } else if(ntype==="setmem"||ntype==="resetmem"){
+                // Rung-nya TIDAK dibikin di sini: semua trigger set/reset buat satu bit dikumpulin dulu,
+                // baru dijadiin SATU rung latch di bawah. Dua coil buat bit yang sama di rung berbeda
+                // bakal saling timpa tiap scan (yang terakhir menang) - itu bug klasik ladder.
+                var mbit=String(node.bit||"").trim();
+                if(!mbit){ warnings.push(stKey+': '+nodeTitle(node)+' has no target bit, block skipped.'); return; }
+                (((ntype==="setmem")?memSets:memResets)[mbit]=((ntype==="setmem")?memSets:memResets)[mbit]||[]).push(prevBit);
+                if(!memCmt[mbit] && node.comment) memCmt[mbit]=node.comment;
+                confirmBitOf[node.id]=prevBit; stepDone[node.id]=true;   // aksi seketika, hilir lanjut dari step yang sama
+
+            } else if(ntype==="alarm"){
+                var abit=alarmBitOf[vIdx+"/"+node.id];
+                if(!abit){ warnings.push(stKey+': '+nodeTitle(node)+' did not get an AL slot, block skipped.'); return; }
+                // Self-latch, sama persis kayak rung AL dual-sensor fault di section Fault: alarm harus
+                // nyangkut walau penyebabnya cuma sekejap, bukan ikut padam pas step-nya lewat.
+                S10.push(latch(o++,[[prevBit,false]],abit,[], "["+variantLabel+"] Alarm: "+(node.comment||node.id)));
+                confirmBitOf[node.id]=prevBit; stepDone[node.id]=true;
+
+            } else {
+                warnings.push(stKey+': unknown flowchart block type "'+ntype+'" on node "'+node.id+'", block skipped.');
+            }
         });
-        nodes.forEach(function(n){ if(confirmBitOf[n.id]!==undefined && !referenced[n.id]) variantEndBits.push(confirmBitOf[n.id]); });
+        nodes.forEach(function(n){
+            if(!stepDone[n.id] || (n.type==="condition")) return;
+            if(branchBitOf[n.id]){
+                if(!portRef[n.id+"#Y"]) variantEndBits.push(branchBitOf[n.id].Y);
+                if(!portRef[n.id+"#N"]) variantEndBits.push(branchBitOf[n.id].N);
+            } else if(confirmBitOf[n.id]!==undefined && !referenced[n.id]){
+                variantEndBits.push(confirmBitOf[n.id]);
+            }
+        });
+
+        // Blok set/reset memory nerusin prevBit apa adanya, jadi dua blok yang nempel di step yang sama
+        // bisa ngasih end-bit kembar. Dibuang dulu biar rung "variant complete" gak punya kontak dobel.
+        variantEndBits=variantEndBits.filter(function(b,i){ return variantEndBits.indexOf(b)===i; });
 
         if(variantEndBits.length===1){
             variantDoneBits.push(variantEndBits[0]);
@@ -574,6 +695,24 @@ function buildUnit(stKey, devs){
             variantDoneBits.push(doneBit);
         }
     });
+
+    // ===== Rung memory (SET/RESET) =====
+    // Satu bit memory = SATU rung latch: (semua trigger SET, atau bit itu sendiri) ANDNOT tiap trigger
+    // RESET. Ini yang bikin bit-nya bertahan lintas scan sampai di-reset eksplisit - persis LB800/LB801
+    // "MEMORY PRESS OK/NG" yang baru hilang pas blok RESET MEMORY OK-NG jalan.
+    Object.keys(memSets).concat(Object.keys(memResets)).filter(function(b,i,arr){ return arr.indexOf(b)===i; })
+        .forEach(function(mbit){
+            var sets=memSets[mbit]||[], resets=memResets[mbit]||[];
+            if(!sets.length){
+                warnings.push(stKey+': memory bit "'+mbit+'" only has RESET blocks and is never set from this flowchart - verify that something else sets it.');
+            }
+            if(!GLOBALS[mbit]) P(mbit,"BOOL","Flowchart memory"+(memCmt[mbit]?": "+memCmt[mbit]:""));
+            S10.push(latch(o++, sets.map(function(b){return [b,false];}), mbit,
+                resets.map(function(b){return [b,true];}),
+                "Memory "+mbit+(memCmt[mbit]?" ("+memCmt[mbit]+")":"")+
+                ": set by "+(sets.length?sets.join(", "):"nothing")+
+                (resets.length?", reset by "+resets.join(", "):"")));
+        });
 
     var preLB499Count=S10.length;
     P("LB499","BOOL","Automatic operation complete");
