@@ -172,7 +172,7 @@ LSC_ST3_EJC_BWD	BOOL			False	False	Do not publish	ST3 EJECTOR BACKWARD position 
 LSC_ST3_EJC_FWD	BOOL			False	False	Do not publish	ST3 EJECTOR FORWARD position confirmed
 LSC_ST3_PSH_BWD	BOOL			False	False	Do not publish	ST3 PUSHER BACKWARD position confirmed
 LSC_ST3_PSH_FWD	BOOL			False	False	Do not publish	ST3 PUSHER FORWARD position confirmed
-MF	ARRAY[1..16] OF BOOL			False	False	Do not publish	Cylinder motion fault table
+MF	ARRAY[1..90] OF BOOL			False	False	Do not publish	Cylinder motion fault table
 MSTR_RDY	BOOL			False	False	Do not publish	Machine status from main program
 NOT_EMG_STOP	BOOL			False	False	Do not publish	NOT EMERGENCY STOP
 NO_FAULT	BOOL			False	False	Do not publish	Machine status from main program
@@ -327,90 +327,90 @@ AL[13]	BOOL			False	False	Do not publish	Dual sensor fault, both ends detected a
 AL[14]	BOOL			False	False	Do not publish	Dual sensor fault, both ends detected at the same time: ST1 STOPPER-2 CHUCK / ST1 STOPPER-2 UNCHUCK
 AL[15]	BOOL			False	False	Do not publish	Dual sensor fault, both ends detected at the same time: ST1 STOPPER-3 CHUCK / ST1 STOPPER-3 UNCHUCK
 AL[16]	BOOL			False	False	Do not publish	Dual sensor fault, both ends detected at the same time: ST1 STOPPER-4 CHUCK / ST1 STOPPER-4 UNCHUCK
-AL[17]	BOOL			False	False	Do not publish	Dual sensor fault, both ends detected at the same time: ST2 STOPPER-1 UP / ST2 STOPPER-1 DOWN
-AL[18]	BOOL			False	False	Do not publish	Dual sensor fault, both ends detected at the same time: ST3 EJECTOR FORWARD / ST3 EJECTOR BACKWARD
-AL[19]	BOOL			False	False	Do not publish	Dual sensor fault, both ends detected at the same time: ST3 PUSHER FORWARD / ST3 PUSHER BACKWARD
-AL[20]	BOOL			False	False	Do not publish	AL020_ Spare, reserved for future use, not allocated to any group
-AL[21]	BOOL			False	False	Do not publish	AL021_ Spare, reserved for future use, not allocated to any group
-AL[22]	BOOL			False	False	Do not publish	AL022_ Spare, reserved for future use, not allocated to any group
-AL[23]	BOOL			False	False	Do not publish	AL023_ Spare, reserved for future use, not allocated to any group
-AL[24]	BOOL			False	False	Do not publish	AL024_ Spare, reserved for future use, not allocated to any group
-AL[25]	BOOL			False	False	Do not publish	AL025_ Spare, reserved for future use, not allocated to any group
-AL[26]	BOOL			False	False	Do not publish	AL026_ Spare, reserved for future use, not allocated to any group
-AL[27]	BOOL			False	False	Do not publish	AL027_ Spare, reserved for future use, not allocated to any group
-AL[28]	BOOL			False	False	Do not publish	AL028_ Spare, reserved for future use, not allocated to any group
-AL[29]	BOOL			False	False	Do not publish	AL029_ Spare, reserved for future use, not allocated to any group
-AL[30]	BOOL			False	False	Do not publish	AL030_ Spare, reserved for future use, not allocated to any group
-AL[31]	BOOL			False	False	Do not publish	AL031_ Spare, reserved for future use, not allocated to any group
-AL[32]	BOOL			False	False	Do not publish	AL032_ Spare, reserved for future use, not allocated to any group
-AL[33]	BOOL			False	False	Do not publish	AL033_ Spare, reserved for future use, not allocated to any group
-AL[34]	BOOL			False	False	Do not publish	AL034_ Spare, reserved for future use, not allocated to any group
-AL[35]	BOOL			False	False	Do not publish	AL035_ Spare, reserved for future use, not allocated to any group
-AL[36]	BOOL			False	False	Do not publish	AL036_ Spare, reserved for future use, not allocated to any group
-AL[37]	BOOL			False	False	Do not publish	AL037_ Spare, reserved for future use, not allocated to any group
-AL[38]	BOOL			False	False	Do not publish	AL038_ Spare, reserved for future use, not allocated to any group
-AL[39]	BOOL			False	False	Do not publish	AL039_ Spare, reserved for future use, not allocated to any group
-AL[40]	BOOL			False	False	Do not publish	AL040_ Spare, reserved for future use, not allocated to any group
-AL[41]	BOOL			False	False	Do not publish	AL041_ Spare, reserved for future use, not allocated to any group
-AL[42]	BOOL			False	False	Do not publish	AL042_ Spare, reserved for future use, not allocated to any group
-AL[43]	BOOL			False	False	Do not publish	AL043_ Spare, reserved for future use, not allocated to any group
-AL[44]	BOOL			False	False	Do not publish	AL044_ Spare, reserved for future use, not allocated to any group
-AL[45]	BOOL			False	False	Do not publish	AL045_ Spare, reserved for future use, not allocated to any group
-AL[46]	BOOL			False	False	Do not publish	AL046_ Spare, reserved for future use, not allocated to any group
-AL[47]	BOOL			False	False	Do not publish	AL047_ Spare, reserved for future use, not allocated to any group
-AL[48]	BOOL			False	False	Do not publish	AL048_ Spare, reserved for future use, not allocated to any group
-AL[49]	BOOL			False	False	Do not publish	AL049_ Spare, reserved for future use, not allocated to any group
-AL[50]	BOOL			False	False	Do not publish	AL050_ Spare, reserved for future use, not allocated to any group
-AL[51]	BOOL			False	False	Do not publish	AL051_ Spare, reserved for future use, not allocated to any group
-AL[52]	BOOL			False	False	Do not publish	AL052_ Spare, reserved for future use, not allocated to any group
-AL[53]	BOOL			False	False	Do not publish	AL053_ Spare, reserved for future use, not allocated to any group
-AL[54]	BOOL			False	False	Do not publish	AL054_ Spare, reserved for future use, not allocated to any group
-AL[55]	BOOL			False	False	Do not publish	AL055_ Spare, reserved for future use, not allocated to any group
-AL[56]	BOOL			False	False	Do not publish	AL056_ Spare, reserved for future use, not allocated to any group
-AL[57]	BOOL			False	False	Do not publish	AL057_ Spare, reserved for future use, not allocated to any group
-AL[58]	BOOL			False	False	Do not publish	AL058_ Spare, reserved for future use, not allocated to any group
-AL[59]	BOOL			False	False	Do not publish	AL059_ Spare, reserved for future use, not allocated to any group
-AL[60]	BOOL			False	False	Do not publish	AL060_ Spare, reserved for future use, not allocated to any group
-AL[61]	BOOL			False	False	Do not publish	AL061_ Spare, reserved for future use, not allocated to any group
-AL[62]	BOOL			False	False	Do not publish	AL062_ Spare, reserved for future use, not allocated to any group
-AL[63]	BOOL			False	False	Do not publish	AL063_ Spare, reserved for future use, not allocated to any group
-AL[64]	BOOL			False	False	Do not publish	AL064_ Spare, reserved for future use, not allocated to any group
-AL[65]	BOOL			False	False	Do not publish	AL065_ Spare, reserved for future use, not allocated to any group
-AL[66]	BOOL			False	False	Do not publish	AL066_ Spare, reserved for future use, not allocated to any group
-AL[67]	BOOL			False	False	Do not publish	AL067_ Spare, reserved for future use, not allocated to any group
-AL[68]	BOOL			False	False	Do not publish	AL068_ Spare, reserved for future use, not allocated to any group
-AL[69]	BOOL			False	False	Do not publish	AL069_ Spare, reserved for future use, not allocated to any group
-AL[70]	BOOL			False	False	Do not publish	AL070_ Spare, reserved for future use, not allocated to any group
-AL[71]	BOOL			False	False	Do not publish	AL071_ Spare, reserved for future use, not allocated to any group
-AL[72]	BOOL			False	False	Do not publish	AL072_ Spare, reserved for future use, not allocated to any group
-AL[73]	BOOL			False	False	Do not publish	AL073_ Spare, reserved for future use, not allocated to any group
-AL[74]	BOOL			False	False	Do not publish	AL074_ Spare, reserved for future use, not allocated to any group
-AL[75]	BOOL			False	False	Do not publish	AL075_ Spare, reserved for future use, not allocated to any group
-AL[76]	BOOL			False	False	Do not publish	AL076_ Spare, reserved for future use, not allocated to any group
-AL[77]	BOOL			False	False	Do not publish	AL077_ Spare, reserved for future use, not allocated to any group
-AL[78]	BOOL			False	False	Do not publish	AL078_ Spare, reserved for future use, not allocated to any group
-AL[79]	BOOL			False	False	Do not publish	AL079_ Spare, reserved for future use, not allocated to any group
-AL[80]	BOOL			False	False	Do not publish	AL080_ Spare, reserved for future use, not allocated to any group
-AL[81]	BOOL			False	False	Do not publish	AL081_ Spare, reserved for future use, not allocated to any group
-AL[82]	BOOL			False	False	Do not publish	AL082_ Spare, reserved for future use, not allocated to any group
-AL[83]	BOOL			False	False	Do not publish	AL083_ Spare, reserved for future use, not allocated to any group
-AL[84]	BOOL			False	False	Do not publish	AL084_ Spare, reserved for future use, not allocated to any group
-AL[85]	BOOL			False	False	Do not publish	AL085_ Spare, reserved for future use, not allocated to any group
-AL[86]	BOOL			False	False	Do not publish	AL086_ Spare, reserved for future use, not allocated to any group
-AL[87]	BOOL			False	False	Do not publish	AL087_ Spare, reserved for future use, not allocated to any group
-AL[88]	BOOL			False	False	Do not publish	AL088_ Spare, reserved for future use, not allocated to any group
-AL[89]	BOOL			False	False	Do not publish	AL089_ Spare, reserved for future use, not allocated to any group
-AL[90]	BOOL			False	False	Do not publish	AL090_ Spare, reserved for future use, not allocated to any group
-AL[91]	BOOL			False	False	Do not publish	AL091_ Spare, reserved for future use, not allocated to any group
-AL[92]	BOOL			False	False	Do not publish	AL092_ Spare, reserved for future use, not allocated to any group
-AL[93]	BOOL			False	False	Do not publish	AL093_ Spare, reserved for future use, not allocated to any group
-AL[94]	BOOL			False	False	Do not publish	AL094_ Spare, reserved for future use, not allocated to any group
-AL[95]	BOOL			False	False	Do not publish	AL095_ Spare, reserved for future use, not allocated to any group
-AL[96]	BOOL			False	False	Do not publish	AL096_ Spare, reserved for future use, not allocated to any group
-AL[97]	BOOL			False	False	Do not publish	AL097_ Spare, reserved for future use, not allocated to any group
-AL[98]	BOOL			False	False	Do not publish	AL098_ Spare, reserved for future use, not allocated to any group
-AL[99]	BOOL			False	False	Do not publish	AL099_ Spare, reserved for future use, not allocated to any group
-AL[100]	BOOL			False	False	Do not publish	AL100_ Spare, reserved for future use, not allocated to any group
+AL[17]	BOOL			False	False	Do not publish	AL017_ Spare, reserved for ST1 alarm group
+AL[18]	BOOL			False	False	Do not publish	AL018_ Spare, reserved for ST1 alarm group
+AL[19]	BOOL			False	False	Do not publish	AL019_ Spare, reserved for ST1 alarm group
+AL[20]	BOOL			False	False	Do not publish	AL020_ Spare, reserved for ST1 alarm group
+AL[21]	BOOL			False	False	Do not publish	AL021_ Spare, reserved for ST1 alarm group
+AL[22]	BOOL			False	False	Do not publish	AL022_ Spare, reserved for ST1 alarm group
+AL[23]	BOOL			False	False	Do not publish	AL023_ Spare, reserved for ST1 alarm group
+AL[24]	BOOL			False	False	Do not publish	AL024_ Spare, reserved for ST1 alarm group
+AL[25]	BOOL			False	False	Do not publish	AL025_ Spare, reserved for ST1 alarm group
+AL[26]	BOOL			False	False	Do not publish	AL026_ Spare, reserved for ST1 alarm group
+AL[27]	BOOL			False	False	Do not publish	AL027_ Spare, reserved for ST1 alarm group
+AL[28]	BOOL			False	False	Do not publish	AL028_ Spare, reserved for ST1 alarm group
+AL[29]	BOOL			False	False	Do not publish	AL029_ Spare, reserved for ST1 alarm group
+AL[30]	BOOL			False	False	Do not publish	AL030_ Spare, reserved for ST1 alarm group
+AL[31]	BOOL			False	False	Do not publish	AL031_ Spare, reserved for ST1 alarm group
+AL[32]	BOOL			False	False	Do not publish	AL032_ Spare, reserved for ST1 alarm group
+AL[33]	BOOL			False	False	Do not publish	AL033_ Spare, reserved for ST1 alarm group
+AL[34]	BOOL			False	False	Do not publish	AL034_ Spare, reserved for ST1 alarm group
+AL[35]	BOOL			False	False	Do not publish	AL035_ Spare, reserved for ST1 alarm group
+AL[36]	BOOL			False	False	Do not publish	AL036_ Spare, reserved for ST1 alarm group
+AL[37]	BOOL			False	False	Do not publish	AL037_ Spare, reserved for ST1 alarm group
+AL[38]	BOOL			False	False	Do not publish	AL038_ Spare, reserved for ST1 alarm group
+AL[39]	BOOL			False	False	Do not publish	AL039_ Spare, reserved for ST1 alarm group
+AL[40]	BOOL			False	False	Do not publish	AL040_ Spare, reserved for ST1 alarm group
+AL[41]	BOOL			False	False	Do not publish	Dual sensor fault, both ends detected at the same time: ST2 STOPPER-1 UP / ST2 STOPPER-1 DOWN
+AL[42]	BOOL			False	False	Do not publish	AL042_ Spare, reserved for ST2 alarm group
+AL[43]	BOOL			False	False	Do not publish	AL043_ Spare, reserved for ST2 alarm group
+AL[44]	BOOL			False	False	Do not publish	AL044_ Spare, reserved for ST2 alarm group
+AL[45]	BOOL			False	False	Do not publish	AL045_ Spare, reserved for ST2 alarm group
+AL[46]	BOOL			False	False	Do not publish	AL046_ Spare, reserved for ST2 alarm group
+AL[47]	BOOL			False	False	Do not publish	AL047_ Spare, reserved for ST2 alarm group
+AL[48]	BOOL			False	False	Do not publish	AL048_ Spare, reserved for ST2 alarm group
+AL[49]	BOOL			False	False	Do not publish	AL049_ Spare, reserved for ST2 alarm group
+AL[50]	BOOL			False	False	Do not publish	AL050_ Spare, reserved for ST2 alarm group
+AL[51]	BOOL			False	False	Do not publish	AL051_ Spare, reserved for ST2 alarm group
+AL[52]	BOOL			False	False	Do not publish	AL052_ Spare, reserved for ST2 alarm group
+AL[53]	BOOL			False	False	Do not publish	AL053_ Spare, reserved for ST2 alarm group
+AL[54]	BOOL			False	False	Do not publish	AL054_ Spare, reserved for ST2 alarm group
+AL[55]	BOOL			False	False	Do not publish	AL055_ Spare, reserved for ST2 alarm group
+AL[56]	BOOL			False	False	Do not publish	AL056_ Spare, reserved for ST2 alarm group
+AL[57]	BOOL			False	False	Do not publish	AL057_ Spare, reserved for ST2 alarm group
+AL[58]	BOOL			False	False	Do not publish	AL058_ Spare, reserved for ST2 alarm group
+AL[59]	BOOL			False	False	Do not publish	AL059_ Spare, reserved for ST2 alarm group
+AL[60]	BOOL			False	False	Do not publish	AL060_ Spare, reserved for ST2 alarm group
+AL[61]	BOOL			False	False	Do not publish	AL061_ Spare, reserved for ST2 alarm group
+AL[62]	BOOL			False	False	Do not publish	AL062_ Spare, reserved for ST2 alarm group
+AL[63]	BOOL			False	False	Do not publish	AL063_ Spare, reserved for ST2 alarm group
+AL[64]	BOOL			False	False	Do not publish	AL064_ Spare, reserved for ST2 alarm group
+AL[65]	BOOL			False	False	Do not publish	AL065_ Spare, reserved for ST2 alarm group
+AL[66]	BOOL			False	False	Do not publish	AL066_ Spare, reserved for ST2 alarm group
+AL[67]	BOOL			False	False	Do not publish	AL067_ Spare, reserved for ST2 alarm group
+AL[68]	BOOL			False	False	Do not publish	AL068_ Spare, reserved for ST2 alarm group
+AL[69]	BOOL			False	False	Do not publish	AL069_ Spare, reserved for ST2 alarm group
+AL[70]	BOOL			False	False	Do not publish	AL070_ Spare, reserved for ST2 alarm group
+AL[71]	BOOL			False	False	Do not publish	Dual sensor fault, both ends detected at the same time: ST3 EJECTOR FORWARD / ST3 EJECTOR BACKWARD
+AL[72]	BOOL			False	False	Do not publish	Dual sensor fault, both ends detected at the same time: ST3 PUSHER FORWARD / ST3 PUSHER BACKWARD
+AL[73]	BOOL			False	False	Do not publish	AL073_ Spare, reserved for ST3 alarm group
+AL[74]	BOOL			False	False	Do not publish	AL074_ Spare, reserved for ST3 alarm group
+AL[75]	BOOL			False	False	Do not publish	AL075_ Spare, reserved for ST3 alarm group
+AL[76]	BOOL			False	False	Do not publish	AL076_ Spare, reserved for ST3 alarm group
+AL[77]	BOOL			False	False	Do not publish	AL077_ Spare, reserved for ST3 alarm group
+AL[78]	BOOL			False	False	Do not publish	AL078_ Spare, reserved for ST3 alarm group
+AL[79]	BOOL			False	False	Do not publish	AL079_ Spare, reserved for ST3 alarm group
+AL[80]	BOOL			False	False	Do not publish	AL080_ Spare, reserved for ST3 alarm group
+AL[81]	BOOL			False	False	Do not publish	AL081_ Spare, reserved for ST3 alarm group
+AL[82]	BOOL			False	False	Do not publish	AL082_ Spare, reserved for ST3 alarm group
+AL[83]	BOOL			False	False	Do not publish	AL083_ Spare, reserved for ST3 alarm group
+AL[84]	BOOL			False	False	Do not publish	AL084_ Spare, reserved for ST3 alarm group
+AL[85]	BOOL			False	False	Do not publish	AL085_ Spare, reserved for ST3 alarm group
+AL[86]	BOOL			False	False	Do not publish	AL086_ Spare, reserved for ST3 alarm group
+AL[87]	BOOL			False	False	Do not publish	AL087_ Spare, reserved for ST3 alarm group
+AL[88]	BOOL			False	False	Do not publish	AL088_ Spare, reserved for ST3 alarm group
+AL[89]	BOOL			False	False	Do not publish	AL089_ Spare, reserved for ST3 alarm group
+AL[90]	BOOL			False	False	Do not publish	AL090_ Spare, reserved for ST3 alarm group
+AL[91]	BOOL			False	False	Do not publish	AL091_ Spare, reserved for ST3 alarm group
+AL[92]	BOOL			False	False	Do not publish	AL092_ Spare, reserved for ST3 alarm group
+AL[93]	BOOL			False	False	Do not publish	AL093_ Spare, reserved for ST3 alarm group
+AL[94]	BOOL			False	False	Do not publish	AL094_ Spare, reserved for ST3 alarm group
+AL[95]	BOOL			False	False	Do not publish	AL095_ Spare, reserved for ST3 alarm group
+AL[96]	BOOL			False	False	Do not publish	AL096_ Spare, reserved for ST3 alarm group
+AL[97]	BOOL			False	False	Do not publish	AL097_ Spare, reserved for ST3 alarm group
+AL[98]	BOOL			False	False	Do not publish	AL098_ Spare, reserved for ST3 alarm group
+AL[99]	BOOL			False	False	Do not publish	AL099_ Spare, reserved for ST3 alarm group
+AL[100]	BOOL			False	False	Do not publish	AL100_ Spare, reserved for ST3 alarm group
 MF[1]	BOOL			False	False	Do not publish	Cylinder motion fault, solenoid energised but position not confirmed: ST1 LEFT DIVIDER BACKWARD / ST1 LEFT DIVIDER FORWARD
 MF[2]	BOOL			False	False	Do not publish	Cylinder motion fault, solenoid energised but position not confirmed: ST1 RIGHT DIVIDER BACKWARD / ST1 RIGHT DIVIDER FORWARD
 MF[3]	BOOL			False	False	Do not publish	Cylinder motion fault, solenoid energised but position not confirmed: ST1 STOPPER-2 CHUCK / ST1  STOPPER-2 UNCHUCK
@@ -420,10 +420,84 @@ MF[6]	BOOL			False	False	Do not publish	Cylinder motion fault, solenoid energise
 MF[7]	BOOL			False	False	Do not publish	MF007_ Spare, reserved for ST1 motion fault group
 MF[8]	BOOL			False	False	Do not publish	MF008_ Spare, reserved for ST1 motion fault group
 MF[9]	BOOL			False	False	Do not publish	MF009_ Spare, reserved for ST1 motion fault group
-MF[10]	BOOL			False	False	Do not publish	Cylinder motion fault, solenoid energised but position not confirmed: ST2  STOPPER-1 UP / ST2  STOPPER-1 DOWN
-MF[11]	BOOL			False	False	Do not publish	Cylinder motion fault, solenoid energised but position not confirmed: ST3  EJECTOR FORWARD / ST3  EJECTOR BACKWARD
-MF[12]	BOOL			False	False	Do not publish	Cylinder motion fault, solenoid energised but position not confirmed: ST3  PUSHER FORWARD / ST3  PUSHER BACKWARD
-MF[13]	BOOL			False	False	Do not publish	MF013_ Spare, reserved for future use, not allocated to any group
-MF[14]	BOOL			False	False	Do not publish	MF014_ Spare, reserved for future use, not allocated to any group
-MF[15]	BOOL			False	False	Do not publish	MF015_ Spare, reserved for future use, not allocated to any group
-MF[16]	BOOL			False	False	Do not publish	MF016_ Spare, reserved for future use, not allocated to any group
+MF[10]	BOOL			False	False	Do not publish	MF010_ Spare, reserved for ST1 motion fault group
+MF[11]	BOOL			False	False	Do not publish	MF011_ Spare, reserved for ST1 motion fault group
+MF[12]	BOOL			False	False	Do not publish	MF012_ Spare, reserved for ST1 motion fault group
+MF[13]	BOOL			False	False	Do not publish	MF013_ Spare, reserved for ST1 motion fault group
+MF[14]	BOOL			False	False	Do not publish	MF014_ Spare, reserved for ST1 motion fault group
+MF[15]	BOOL			False	False	Do not publish	MF015_ Spare, reserved for ST1 motion fault group
+MF[16]	BOOL			False	False	Do not publish	MF016_ Spare, reserved for ST1 motion fault group
+MF[17]	BOOL			False	False	Do not publish	MF017_ Spare, reserved for ST1 motion fault group
+MF[18]	BOOL			False	False	Do not publish	MF018_ Spare, reserved for ST1 motion fault group
+MF[19]	BOOL			False	False	Do not publish	MF019_ Spare, reserved for ST1 motion fault group
+MF[20]	BOOL			False	False	Do not publish	MF020_ Spare, reserved for ST1 motion fault group
+MF[21]	BOOL			False	False	Do not publish	MF021_ Spare, reserved for ST1 motion fault group
+MF[22]	BOOL			False	False	Do not publish	MF022_ Spare, reserved for ST1 motion fault group
+MF[23]	BOOL			False	False	Do not publish	MF023_ Spare, reserved for ST1 motion fault group
+MF[24]	BOOL			False	False	Do not publish	MF024_ Spare, reserved for ST1 motion fault group
+MF[25]	BOOL			False	False	Do not publish	MF025_ Spare, reserved for ST1 motion fault group
+MF[26]	BOOL			False	False	Do not publish	MF026_ Spare, reserved for ST1 motion fault group
+MF[27]	BOOL			False	False	Do not publish	MF027_ Spare, reserved for ST1 motion fault group
+MF[28]	BOOL			False	False	Do not publish	MF028_ Spare, reserved for ST1 motion fault group
+MF[29]	BOOL			False	False	Do not publish	MF029_ Spare, reserved for ST1 motion fault group
+MF[30]	BOOL			False	False	Do not publish	MF030_ Spare, reserved for ST1 motion fault group
+MF[31]	BOOL			False	False	Do not publish	Cylinder motion fault, solenoid energised but position not confirmed: ST2  STOPPER-1 UP / ST2  STOPPER-1 DOWN
+MF[32]	BOOL			False	False	Do not publish	MF032_ Spare, reserved for ST2 motion fault group
+MF[33]	BOOL			False	False	Do not publish	MF033_ Spare, reserved for ST2 motion fault group
+MF[34]	BOOL			False	False	Do not publish	MF034_ Spare, reserved for ST2 motion fault group
+MF[35]	BOOL			False	False	Do not publish	MF035_ Spare, reserved for ST2 motion fault group
+MF[36]	BOOL			False	False	Do not publish	MF036_ Spare, reserved for ST2 motion fault group
+MF[37]	BOOL			False	False	Do not publish	MF037_ Spare, reserved for ST2 motion fault group
+MF[38]	BOOL			False	False	Do not publish	MF038_ Spare, reserved for ST2 motion fault group
+MF[39]	BOOL			False	False	Do not publish	MF039_ Spare, reserved for ST2 motion fault group
+MF[40]	BOOL			False	False	Do not publish	MF040_ Spare, reserved for ST2 motion fault group
+MF[41]	BOOL			False	False	Do not publish	MF041_ Spare, reserved for ST2 motion fault group
+MF[42]	BOOL			False	False	Do not publish	MF042_ Spare, reserved for ST2 motion fault group
+MF[43]	BOOL			False	False	Do not publish	MF043_ Spare, reserved for ST2 motion fault group
+MF[44]	BOOL			False	False	Do not publish	MF044_ Spare, reserved for ST2 motion fault group
+MF[45]	BOOL			False	False	Do not publish	MF045_ Spare, reserved for ST2 motion fault group
+MF[46]	BOOL			False	False	Do not publish	MF046_ Spare, reserved for ST2 motion fault group
+MF[47]	BOOL			False	False	Do not publish	MF047_ Spare, reserved for ST2 motion fault group
+MF[48]	BOOL			False	False	Do not publish	MF048_ Spare, reserved for ST2 motion fault group
+MF[49]	BOOL			False	False	Do not publish	MF049_ Spare, reserved for ST2 motion fault group
+MF[50]	BOOL			False	False	Do not publish	MF050_ Spare, reserved for ST2 motion fault group
+MF[51]	BOOL			False	False	Do not publish	MF051_ Spare, reserved for ST2 motion fault group
+MF[52]	BOOL			False	False	Do not publish	MF052_ Spare, reserved for ST2 motion fault group
+MF[53]	BOOL			False	False	Do not publish	MF053_ Spare, reserved for ST2 motion fault group
+MF[54]	BOOL			False	False	Do not publish	MF054_ Spare, reserved for ST2 motion fault group
+MF[55]	BOOL			False	False	Do not publish	MF055_ Spare, reserved for ST2 motion fault group
+MF[56]	BOOL			False	False	Do not publish	MF056_ Spare, reserved for ST2 motion fault group
+MF[57]	BOOL			False	False	Do not publish	MF057_ Spare, reserved for ST2 motion fault group
+MF[58]	BOOL			False	False	Do not publish	MF058_ Spare, reserved for ST2 motion fault group
+MF[59]	BOOL			False	False	Do not publish	MF059_ Spare, reserved for ST2 motion fault group
+MF[60]	BOOL			False	False	Do not publish	MF060_ Spare, reserved for ST2 motion fault group
+MF[61]	BOOL			False	False	Do not publish	Cylinder motion fault, solenoid energised but position not confirmed: ST3  EJECTOR FORWARD / ST3  EJECTOR BACKWARD
+MF[62]	BOOL			False	False	Do not publish	Cylinder motion fault, solenoid energised but position not confirmed: ST3  PUSHER FORWARD / ST3  PUSHER BACKWARD
+MF[63]	BOOL			False	False	Do not publish	MF063_ Spare, reserved for ST3 motion fault group
+MF[64]	BOOL			False	False	Do not publish	MF064_ Spare, reserved for ST3 motion fault group
+MF[65]	BOOL			False	False	Do not publish	MF065_ Spare, reserved for ST3 motion fault group
+MF[66]	BOOL			False	False	Do not publish	MF066_ Spare, reserved for ST3 motion fault group
+MF[67]	BOOL			False	False	Do not publish	MF067_ Spare, reserved for ST3 motion fault group
+MF[68]	BOOL			False	False	Do not publish	MF068_ Spare, reserved for ST3 motion fault group
+MF[69]	BOOL			False	False	Do not publish	MF069_ Spare, reserved for ST3 motion fault group
+MF[70]	BOOL			False	False	Do not publish	MF070_ Spare, reserved for ST3 motion fault group
+MF[71]	BOOL			False	False	Do not publish	MF071_ Spare, reserved for ST3 motion fault group
+MF[72]	BOOL			False	False	Do not publish	MF072_ Spare, reserved for ST3 motion fault group
+MF[73]	BOOL			False	False	Do not publish	MF073_ Spare, reserved for ST3 motion fault group
+MF[74]	BOOL			False	False	Do not publish	MF074_ Spare, reserved for ST3 motion fault group
+MF[75]	BOOL			False	False	Do not publish	MF075_ Spare, reserved for ST3 motion fault group
+MF[76]	BOOL			False	False	Do not publish	MF076_ Spare, reserved for ST3 motion fault group
+MF[77]	BOOL			False	False	Do not publish	MF077_ Spare, reserved for ST3 motion fault group
+MF[78]	BOOL			False	False	Do not publish	MF078_ Spare, reserved for ST3 motion fault group
+MF[79]	BOOL			False	False	Do not publish	MF079_ Spare, reserved for ST3 motion fault group
+MF[80]	BOOL			False	False	Do not publish	MF080_ Spare, reserved for ST3 motion fault group
+MF[81]	BOOL			False	False	Do not publish	MF081_ Spare, reserved for ST3 motion fault group
+MF[82]	BOOL			False	False	Do not publish	MF082_ Spare, reserved for ST3 motion fault group
+MF[83]	BOOL			False	False	Do not publish	MF083_ Spare, reserved for ST3 motion fault group
+MF[84]	BOOL			False	False	Do not publish	MF084_ Spare, reserved for ST3 motion fault group
+MF[85]	BOOL			False	False	Do not publish	MF085_ Spare, reserved for ST3 motion fault group
+MF[86]	BOOL			False	False	Do not publish	MF086_ Spare, reserved for ST3 motion fault group
+MF[87]	BOOL			False	False	Do not publish	MF087_ Spare, reserved for ST3 motion fault group
+MF[88]	BOOL			False	False	Do not publish	MF088_ Spare, reserved for ST3 motion fault group
+MF[89]	BOOL			False	False	Do not publish	MF089_ Spare, reserved for ST3 motion fault group
+MF[90]	BOOL			False	False	Do not publish	MF090_ Spare, reserved for ST3 motion fault group

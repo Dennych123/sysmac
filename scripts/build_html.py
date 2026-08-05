@@ -154,6 +154,7 @@ station (opsional) ikut ke komentar program yang di-generate (mis. <code>LB400_A
   <label>Timer motion-fault <input id="timerMotion" placeholder="T#5S"></label>
   <label>Ukuran array AL <input id="alSize" type="number" min="1" placeholder="100"></label>
   <label>Ukuran array MF <input id="mfSize" type="number" min="1" placeholder="16"></label>
+  <label>Slot per station <input id="stationBlock" type="number" min="1" placeholder="30"></label>
 </div>
 <div id="arraySizeHint" class="hint" style="margin-top:2px"></div>
 <div id="stationNamesPanel" class="stname-panel"></div>
@@ -345,7 +346,7 @@ function sortStations(keys) {
   });
 }
 
-var errEl, resEl, statsEl, warnEl, warnBoxEl, motionPanelEl, conditionPanelEl, stationNamesPanelEl, timerPhpxEl, timerMotionEl, confirmModePanelEl, alSizeEl, mfSizeEl, arraySizeHintEl;
+var errEl, resEl, statsEl, warnEl, warnBoxEl, motionPanelEl, conditionPanelEl, stationNamesPanelEl, timerPhpxEl, timerMotionEl, confirmModePanelEl, alSizeEl, mfSizeEl, stationBlockEl, arraySizeHintEl;
 var flowStore = {};
 var lastSplitMsg = null;
 var stationNames = {}; // key station -> nama bebas (opsional), ngikut ke komen program (LB400_A/B dkk)
@@ -891,11 +892,14 @@ function renderResults(payload) {
   // ngasih tau minimalnya berapa dan berapa yang lagi kepakai.
   if (arraySizeHintEl) {
     var ai = payload.arrayInfo;
+    // Rekomendasi = tepat sebesar yang DIALOKASI (blok per-station sudah termasuk padding spare),
+    // dibulatkan ke atas kelipatan 10. Nambahin kelonggaran lagi di atas padding cuma bikin ratusan
+    // baris spare yang gak ada gunanya.
     arraySizeHintEl.textContent = ai
-      ? 'Terpakai sekarang: AL ' + ai.alUsed + ' slot, MF ' + ai.mfUsed + ' slot. '
-        + 'Array yang dibuat: AL[1..' + ai.alSize + '], MF[1..' + ai.mfSize + ']. '
-        + 'Rekomendasi beri kelonggaran, mis. AL ' + Math.max(100, Math.ceil((ai.alUsed * 1.5 + 10) / 10) * 10)
-        + ' dan MF ' + Math.max(16, Math.ceil((ai.mfUsed * 1.5 + 4) / 4) * 4) + ' biar masih ada slot buat alarm baru.'
+      ? 'Terisi: AL ' + ai.alFilled + ', MF ' + ai.mfFilled + ' slot. '
+        + 'Dialokasi (termasuk spare ' + ai.stationBlock + '/station): AL ' + ai.alUsed + ', MF ' + ai.mfUsed + '. '
+        + 'Array dibuat: AL[1..' + ai.alSize + '], MF[1..' + ai.mfSize + ']. '
+        + 'Rekomendasi minimal AL ' + Math.ceil(ai.alUsed / 10) * 10 + ', MF ' + Math.ceil(ai.mfUsed / 10) * 10 + '.'
       : '';
   }
   warnEl.textContent = payload.warnings || '';
@@ -968,7 +972,8 @@ function regenerate() {
   });
   flowStore.stationNames = stationNames;
   flowStore.timerDefaults = { phpx: timerPhpxEl ? timerPhpxEl.value : '', motion: timerMotionEl ? timerMotionEl.value : '' };
-  flowStore.arraySizes = { al: alSizeEl ? alSizeEl.value : '', mf: mfSizeEl ? mfSizeEl.value : '' };
+  flowStore.arraySizes = { al: alSizeEl ? alSizeEl.value : '', mf: mfSizeEl ? mfSizeEl.value : '',
+                           stationBlock: stationBlockEl ? stationBlockEl.value : '' };
   flowStore.actuatorOverrides = actuatorOverrides;
   try {
     // Salinan wrapper baru tiap panggil - gen_all.js nge-reassign msg.payload di baris terakhirnya,
@@ -1680,7 +1685,8 @@ function exportProjectJSON() {
     io: document.getElementById('ioText').value,
     stationNames: stationNames,
     timerDefaults: { phpx: timerPhpxEl ? timerPhpxEl.value : '', motion: timerMotionEl ? timerMotionEl.value : '' },
-    arraySizes: { al: alSizeEl ? alSizeEl.value : '', mf: mfSizeEl ? mfSizeEl.value : '' },
+    arraySizes: { al: alSizeEl ? alSizeEl.value : '', mf: mfSizeEl ? mfSizeEl.value : '',
+                  stationBlock: stationBlockEl ? stationBlockEl.value : '' },
     actuatorOverrides: actuatorOverrides,
     motionSequences: motionSequences,
     conditionDefs: conditionDefs
@@ -1706,6 +1712,7 @@ function importProjectJSON(jsonText) {
   if (timerMotionEl) timerMotionEl.value = (parsed.timerDefaults && parsed.timerDefaults.motion) || '';
   if (alSizeEl) alSizeEl.value = (parsed.arraySizes && parsed.arraySizes.al) || '';
   if (mfSizeEl) mfSizeEl.value = (parsed.arraySizes && parsed.arraySizes.mf) || '';
+  if (stationBlockEl) stationBlockEl.value = (parsed.arraySizes && parsed.arraySizes.stationBlock) || '';
   actuatorOverrides = {};
   Object.keys(parsed.actuatorOverrides || {}).forEach(function (k) { actuatorOverrides[k] = parsed.actuatorOverrides[k]; });
 
@@ -1770,9 +1777,11 @@ stationNamesPanelEl = document.getElementById('stationNamesPanel');
 confirmModePanelEl = document.getElementById('confirmModePanel');
 alSizeEl = document.getElementById('alSize');
 mfSizeEl = document.getElementById('mfSize');
+stationBlockEl = document.getElementById('stationBlock');
 arraySizeHintEl = document.getElementById('arraySizeHint');
-alSizeEl.addEventListener('change', function () { if (lastSplitMsg) regenerate(); });
-mfSizeEl.addEventListener('change', function () { if (lastSplitMsg) regenerate(); });
+[alSizeEl, mfSizeEl, stationBlockEl].forEach(function (el) {
+  el.addEventListener('change', function () { if (lastSplitMsg) regenerate(); });
+});
 timerPhpxEl = document.getElementById('timerPhpx');
 timerMotionEl = document.getElementById('timerMotion');
 timerPhpxEl.addEventListener('change', function () { if (lastSplitMsg) regenerate(); });

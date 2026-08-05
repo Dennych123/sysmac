@@ -94,9 +94,19 @@ ukeys.forEach(function(k,i){
 // station dengan banyak actuator gak kehabisan slot dan station kecil gak buang-buang array.
 var AL_MAIN_RESERVED = 10;
 var AL_BLOCK = {}, MF_BLOCK = {};
-var AL_SIZE, MF_SIZE, AL_USED = 0, MF_USED = 0;  // *_USED = slot yang beneran kepakai (dasar rekomendasi)
+// *_USED = slot yang DIALOKASI (termasuk padding spare) - ini batas minimum ukuran array.
+// *_FILLED = slot yang beneran keisi alarm/fault - cuma buat rekomendasi di web UI.
+var AL_SIZE, MF_SIZE, AL_USED = 0, MF_USED = 0, AL_FILLED = 0, MF_FILLED = 0, STATION_BLOCK = 30;
+// Tiap station dapat blok BERUKURAN TETAP, dipadding spare sampai segini. Sebelumnya blok dipas-pasin
+// ke jumlah aktuator, jadi nambah satu silinder di ST1 nggeser nomor AL/MF SEMUA station sesudahnya -
+// komen yang sudah dilengkapi orang di Susmax Studio jadi nunjuk alarm yang salah. Dengan blok tetap,
+// nomor per station stabil dan tiap station punya ruang tumbuh sendiri.
+var STATION_BLOCK_DEFAULT = 30;
 (function computeArrayBlocks(){
-    var alCursor = AL_MAIN_RESERVED, mfCursor = 0;
+    var sb = parseInt((flow.get("arraySizes")||{}).stationBlock, 10);
+    if(!isFinite(sb) || sb <= 0) sb = STATION_BLOCK_DEFAULT;
+    // --- 1. hitung kebutuhan tiap station dulu, belum bagi-bagi nomor ---
+    var need = {};
     ukeys.forEach(function(k){
         var devs = groups[k];
         var asCount = pairUp(devs.filter(function(d){return d.jenis==="AS";}).sort(function(a,b){return a.row-b.row;})).length;
@@ -110,12 +120,47 @@ var AL_SIZE, MF_SIZE, AL_USED = 0, MF_USED = 0;  // *_USED = slot yang beneran k
         (((flow.get("motionSequences")||{})[k])||[]).forEach(function(v){
             ((v&&v.nodes)||[]).forEach(function(n){ if(n && n.type==="alarm") alarmCount++; });
         });
-        AL_BLOCK[k] = { start: alCursor+1, end: alCursor+asCount+alarmCount };
-        alCursor += asCount + alarmCount;
-        MF_BLOCK[k] = { start: mfCursor+1, end: mfCursor+actCount };
-        mfCursor += actCount;
+        need[k] = { al: asCount + alarmCount, mf: actCount };
+        AL_FILLED += need[k].al; MF_FILLED += need[k].mf;
     });
-    AL_USED = alCursor; MF_USED = mfCursor;
+    AL_FILLED += AL_MAIN_RESERVED;
+
+    // --- 2. ukuran blok SERAGAM buat semua station ---
+    // Seragam itu syarat, bukan selera: nomor blok dihitung dari NOMOR station (lihat langkah 3), dan
+    // itu cuma mungkin kalau tiap blok sama besar. Kalau ada satu station yang butuhnya lebih dari
+    // setelan, SEMUA blok dinaikin - bukan cuma station itu - biar rumusnya tetap berlaku.
+    var maxNeed = 0;
+    ukeys.forEach(function(k){ maxNeed = Math.max(maxNeed, need[k].al, need[k].mf); });
+    if(maxNeed > sb){
+        warnings.push("Ada station yang butuh "+maxNeed+" slot, lebih besar dari 'Slot per station' ("+sb+
+                      ") - dinaikin ke "+maxNeed+" buat SEMUA station biar penomorannya tetap seragam. "+
+                      "Naikin setelannya kalau mau ada ruang cadangan lagi.");
+        sb = maxNeed;
+    }
+    STATION_BLOCK = sb;
+
+    // --- 3. nomor blok dari NOMOR station, BUKAN urutan kemunculan ---
+    // ukeys cuma memuat station yang PUNYA device. Dulu blok dibagi berurutan dari daftar itu, jadi
+    // kalau ST2 belum ada isinya, ST3 makai jatah ST2 - dan begitu ST2 diisi, semua nomor ST3 geser.
+    // Sekarang ST3 selalu blok ke-3 apa pun isi ST1/ST2: nambah unit baru atau ngosongin unit lama
+    // gak nggeser nomor station manapun. Ongkosnya cuma slot bolong kalau penomoran station lompat.
+    var idxOf = {}, maxIdx = 0;
+    ukeys.forEach(function(k){
+        var m = /(\d+)/.exec(k);
+        if(m){ idxOf[k] = parseInt(m[1], 10); maxIdx = Math.max(maxIdx, idxOf[k]); }
+    });
+    var extra = maxIdx;   // station tanpa angka di namanya ditaruh sesudah yang bernomor
+    ukeys.forEach(function(k){ if(idxOf[k] === undefined){ idxOf[k] = ++extra; maxIdx = extra; } });
+
+    ukeys.forEach(function(k){
+        var i = idxOf[k] - 1;
+        AL_BLOCK[k] = { start: AL_MAIN_RESERVED + i*sb + 1, end: AL_MAIN_RESERVED + (i+1)*sb };
+        MF_BLOCK[k] = { start: i*sb + 1,                     end: (i+1)*sb };
+    });
+    // Panjang array ngikut nomor station TERTINGGI, bukan jumlah station - ST1 dan ST5 doang tetap
+    // bikin array sepanjang 5 blok, karena ST5 memang nempatin blok ke-5.
+    AL_USED = AL_MAIN_RESERVED + maxIdx*sb;
+    MF_USED = maxIdx*sb;
     // Ukuran array boleh disetel user lewat panel "Ukuran array" di web UI. Tapi TIDAK PERNAH boleh
     // turun di bawah yang beneran kepakai - kalau dipaksa, alarm/motion-fault paling belakang bakal
     // nunjuk index di luar array dan itu error pas import, bukan sekadar kurang rapi. Jadi angkanya
@@ -130,8 +175,8 @@ var AL_SIZE, MF_SIZE, AL_USED = 0, MF_USED = 0;  // *_USED = slot yang beneran k
         }
         return v;
     }
-    AL_SIZE = pickSize(want.al, 100, alCursor, "AL");
-    MF_SIZE = pickSize(want.mf, 16, mfCursor, "MF");
+    AL_SIZE = pickSize(want.al, 100, AL_USED, "AL");
+    MF_SIZE = pickSize(want.mf, 16, MF_USED, "MF");
 })();
 var AL_TYPE = "ARRAY[1.."+AL_SIZE+"] OF BOOL";
 var MF_TYPE = "ARRAY[1.."+MF_SIZE+"] OF BOOL";
@@ -1088,6 +1133,7 @@ files.unshift({ name:"AllPrograms.xml", xml:progMulti("AllPrograms",blocks,globV
 msg.payload={ files:files, warnings:warnings.join("\n"), unitCount:ukeys.length,
               stats:files.map(function(f){return f.stats;}).join("\n"),
               // Dipakai web UI buat nampilin rekomendasi ukuran array (minimal = yang kepakai sekarang)
-              arrayInfo:{ alUsed:AL_USED, mfUsed:MF_USED, alSize:AL_SIZE, mfSize:MF_SIZE },
+              arrayInfo:{ alUsed:AL_USED, mfUsed:MF_USED, alSize:AL_SIZE, mfSize:MF_SIZE,
+                          alFilled:AL_FILLED, mfFilled:MF_FILLED, stationBlock:STATION_BLOCK },
               lscAudit:lscAudit.join("\n") };
 return msg;
