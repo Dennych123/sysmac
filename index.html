@@ -180,7 +180,16 @@ kuning ke node LAIN (boleh ke arah manapun, asal gak muter balik) buat bikin dep
 2+ dependency dapat badge AND/OR - klik toggle. "+ Condition/bit" bikin node rujukan bit yang sudah
 ada: tinggal PILIH dari dropdown Condition yang kamu bikin di kotak Condition di bawah (daftarnya
 ikut ke-update otomatis), atau pilih "bit lain (ketik manual)" buat nunjuk sensor/bit di luar itu.
-Dropdown yang sama juga dipakai buat Condition pemilih varian. Klik node/panah buat SELECT (kuning), tekan Delete/
+Dropdown yang sama juga dipakai buat Condition pemilih varian.</p>
+<p class="hint">Baris <b>Blok:</b> nambahin langkah non-motion: <b>IF/ELSE</b> (judgement - satu masuk,
+dua keluar lewat port <b>Y</b> kanan dan <b>N</b> bawah; cabangnya nge-HOLD sekali keputusan diambil
+dan saling interlock jadi mustahil nyala barengan), <b>SET/RESET mem</b> (bit memory latching - semua
+trigger set dan reset buat satu bit digabung jadi SATU rung, jadi gak ada coil dobel), dan
+<b>ALARM</b> (dapat slot AL[] otomatis, nyangkut sendiri, lalu masuk grup kategori yang dipilih).
+Buat nyatuin cabang seperti pola Ndeso, tarik <b>kedua</b> port Y dan N ke node yang sama lalu klik
+badge-nya jadi <b>OR</b>. Klik satu blok buat nampilin panel <b>Edit blok</b> di bawah kanvas - bit,
+kategori, dan komennya bisa dibetulin tanpa hapus-bikin-ulang. Bulatan <b>START</b>/<b>END</b> bisa
+diseret; klik ganda buat balikin ke posisi otomatis. Klik node/panah buat SELECT (kuning), tekan Delete/
 Backspace buat hapus yang keselect. Seret node cuma buat rapihin posisi. Station yang gak disentuh
 tetap pakai kerangka placeholder biasa. Tiap station juga punya kotak <b>Import/Export JSON</b> di
 bawah - bisa tempel JSON hasil AI atau bikinan sendiri (format: array varian
@@ -539,6 +548,14 @@ function removeNode(st, vIdx, id) {
   // Buang juga rujukan cabang "id#Y" / "id#N", bukan cuma yang persis "id"
   variant.nodes.forEach(function (n) { if (n.after) n.after = n.after.filter(function (a) { return refBase(a) !== id; }); });
   if (selected && selected.stKey === st && selected.vIdx === vIdx && selected.id === id) selected = null;
+}
+
+// Ubah satu field blok yang lagi keselect (sol / cond / bit / category / comment). Sebelum ini blok
+// cuma bisa dibikin, gak bisa dibetulin - salah pilih bit berarti hapus lalu bikin ulang, dan semua
+// panah yang udah nyambung ke situ ikut hilang.
+function setNodeField(st, vIdx, id, key, value) {
+  var n = findNode(st, vIdx, id);
+  if (n) n[key] = typeof value === 'string' ? value.trim() : value;
 }
 
 function toggleJoin(st, vIdx, id) {
@@ -1317,12 +1334,59 @@ function renderMotionPanel() {
 
       if (selected && selected.kind === 'node' && selected.stKey === stKey && selected.vIdx === vIdx) {
         var selNode = findNode(stKey, vIdx, selected.id);
-        if (selNode && selNode.type === 'condition') {
-          var editRow = document.createElement('div'); editRow.className = 'row';
-          var editLbl = document.createElement('b'); editLbl.textContent = 'Komen bit "' + selNode.bit + '":';
-          var editInput = document.createElement('input'); editInput.value = selNode.comment || ''; editInput.placeholder = '(opsional)'; editInput.style.width = '260px';
-          editInput.addEventListener('change', function () { setNodeComment(stKey, vIdx, selNode.id, editInput.value); regenerate(); });
-          editRow.appendChild(editLbl); editRow.appendChild(editInput);
+        if (selNode) {
+          // Panel edit blok terpilih. Semua handler pakai event 'change' (kejadiannya pas blur), jadi
+          // renderMotionPanel() di sini gak ngerebut fokus di tengah ngetik - dan perlu dipanggil biar
+          // label di kanvas ikut berubah, karena komen sekarang ditampilin di sana.
+          var selType = selNode.type || 'motion';
+          var editRow = document.createElement('div'); editRow.className = 'graph-toolbar';
+          var editLbl = document.createElement('b');
+          editLbl.textContent = 'Edit blok "' + nodeLabel(selNode) + '":';
+          editLbl.style.fontSize = '11px';
+          editRow.appendChild(editLbl);
+
+          function applyEdit(key, value) {
+            setNodeField(stKey, vIdx, selNode.id, key, value);
+            renderMotionPanel(); regenerate();
+          }
+
+          if (selType === 'motion') {
+            var solSel = document.createElement('select');
+            names.forEach(function (nm) {
+              var o = document.createElement('option'); o.value = nm; o.textContent = nm; solSel.appendChild(o);
+            });
+            solSel.value = selNode.sol;
+            solSel.addEventListener('change', function () { applyEdit('sol', solSel.value); });
+            editRow.appendChild(solSel);
+
+          } else if (selType === 'decision') {
+            editRow.appendChild(makeBitPicker(stKey, selNode.cond || '', '-- kondisi --',
+              function (val) { applyEdit('cond', val); }).el);
+
+          } else if (selType === 'setmem' || selType === 'resetmem') {
+            editRow.appendChild(makeBitPicker(stKey, selNode.bit || '', '-- bit memory --',
+              function (val) { applyEdit('bit', val); }).el);
+
+          } else if (selType === 'alarm') {
+            var catSel = document.createElement('select');
+            ALARM_CATS.forEach(function (c) {
+              var o = document.createElement('option'); o.value = c; o.textContent = ALARM_CAT_LABEL[c]; catSel.appendChild(o);
+            });
+            catSel.value = selNode.category || 'faultstop';
+            catSel.addEventListener('change', function () { applyEdit('category', catSel.value); });
+            editRow.appendChild(catSel);
+          }
+
+          // Node "condition" id-nya SAMA dengan nama bitnya, jadi bitnya gak bisa diubah di sini -
+          // itu bakal ngubah id dan mutusin semua panah yang nyambung. Hapus lalu bikin ulang.
+          if (selType !== 'motion') {
+            var editInput = document.createElement('input');
+            editInput.value = selNode.comment || '';
+            editInput.placeholder = 'komen blok (opsional)';
+            editInput.style.width = '220px';
+            editInput.addEventListener('change', function () { applyEdit('comment', editInput.value); });
+            editRow.appendChild(editInput);
+          }
           vbox.appendChild(editRow);
         }
       }
