@@ -79,8 +79,8 @@ function findLsc(dev,asPairs){
         lscAudit.push(dev.komen+" -> "+best+" (score "+bestScore+")");
         // Seri skor = matcher gak punya dasar buat milih, cuma kepilih gara-gara urutan I/O. Ini yang dulu
         // bikin STOPPER-2/3/4 semua nyantol ke sensor STOPPER-5 tanpa satupun warning keluar.
-        if(tied.length>1) W("lsc_ambiguous","",'LSC match for "'+dev.komen+'" is AMBIGUOUS: '+tied.length+' candidates tied at score '+bestScore+' ('+tied.join(", ")+'), picked "'+best+'" by I/O order only - verify manually.');
-        else if(bestScore===2) W("lsc_low_confidence","",'LSC match for "'+dev.komen+'" -> "'+best+'" is low-confidence (score 2, only 2 shared comment words) - verify manually.');
+        if(tied.length>1) W("lsc_ambiguous","",'LSC match for "'+dev.komen+'" is AMBIGUOUS: '+tied.length+' candidates tied at score '+bestScore+' ('+tied.join(", ")+'), picked "'+best+'" by I/O order only - verify manually.',{device:dev.name});
+        else if(bestScore===2) W("lsc_low_confidence","",'LSC match for "'+dev.komen+'" -> "'+best+'" is low-confidence (score 2, only 2 shared comment words) - verify manually.',{device:dev.name});
     }
     return best;
 }
@@ -223,7 +223,7 @@ function buildUnit(stKey, devs){
             if(m>bestScore){ bestScore=m; best=ls; tied=[ls.name]; }
             else if(m===bestScore && tied.indexOf(ls.name)<0){ tied.push(ls.name); }
         });
-        if(bestScore>0 && tied.length>1) W("lsc_ambiguous","",stKey+': servo feedback for "'+cmd.komen+'" is AMBIGUOUS: '+tied.length+' candidates tied at score '+bestScore+' ('+tied.join(", ")+'), picked "'+best.name+'" by I/O order only - verify manually.');
+        if(bestScore>0 && tied.length>1) W("servo_feedback_ambiguous",stKey,stKey+': servo feedback for "'+cmd.komen+'" is AMBIGUOUS: '+tied.length+' candidates tied at score '+bestScore+' ('+tied.join(", ")+'), picked "'+best.name+'" by I/O order only - verify manually.',{device:cmd.name});
         return { cmd:cmd, ls:(bestScore>0?best:null) };
     });
     var srvLscOf={}; srvActus.forEach(function(sa){ if(sa.ls) srvLscOf[sa.cmd.name]=sa.ls.name; });
@@ -310,7 +310,9 @@ function buildUnit(stKey, devs){
         var lscA, lscB;
         if(ov && ov.mode==="manual" && ov.lscA && ov.lscB){ lscA=ov.lscA; lscB=ov.lscB; }
         else { lscA=findLsc(a[0],asPairs); lscB=findLsc(a[1],asPairs); }
-        if(!lscA||!lscB){ W("lsc_not_found",stKey,stKey+": no matching limit switch for actuator "+a[0].komen+", motion fault skipped."); return; }
+        // device diisi nama SIMBOL (bukan komen) - itu kunci yang dipakai actuatorOverrides dan panel
+        // Confirm Mode, jadi UI bisa nyorot aktuator yang tepat tanpa nebak-nebak dari teks pesan.
+        if(!lscA||!lscB){ W("lsc_not_found",stKey,stKey+": no matching limit switch for actuator "+a[0].komen+", motion fault skipped.",{device:a[0].name}); return; }
         var cmt="Cylinder motion fault, solenoid energised but position not confirmed: "+a[0].komen+" / "+a[1].komen;
         var mf=MF(mfN,cmt), tmr="LT"+pad(200+faultTimerIdx,3); faultTimerIdx++;
         P(tmr,"TON","Motion timeout for "+a[0].komen);
@@ -330,7 +332,7 @@ function buildUnit(stKey, devs){
         if(ov && ov.mode==="openloop") return;
         if(mfN>mfCap){ W("mf_block_full",stKey,stKey+": MF motion-fault block full, servo command "+sa.cmd.komen+" skipped."); return; }
         var lsc=(ov && ov.mode==="manual" && ov.lscA) ? ov.lscA : srvLscOf[sa.cmd.name];
-        if(!lsc){ W("lsc_not_found",stKey,stKey+": no matching limit switch for servo command "+sa.cmd.komen+", motion fault skipped."); return; }
+        if(!lsc){ W("lsc_not_found",stKey,stKey+": no matching limit switch for servo command "+sa.cmd.komen+", motion fault skipped.",{device:sa.cmd.name}); return; }
         var cmt="Servo motion fault, command energised but position not confirmed: "+sa.cmd.komen;
         var mf=MF(mfN,cmt), tmr="LT"+pad(200+faultTimerIdx,3); faultTimerIdx++;
         P(tmr,"TON","Motion timeout for "+sa.cmd.komen);
@@ -664,7 +666,7 @@ function buildUnit(stKey, devs){
                 if(!dev){ W("unknown_solenoid",stKey,stKey+': motion sequence references unknown solenoid "'+node.sol+'", step skipped.'); return; }
                 var devOv=actuatorOverrides[dev.name];
                 lsc=(devOv && devOv.mode==="manual" && devOv.lscA) ? devOv.lscA : (srvLscOf[dev.name] || findLsc(dev,asPairs));
-                if(!lsc){ W("lsc_not_found",stKey,stKey+': no matching limit switch for "'+node.sol+'" in motion sequence, step skipped.'); return; }
+                if(!lsc){ W("lsc_not_found",stKey,stKey+': no matching limit switch for "'+node.sol+'" in motion sequence, step skipped.',{device:dev.name}); return; }
             }
 
             var after=(node.after||[]).filter(function(ref){

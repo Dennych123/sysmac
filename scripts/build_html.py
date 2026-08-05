@@ -111,7 +111,15 @@ HTML = '''<!doctype html>
               border:1px solid var(--line);border-radius:7px;padding:7px 10px;box-shadow:var(--shadow)}
   .stname-lbl b{color:var(--fg);font-family:Consolas,monospace;font-size:12.5px}
   .stname-input{font-family:inherit;font-size:12.5px;padding:5px 8px;border:1px solid var(--line);border-radius:5px;width:180px}
-  .cm-row{flex-direction:column;align-items:flex-start;gap:5px;min-width:230px}
+  .cm-row{flex-direction:column;align-items:flex-start;gap:5px;min-width:230px;border-left:3px solid transparent}
+  .cm-head{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+  /* Merah = generator gak nemu sensornya sama sekali, harus disetel. Kuning = ketemu tapi tebakannya
+     lemah, jalan tapi layak dicek. Aktuator yang sudah dioverride balik netral. */
+  .cm-row.cm-missing{border-left-color:var(--danger);background:#fef2f2;border-color:#fca5a5}
+  .cm-row.cm-check{border-left-color:#d97706;background:#fffbeb;border-color:#fcd34d}
+  .cm-badge{font-size:10.5px;font-weight:600;padding:1px 6px;border-radius:3px;white-space:nowrap}
+  .cm-badge-missing{background:#fee2e2;color:#991b1b;border:1px solid #fca5a5}
+  .cm-badge-check{background:#fef3c7;color:#92400e;border:1px solid #fcd34d}
   .cm-row select{font-family:inherit;font-size:12.5px;padding:5px 7px;border:1px solid var(--line);border-radius:5px;background:#fff}
   .cm-row .cm-manual{display:flex;gap:5px}
   .cm-row .cm-manual input{font-family:Consolas,monospace;font-size:12px;padding:5px 7px;border:1px solid var(--line);border-radius:5px;width:130px}
@@ -1219,6 +1227,9 @@ function renderResults(payload) {
   lastWarnList = payload.warnList || [];
   renderWarnings(lastWarnList, lastWarnings);
   warnBoxEl.style.display = payload.warnings ? 'block' : 'none';
+  // Panel Confirm Mode diwarnai dari warnList generate INI - kalau gak dirender ulang di sini,
+  // sorotan merahnya nyangkut di hasil generate sebelumnya.
+  if (lastSplitMsg && confirmModePanelEl) renderConfirmModePanel();
 
   if (payload.files.length) {
     var single = document.createElement('div');
@@ -1937,6 +1948,25 @@ function renderStationNamesPanel() {
   stationNamesPanelEl.style.display = 'flex';
 }
 
+// Status satu aktuator menurut generate terakhir, dipakai buat mewarnai bloknya di panel Confirm Mode.
+//   missing = generator gak nemu sensor sama sekali (lsc_not_found) -> WAJIB disetel Open-loop/Manual
+//   check   = ketemu tapi gak yakin (ambigu / skor rendah) -> jalan, tapi layak diverifikasi
+// Dicocokin lewat warnList[].device, jadi kalau kalimat warning-nya diubah, penyorotan ini gak ikut
+// rusak - itu inti dari kenapa warning distruktur.
+var CM_MISSING = { lsc_not_found: 1 };
+var CM_CHECK = { lsc_ambiguous: 1, lsc_low_confidence: 1, servo_feedback_ambiguous: 1 };
+function ioFlagOf(deviceName) {
+  var hit = null;
+  lastWarnList.forEach(function (w) {
+    if (w.device !== deviceName) return;
+    if (CM_MISSING[w.code]) hit = { kind: 'missing', message: w.message };
+    else if (CM_CHECK[w.code] && (!hit || hit.kind !== 'missing')) hit = { kind: 'check', message: w.message };
+  });
+  // Sudah disetel manual/open-loop = keluhannya sudah diurus, jangan disorot lagi
+  if (hit && actuatorOverrides[deviceName]) return null;
+  return hit;
+}
+
 function renderConfirmModePanel() {
   confirmModePanelEl.innerHTML = '';
   if (!lastSplitMsg) { confirmModePanelEl.style.display = 'none'; return; }
@@ -1948,10 +1978,21 @@ function renderConfirmModePanel() {
     devs.forEach(function (d) {
       any = true;
       var ov = actuatorOverrides[d.name] || { mode: 'auto' };
-      var row = document.createElement('div'); row.className = 'stname-lbl cm-row';
-      var head = document.createElement('div');
+      // Warna blok = status aktuator ini, dicocokin lewat warnList[].device (nama simbol), bukan
+      // dari teks warning. Angka "3 aktuator belum ketemu sensornya" gak ada gunanya kalau yang mana
+      // -nya harus dicari sendiri di daftar panjang.
+      var flag = ioFlagOf(d.name);
+      var row = document.createElement('div'); row.className = 'stname-lbl cm-row' + (flag ? ' cm-' + flag.kind : '');
+      if (flag) row.title = flag.message;
+      var head = document.createElement('div'); head.className = 'cm-head';
       var b = document.createElement('b'); b.textContent = stKey + ' / ' + d.name;
       head.appendChild(b);
+      if (flag) {
+        var badge = document.createElement('span');
+        badge.className = 'cm-badge cm-badge-' + flag.kind;
+        badge.textContent = flag.kind === 'missing' ? 'tanpa sensor' : 'perlu dicek';
+        head.appendChild(badge);
+      }
       row.appendChild(head);
       var sel = document.createElement('select');
       ['auto', 'openloop', 'manual'].forEach(function (m) {
@@ -2010,12 +2051,27 @@ function updateConfirmModeSummary(stationCount) {
   // berhenti jalan dan section ini gak pernah kebuka lagi padahal ada yang perlu diurus.
   var needs = lastWarnList.filter(function (w) { return w.code === 'lsc_not_found'; }).length;
   if (!total) { sub.textContent = 'generate dulu buat lihat daftar aktuator'; sub.className = 'fold-sub'; return; }
-  if (needs) {
-    sub.textContent = needs + ' aktuator belum ketemu sensornya - setel Open-loop atau Manual';
+  // Sebutin NAMA aktuatornya, bukan cuma jumlahnya - angka doang bikin user harus nyisir daftar
+  // sendiri. Bloknya juga diwarnai merah di panel, jadi ketemunya cepat.
+  var missing = lastWarnList.filter(function (w) {
+    return w.code === 'lsc_not_found' && w.device && !actuatorOverrides[w.device];
+  }).map(function (w) { return w.device; });
+  missing = missing.filter(function (d, i) { return missing.indexOf(d) === i; });
+  var check = lastWarnList.filter(function (w) {
+    return CM_CHECK[w.code] && w.device && !actuatorOverrides[w.device];
+  }).map(function (w) { return w.device; });
+  check = check.filter(function (d, i) { return check.indexOf(d) === i && missing.indexOf(d) < 0; });
+
+  if (missing.length) {
+    var shown = missing.slice(0, 3).join(', ') + (missing.length > 3 ? ', +' + (missing.length - 3) + ' lagi' : '');
+    sub.textContent = missing.length + ' tanpa sensor (blok merah): ' + shown + ' - setel Open-loop atau Manual';
     sub.className = 'fold-sub attn';
     if (!confirmModeTouched) box.open = true;
+  } else if (check.length) {
+    sub.textContent = check.length + ' cocokan sensor perlu dicek (blok kuning): ' + check.slice(0, 3).join(', ');
+    sub.className = 'fold-sub attn';
   } else {
-    sub.textContent = over + ' dari ' + total + ' aktuator dioverride, sisanya Auto';
+    sub.textContent = over + ' dari ' + total + ' aktuator dioverride, sisanya Auto - semua sensor ketemu';
     sub.className = 'fold-sub';
   }
 }
