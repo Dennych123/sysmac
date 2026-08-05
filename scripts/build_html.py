@@ -78,6 +78,7 @@ HTML = '''<!doctype html>
   .variant-head{display:flex;align-items:center;gap:6px;margin-bottom:6px;flex-wrap:wrap}
   .variant-head b{font-size:11px;color:var(--muted)}
   .variant-head input{font-family:Consolas,monospace;font-size:11px;padding:4px 6px;border:1px solid var(--line);border-radius:4px;width:140px}
+  .variant-head select{font-family:Consolas,monospace;font-size:11px;padding:4px 6px;border:1px solid var(--line);border-radius:4px;background:#fff;max-width:230px}
   .variant-head .rm-variant{background:#b91c1c;padding:3px 8px;margin:0;font-size:10px}
   .variant-head .rm-variant:hover{background:#8f1717}
   .add-variant{background:#37424f;padding:5px 10px;font-size:11px}
@@ -86,11 +87,18 @@ HTML = '''<!doctype html>
   .avail-btn{background:#eceff3;color:var(--fg);padding:4px 8px;margin:0;font-size:11px;font-family:Consolas,monospace}
   .avail-btn:hover{background:#dde2e8}
   .graph-toolbar input{font-family:Consolas,monospace;font-size:11px;padding:4px 6px;border:1px solid var(--line);border-radius:4px}
+  .graph-toolbar select{font-family:Consolas,monospace;font-size:11px;padding:4px 6px;border:1px solid var(--line);border-radius:4px;background:#fff;max-width:230px}
   .graph-toolbar .add-cond{background:#7c3aed;padding:4px 10px;margin:0;font-size:11px}
   .graph-toolbar .add-cond:hover{background:#6527c9}
   svg.graph-canvas{border:1px solid var(--line);border-radius:6px;background:#fbfbfc;display:block;max-width:100%}
   .gnode-rect{fill:var(--accent);stroke:var(--accent-dk);stroke-width:1;cursor:move}
   .gnode-rect.condition{fill:#7c3aed;stroke:#5b21b6;stroke-dasharray:4,2}
+  .gnode-rect.decision{fill:#0f766e;stroke:#0b544e}
+  .gnode-rect.setmem{fill:#b45309;stroke:#8a4008}
+  .gnode-rect.resetmem{fill:#7c2d12;stroke:#5c210d}
+  .gnode-rect.alarm{fill:#b91c1c;stroke:#8f1717}
+  .gnode-handle.port-n{fill:#e5e7eb}
+  .gport-text{font-size:8px;fill:#111;font-family:Consolas,monospace;pointer-events:none;text-anchor:middle}
   .gnode-rect.selected{stroke:#f1c40f;stroke-width:3}
   .gnode-rect.anchor{fill:#37424f;stroke:#232a33;cursor:default;rx:14}
   .gedge-line.anchor{stroke:#9aa3ad;stroke-dasharray:3,2}
@@ -111,12 +119,15 @@ HTML = '''<!doctype html>
   details.json-io>summary::before{content:"▸ ";color:var(--accent)}
   details.json-io[open]>summary::before{content:"▾ "}
   .json-io textarea{height:90px;font-size:10px;margin-top:6px}
-  .json-io .row{display:flex;gap:6px;margin-top:4px}
+  .json-io .row{display:flex;gap:6px;margin-top:4px;flex-wrap:wrap;align-items:center}
   .json-io button{font-size:11px;padding:5px 10px;margin:0}
   .json-io .json-import{background:#1e8449}
   .json-io .json-import:hover{background:#166638}
   .json-io .json-export{background:#37424f}
   .json-io .json-export:hover{background:#232a33}
+  .json-io .json-alt{background:#0369a1}
+  .json-io .json-alt:hover{background:#025782}
+  .json-io .row-sep{width:1px;align-self:stretch;background:var(--line);margin:0 2px}
   .json-io .json-msg{font-size:10px;margin-top:4px;white-space:pre-wrap}
   .json-io .json-msg.ok{color:#1e8449}
   .json-io .json-msg.err{color:#b91c1c}
@@ -157,10 +168,7 @@ ke step berikutnya).</p>
   <p class="hint">Simpan/pulihkan seluruh kerjaan sekali tempel, gak perlu per-station. Import langsung
   jalanin Generate ulang pakai IO list di dalamnya, GANTI seluruh project yang lagi ke-buka.</p>
   <textarea id="projectJsonTa" placeholder='{"io":"CH0_00\\tPB\\tIN\\t...","stationNames":{"ST1":"Conveyor Feed"},"timerDefaults":{"phpx":"T#200MS","motion":"T#5S"},"motionSequences":{"ST1":[...]},"conditionDefs":{"ST1":[...]}}'></textarea>
-  <div class="row">
-    <button id="projectImportBtn" class="json-import">Import Project JSON</button>
-    <button id="projectExportBtn" class="json-export">Export Project JSON</button>
-  </div>
+  <div id="projectJsonRow"></div>
   <div id="projectJsonMsg" class="json-msg"></div>
 </details>
 
@@ -182,7 +190,9 @@ Condition bit sendiri (kosongin = selalu aktif) - kayak pemilihan TIPE di FSM: c
 kondisinya true yang jalan. Di dalam satu varian: klik solenoid buat drop node, seret dari bulatan
 kuning ke node LAIN (boleh ke arah manapun, asal gak muter balik) buat bikin dependency. Node dgn
 2+ dependency dapat badge AND/OR - klik toggle. "+ Condition/bit" bikin node rujukan bit yang sudah
-ada (Condition section LB300 dkk, sensor). Klik node/panah buat SELECT (kuning), tekan Delete/
+ada: tinggal PILIH dari dropdown Condition yang kamu bikin di kotak Condition di bawah (daftarnya
+ikut ke-update otomatis), atau pilih "bit lain (ketik manual)" buat nunjuk sensor/bit di luar itu.
+Dropdown yang sama juga dipakai buat Condition pemilih varian. Klik node/panah buat SELECT (kuning), tekan Delete/
 Backspace buat hapus yang keselect. Seret node cuma buat rapihin posisi. Station yang gak disentuh
 tetap pakai kerangka placeholder biasa. Tiap station juga punya kotak <b>Import/Export JSON</b> di
 bawah - bisa tempel JSON hasil AI atau bikinan sendiri (format: array varian
@@ -204,6 +214,95 @@ function runNode(code, msg, flowStore) {
   var flow = { get: function(k){ return flowStore[k]; }, set: function(k,v){ flowStore[k]=v; } };
   var node = { warn: function(m){ console.warn(m); } };
   return new Function('msg','flow','node','return (function(){'+code+'})()')(msg, flow, node);
+}
+
+// ===== Clipboard + file, buat toolbar Import/Export JSON =====
+// Tool ini dipakai offline lewat file:// . Chrome ngitung file:// sebagai secure context jadi
+// navigator.clipboard biasanya jalan, TAPI browser lain / kebijakan kantor bisa nolak, dan
+// readText() masih bisa ditolak user lewat prompt izin. Jadi tiap jalur clipboard WAJIB punya
+// fallback yang jelas - jangan sampai tombolnya diem tanpa kabar dan user ngira datanya kesalin.
+function copyTextToClipboard(text) {
+  if (navigator.clipboard && navigator.clipboard.writeText) return navigator.clipboard.writeText(text);
+  return new Promise(function (resolve, reject) {
+    try {
+      var ta = document.createElement('textarea');
+      ta.value = text; ta.style.position = 'fixed'; ta.style.top = '-1000px'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.focus(); ta.select();
+      var ok = document.execCommand('copy');
+      document.body.removeChild(ta);
+      if (ok) resolve(); else reject(new Error('browser nolak perintah copy'));
+    } catch (e) { reject(e); }
+  });
+}
+
+function readTextFromClipboard() {
+  if (navigator.clipboard && navigator.clipboard.readText) return navigator.clipboard.readText();
+  return Promise.reject(new Error('browser ini gak ngizinin baca clipboard'));
+}
+
+function pickTextFile() {
+  return new Promise(function (resolve, reject) {
+    var inp = document.createElement('input');
+    inp.type = 'file'; inp.accept = '.json,application/json,text/plain';
+    inp.style.display = 'none';
+    inp.addEventListener('change', function () {
+      var f = inp.files && inp.files[0];
+      if (!f) { reject(new Error('gak ada file kepilih')); return; }
+      var fr = new FileReader();
+      fr.onload = function () { resolve({ name: f.name, text: String(fr.result) }); };
+      fr.onerror = function () { reject(new Error('gagal baca file ' + f.name)); };
+      fr.readAsText(f);
+    });
+    document.body.appendChild(inp); inp.click(); document.body.removeChild(inp);
+  });
+}
+
+// Bikin baris tombol Import/Export standar buat satu kotak JSON.
+//   ta       : textarea-nya (tetap jadi permukaan edit manual - jalur offline utama)
+//   msg      : elemen buat nampilin status
+//   getText  : () -> string JSON yang mau diekspor
+//   doImport : (text) -> string error, atau null kalau sukses (sekalian ngurus render ulang)
+//   fileName : nama default file download
+function buildJsonIORow(ta, msg, getText, doImport, fileName) {
+  var row = document.createElement('div'); row.className = 'row';
+  function say(cls, t) { msg.className = 'json-msg' + (cls ? ' ' + cls : ''); msg.textContent = t; }
+  function runImport(text, src) {
+    ta.value = text;
+    var e = doImport(text);
+    if (e) say('err', e); else say('ok', 'Imported dari ' + src + '.');
+  }
+  function btn(cls, label, fn) {
+    var b = document.createElement('button'); b.className = cls; b.textContent = label;
+    b.addEventListener('click', fn); row.appendChild(b); return b;
+  }
+
+  btn('json-import', 'Import (kotak)', function () { runImport(ta.value, 'kotak'); });
+  btn('json-alt', 'Import file...', function () {
+    pickTextFile().then(function (f) { runImport(f.text, f.name); })
+                  .catch(function (e) { say('err', 'Gagal: ' + e.message); });
+  });
+  btn('json-alt', 'Import clipboard', function () {
+    readTextFromClipboard().then(function (t) {
+      if (!t || !t.trim()) { say('err', 'Clipboard kosong.'); return; }
+      runImport(t, 'clipboard');
+    }).catch(function (e) {
+      say('err', 'Gagal baca clipboard (' + e.message + '). Tempel manual ke kotak lalu klik "Import (kotak)".');
+    });
+  });
+
+  var sep = document.createElement('div'); sep.className = 'row-sep'; row.appendChild(sep);
+
+  btn('json-export', 'Copy', function () {
+    var t = getText(); ta.value = t;
+    copyTextToClipboard(t).then(function () { say('ok', 'Kesalin ke clipboard.'); })
+      .catch(function (e) { say('err', 'Gagal nyalin (' + e.message + '). JSON-nya udah ada di kotak, salin manual.'); });
+  });
+  btn('json-export', 'Download .json', function () {
+    var t = getText(); ta.value = t;
+    downloadFile(fileName, t); say('ok', 'Diunduh: ' + fileName);
+  });
+
+  return row;
 }
 
 function downloadFile(name, text) {
@@ -299,9 +398,11 @@ function setVariantComment(st, vIdx, text) {
   if (v) v.comment = (text || '').trim();
 }
 
+// Jarak kolom 175 (dulu 145): node sekarang melebar ngikutin label penuh, nama solenoid panjang
+// kayak SOL_ST1_RGT_DIV_BWD bisa ~150px - dengan 145 node baru bakal saling tindih pas ditaruh.
 function nextPos(st, vIdx) {
   var idx = motionState[st][vIdx].nodes.length;
-  return { x: 20 + (idx % 4) * 145, y: ANCHOR_TOP_MARGIN + 20 + Math.floor(idx / 4) * 75 };
+  return { x: 20 + (idx % 4) * 175, y: ANCHOR_TOP_MARGIN + 20 + Math.floor(idx / 4) * 75 };
 }
 
 function addMotionNode(st, vIdx, sol) {
@@ -312,6 +413,72 @@ function addMotionNode(st, vIdx, sol) {
   var pos = nextPos(st, vIdx);
   motionState[st][vIdx].nodes.push({ id: id, type: 'motion', sol: sol, after: [], join: 'AND', x: pos.x, y: pos.y });
   return id;
+}
+
+// Blok flowchart non-motion (decision / set memory / reset memory / alarm). Id-nya ikut penomoran
+// yang sama dengan node motion supaya gak pernah tabrakan.
+function addBlockNode(st, vIdx, spec) {
+  ensureStation(st);
+  var key = vKey(st, vIdx);
+  if (!motionCounters[key]) motionCounters[key] = 1;
+  var id = 'n' + (motionCounters[key]++);
+  var pos = nextPos(st, vIdx);
+  var node = { id: id, after: [], join: 'AND', x: pos.x, y: pos.y };
+  Object.keys(spec).forEach(function (k) { node[k] = spec[k]; });
+  motionState[st][vIdx].nodes.push(node);
+  return id;
+}
+
+// ===== Pemilih bit Condition (dropdown) =====
+// Dulu bit Condition diketik manual di input teks: gampang typo, dan user harus inget sendiri bit apa
+// aja yang udah dia bikin di kotak Condition. Sekarang daftarnya ditarik langsung dari conditionState
+// station itu. Opsi ketik-manual tetap disediain, karena `after` node maupun condition varian sah juga
+// nunjuk bit DI LUAR Condition section (sensor, LSC, atau bit warisan dari JSON import).
+function conditionBitOptions(stKey, current) {
+  var out = [], seen = {};
+  (conditionState[stKey] || []).forEach(function (d) {
+    if (!d.bit || seen[d.bit]) return;
+    seen[d.bit] = true;
+    out.push({ value: d.bit, label: d.bit + (d.name ? ' - ' + d.name : '') });
+  });
+  // Nilai yang LAGI kepasang tapi gak ada di daftar (hasil import JSON, atau Condition-nya keburu
+  // dihapus) wajib tetap muncul sebagai opsi. Kalau nggak, select jatuh ke opsi pertama dan diam-diam
+  // ngubah setelan user tiap panel dirender ulang.
+  if (current && !seen[current]) out.push({ value: current, label: current + '  (di luar daftar)' });
+  return out;
+}
+
+var BIT_MANUAL = '(manual)';
+
+// Sengaja cuma dengerin 'change', bukan 'input': handler-nya manggil regenerate(), dan kalau dipasang
+// di 'input' tiap ketikan bakal ngerender ulang panel lalu ngerebut fokus dari kolomnya sendiri.
+function makeBitPicker(stKey, current, emptyLabel, onPick) {
+  var wrap = document.createElement('span');
+  wrap.style.display = 'inline-flex'; wrap.style.gap = '4px'; wrap.style.alignItems = 'center';
+  var sel = document.createElement('select');
+  function opt(v, t) { var o = document.createElement('option'); o.value = v; o.textContent = t; sel.appendChild(o); }
+  opt('', emptyLabel);
+  conditionBitOptions(stKey, current).forEach(function (o) { opt(o.value, o.label); });
+  opt(BIT_MANUAL, 'bit lain (ketik manual)...');
+  sel.value = current || '';
+
+  var manual = document.createElement('input');
+  manual.placeholder = 'nama bit'; manual.style.width = '120px'; manual.style.display = 'none';
+
+  function val() { return sel.value === BIT_MANUAL ? manual.value.trim() : sel.value; }
+  sel.addEventListener('change', function () {
+    var man = sel.value === BIT_MANUAL;
+    manual.style.display = man ? '' : 'none';
+    if (man) { manual.value = ''; manual.focus(); }
+    if (onPick) onPick(val());
+  });
+  manual.addEventListener('change', function () { if (onPick) onPick(val()); });
+
+  wrap.appendChild(sel); wrap.appendChild(manual);
+  return {
+    el: wrap, get: val,
+    reset: function () { sel.value = ''; manual.value = ''; manual.style.display = 'none'; }
+  };
 }
 
 function addConditionNode(st, vIdx, bitName, comment) {
@@ -341,25 +508,30 @@ function findNode(st, vIdx, id) {
 }
 
 // Ada path fromId -> ... -> targetId lewat rantai `after` (dependency)?
+// refBase() dipakai di sini: rujukan cabang "d1#Y" dan "d1#N" itu node yang SAMA buat urusan cycle.
+// Kalau port-nya gak dikupas, d1#Y -> X -> d1#N gak kedeteksi muter padahal jelas muter.
 function hasPath(st, vIdx, fromId, targetId, visited) {
-  if (fromId === targetId) return true;
+  var from = refBase(fromId), target = refBase(targetId);
+  if (from === target) return true;
   visited = visited || {};
-  if (visited[fromId]) return false;
-  visited[fromId] = true;
-  var n = findNode(st, vIdx, fromId);
+  if (visited[from]) return false;
+  visited[from] = true;
+  var n = findNode(st, vIdx, from);
   if (!n || !n.after) return false;
   for (var i = 0; i < n.after.length; i++) {
-    if (hasPath(st, vIdx, n.after[i], targetId, visited)) return true;
+    if (hasPath(st, vIdx, n.after[i], target, visited)) return true;
   }
   return false;
 }
 
 function addEdge(st, vIdx, fromId, toId) {
-  if (fromId === toId) return false;
-  var fi = nodeIndex(st, vIdx, fromId), ti = nodeIndex(st, vIdx, toId);
+  var fromBase = refBase(fromId);
+  if (fromBase === toId) return false;
+  var fi = nodeIndex(st, vIdx, fromBase), ti = nodeIndex(st, vIdx, toId);
   if (fi < 0 || ti < 0) return false;
   var target = motionState[st][vIdx].nodes[ti];
-  if (target.type !== 'motion') return false;
+  // Node "condition" itu SUMBER (penanda bit rujukan), gak pernah jadi tujuan panah.
+  if ((target.type || 'motion') === 'condition') return false;
   if (target.after.indexOf(fromId) >= 0) return false;
   // Cegah cycle: kalau fromId udah (transitif) tergantung ke toId, nambah toId->depends-on->fromId bikin muter.
   if (hasPath(st, vIdx, fromId, toId)) return false;
@@ -376,7 +548,8 @@ function removeEdge(st, vIdx, fromId, toId) {
 function removeNode(st, vIdx, id) {
   var variant = motionState[st][vIdx];
   variant.nodes = variant.nodes.filter(function (n) { return n.id !== id; });
-  variant.nodes.forEach(function (n) { if (n.after) n.after = n.after.filter(function (a) { return a !== id; }); });
+  // Buang juga rujukan cabang "id#Y" / "id#N", bukan cuma yang persis "id"
+  variant.nodes.forEach(function (n) { if (n.after) n.after = n.after.filter(function (a) { return refBase(a) !== id; }); });
   if (selected && selected.stKey === st && selected.vIdx === vIdx && selected.id === id) selected = null;
 }
 
@@ -390,12 +563,46 @@ function moveNode(st, vIdx, id, x, y) {
   if (n) { n.x = Math.max(0, x); n.y = Math.max(0, y); }
 }
 
+// Tipe blok yang boleh muncul di array "nodes" JSON. "condition" sengaja TIDAK di sini - dia bukan
+// blok berung, cuma penanda bit rujukan yang dibangun ulang dari `after`.
+var BLOCK_TYPES = ['motion', 'decision', 'setmem', 'resetmem', 'alarm'];
+var ALARM_CATS = ['emergency', 'autostop', 'cyclestop', 'faultstop', 'warning'];
+var ALARM_CAT_LABEL = { emergency: 'Emergency stop', autostop: 'Auto stop', cyclestop: 'Cycle stop',
+                        faultstop: 'Fault stop', warning: 'Warning' };
+
+// Cabang decision dirujuk "idNode#Y" / "idNode#N". Pemisahnya '#', BUKAN '.', karena alamat bit PLC
+// sendiri pakai titik (mis. "0001.06") - harus sama persis dengan refBase/refPort di gen_all.js.
+function refBase(ref) { var s = String(ref), i = s.indexOf('#'); return i < 0 ? s : s.slice(0, i); }
+function refPort(ref) { var s = String(ref), i = s.indexOf('#'); return i < 0 ? '' : s.slice(i + 1); }
+
 function nodeLabel(n) {
-  var t = n.type === 'condition' ? n.bit : n.sol;
-  t = t.length > 15 ? t.slice(0, 13) + '..' : t;
-  if (n.type === 'condition' && n.comment) t += ' *';
+  var t = n.type || 'motion';
+  if (t === 'condition') return n.bit + (n.comment ? ' *' : '');
+  if (t === 'motion')    return n.sol;
+  if (t === 'decision')  return '? ' + (n.cond || '(bit?)');
+  if (t === 'setmem')    return 'SET ' + (n.bit || '(bit?)');
+  if (t === 'resetmem')  return 'RST ' + (n.bit || '(bit?)');
+  if (t === 'alarm')     return 'ALARM ' + (ALARM_CAT_LABEL[n.category] || n.category || 'faultstop');
   return t;
 }
+
+// Lebar node ngikutin panjang label, gak dipotong lagi. Dulu label dipangkas 15 char jadi
+// "SOL_ST1_STP4_.." - dua stopper beda kelihatan sama persis di canvas, gak bisa dibedain.
+// Font .gnode-text 9px monospace = ~5.4px/char; +16 buat padding kiri-kanan. Minimal tetap
+// NODE_W biar node berlabel pendek gak jadi kotak kecil.
+function nodeW(n) { return Math.max(NODE_W, Math.ceil(nodeLabel(n).length * 5.4) + 16); }
+
+// Titik sambung kabel dipilih dinamis: SISI node yang paling searah ke lawan bicaranya (atas, bawah,
+// kiri, atau kanan), bukan selalu kanan->kiri kayak dulu. Bandingin kemiringan garis pusat-ke-pusat
+// sama kemiringan diagonal node: lebih landai -> sisi kiri/kanan, lebih curam -> sisi atas/bawah.
+// Pakai nodeW(n) bukan NODE_W biar tetap nempel pas node-nya melebar ngikutin label.
+function sideAnchor(n, towardX, towardY) {
+  var w = nodeW(n), cx = n.x + w / 2, cy = n.y + NODE_H / 2;
+  var dx = towardX - cx, dy = towardY - cy;
+  if (Math.abs(dx) * NODE_H >= Math.abs(dy) * w) return { x: dx >= 0 ? n.x + w : n.x, y: cy };
+  return { x: cx, y: dy >= 0 ? n.y + NODE_H : n.y };
+}
+function nodeCenter(n) { return { x: n.x + nodeW(n) / 2, y: n.y + NODE_H / 2 }; }
 
 // ===== Import/Export JSON, buat isi graph tanpa drag-drop manual (mis. hasil AI) =====
 // Format: array varian [{condition, nodes:[{id,sol,after,join}]}] - SAMA PERSIS bentuk yang
@@ -408,19 +615,49 @@ function conditionCommentsOf(v) {
   return out;
 }
 
+// Node "condition" gak ikut array `nodes` (dia dibikin ulang pas import dari `after` yang nggantung),
+// jadi posisinya dititipin di map terpisah - sejajar sama conditionComments.
+function conditionPositionsOf(v) {
+  var out = {};
+  v.nodes.forEach(function (n) {
+    if (n.type === 'condition') out[n.bit] = { x: Math.round(n.x), y: Math.round(n.y) };
+  });
+  return out;
+}
+
+// x/y IKUT diekspor biar export -> import balik lagi ke tata letak yang sama persis. Ini murni buat
+// editor: regenerate() bikin payload-nya sendiri tanpa x/y, jadi gen_all.js tetap gak pernah lihat
+// field ini. Import lama juga tetap jalan - JSON tanpa x/y otomatis jatuh ke auto-layout.
+// Blok flowchart selain "condition" semuanya node beneran yang punya rung sendiri, jadi wajib ikut
+// array `nodes`. Node "condition" TETAP dikecualikan - dia cuma penanda bit rujukan, dibangun ulang
+// pas import dari `after` yang nggantung (posisi+komennya lewat conditionPositions/conditionComments).
+function serializeNode(n) {
+  var t = n.type || 'motion';
+  var out = { id: n.id, type: t, after: (n.after || []).slice(), join: n.join || 'AND',
+              x: Math.round(n.x), y: Math.round(n.y) };
+  if (t === 'motion') out.sol = n.sol;
+  else if (t === 'decision') { out.cond = n.cond || ''; out.comment = n.comment || ''; }
+  else if (t === 'setmem' || t === 'resetmem') { out.bit = n.bit || ''; out.comment = n.comment || ''; }
+  else if (t === 'alarm') { out.category = n.category || 'faultstop'; out.comment = n.comment || ''; }
+  return out;
+}
+
 function variantsToJSON(stKey) {
   var variants = (motionState[stKey] || []).map(function (v) {
-    var motionNodes = v.nodes.filter(function (n) { return n.type === 'motion'; });
+    var motionNodes = v.nodes.filter(function (n) { return (n.type || 'motion') !== 'condition'; });
     return {
       condition: v.condition || '',
       comment: v.comment || '',
       conditionComments: conditionCommentsOf(v),
-      nodes: motionNodes.map(function (n) { return { id: n.id, sol: n.sol, after: n.after.slice(), join: n.join }; })
+      conditionPositions: conditionPositionsOf(v),
+      nodes: motionNodes.map(serializeNode)
     };
   });
   return JSON.stringify(variants, null, 2);
 }
 
+// CADANGAN doang sekarang: cuma kepanggil kalau JSON-nya gak bawa x/y (mis. JSON tulisan tangan atau
+// hasil AI). JSON dari tombol Export selalu bawa posisi, jadi tata letaknya dipertahankan apa adanya.
 // Posisi node hasil import JSON dulu ngikutin urutan array MENTAH di JSON-nya (grid 4 kolom) - kalau
 // urutan array gak ngikutin urutan dependency (`after`), gambarnya berantakan (panah nyilang-nyilang,
 // gak kebaca step-nya). Sekarang posisi dihitung dari KEDALAMAN topologi (depth = berapa hop `after`
@@ -444,7 +681,7 @@ function layoutVariantNodes(nodes) {
   nodes.forEach(visit);
   var COLS = 4;
   order.forEach(function (n, idx) {
-    n.x = 20 + (idx % COLS) * 145;
+    n.x = 20 + (idx % COLS) * 175;
     n.y = ANCHOR_TOP_MARGIN + 20 + Math.floor(idx / COLS) * 90;
   });
 }
@@ -460,27 +697,64 @@ function importSequenceJSON(stKey, jsonText) {
     var raw = parsed[vi] || {};
     if (!Array.isArray(raw.nodes)) return 'Varian ke-' + (vi + 1) + ' butuh field "nodes" (array)';
     var v = { condition: String(raw.condition || '').trim(), comment: String(raw.comment || '').trim(), nodes: [] };
+    var allPositioned = true; // turun jadi false begitu ada satu node tanpa x/y valid
     for (var ni = 0; ni < raw.nodes.length; ni++) {
       var n = raw.nodes[ni] || {};
-      if (!n.id || !n.sol) return 'Varian ke-' + (vi + 1) + ' node ke-' + (ni + 1) + ' butuh "id" dan "sol"';
+      var where = 'Varian ke-' + (vi + 1) + ' node ke-' + (ni + 1);
+      var t = n.type || 'motion';   // JSON lama gak punya "type" - semuanya motion
+      if (!n.id) return where + ' butuh "id"';
+      if (BLOCK_TYPES.indexOf(t) < 0) return where + ' (' + n.id + ') punya type "' + t + '" yang gak dikenal (' + BLOCK_TYPES.join('/') + ')';
+      if (t === 'motion' && !n.sol) return where + ' bertipe motion, butuh "sol"';
+      if (t === 'decision' && !n.cond) return where + ' bertipe decision, butuh "cond" (bit yang dicek)';
+      if ((t === 'setmem' || t === 'resetmem') && !n.bit) return where + ' bertipe ' + t + ', butuh "bit"';
       if (n.join !== undefined && n.join !== 'AND' && n.join !== 'OR') {
         return 'Varian ke-' + (vi + 1) + ' node "' + n.id + '": "join" harus persis "AND" atau "OR" (ketemu ' + JSON.stringify(n.join) + ')';
       }
-      v.nodes.push({
-        id: String(n.id), type: 'motion', sol: String(n.sol),
+      var px = Number(n.x), py = Number(n.y);
+      var hasXY = isFinite(px) && isFinite(py);
+      if (!hasXY) allPositioned = false;
+      var node = {
+        id: String(n.id), type: t,
         after: Array.isArray(n.after) ? n.after.map(String) : [],
-        join: n.join === 'OR' ? 'OR' : 'AND', x: 0, y: 0
-      });
+        join: n.join === 'OR' ? 'OR' : 'AND',
+        x: hasXY ? Math.max(0, px) : 0, y: hasXY ? Math.max(0, py) : 0
+      };
+      if (t === 'motion') node.sol = String(n.sol);
+      else if (t === 'decision') { node.cond = String(n.cond); node.comment = String(n.comment || '').trim(); }
+      else if (t === 'setmem' || t === 'resetmem') { node.bit = String(n.bit); node.comment = String(n.comment || '').trim(); }
+      else if (t === 'alarm') {
+        node.category = ALARM_CATS.indexOf(n.category) >= 0 ? n.category : 'faultstop';
+        node.comment = String(n.comment || '').trim();
+      }
+      v.nodes.push(node);
     }
     // auto-bikin node "condition" buat tiap `after` yang gak match id node motion manapun di varian ini
     var motionIds = {}; v.nodes.forEach(function (n) { motionIds[n.id] = true; });
     var extraBits = [];
-    v.nodes.forEach(function (n) { n.after.forEach(function (ref) { if (!motionIds[ref] && extraBits.indexOf(ref) < 0) extraBits.push(ref); }); });
-    var cc = (raw.conditionComments && typeof raw.conditionComments === 'object') ? raw.conditionComments : {};
-    extraBits.forEach(function (bit) {
-      v.nodes.push({ id: bit, type: 'condition', bit: bit, comment: String(cc[bit] || '').trim(), x: 0, y: 0 });
+    // refBase() WAJIB dipakai di sini: rujukan cabang decision bentuknya "d1#Y". Tanpa dikupas
+    // port-nya, "d1#Y" gak match id node manapun dan bakal disalahartikan jadi bit condition -
+    // muncul node hantu bernama "d1#Y" di kanvas.
+    v.nodes.forEach(function (n) {
+      n.after.forEach(function (ref) {
+        var b = refBase(ref);
+        if (!motionIds[b] && extraBits.indexOf(b) < 0) extraBits.push(b);
+      });
     });
-    layoutVariantNodes(v.nodes);
+    var cc = (raw.conditionComments && typeof raw.conditionComments === 'object') ? raw.conditionComments : {};
+    var cp = (raw.conditionPositions && typeof raw.conditionPositions === 'object') ? raw.conditionPositions : {};
+    extraBits.forEach(function (bit) {
+      var p = cp[bit] || {};
+      var bx = Number(p.x), by = Number(p.y);
+      var okXY = isFinite(bx) && isFinite(by);
+      if (!okXY) allPositioned = false;
+      v.nodes.push({
+        id: bit, type: 'condition', bit: bit, comment: String(cc[bit] || '').trim(),
+        x: okXY ? Math.max(0, bx) : 0, y: okXY ? Math.max(0, by) : 0
+      });
+    });
+    // Auto-layout cuma kalau ada node yang posisinya gak kebawa. Sekali ada yang hilang, SELURUH varian
+    // ditata ulang - jangan campur posisi asli sama hasil hitungan, itu malah numpuk di titik acak.
+    if (!allPositioned) layoutVariantNodes(v.nodes);
     newVariants.push(v);
   }
 
@@ -614,9 +888,10 @@ function regenerate() {
   Object.keys(motionState).forEach(function (st) {
     var variants = motionState[st]
       .map(function (v) {
-        var motionNodes = v.nodes.filter(function (n) { return n.type === 'motion'; });
+        var motionNodes = v.nodes.filter(function (n) { return (n.type || 'motion') !== 'condition'; });
         return { condition: v.condition || '', comment: v.comment || '', conditionComments: conditionCommentsOf(v), nodes: motionNodes.map(function (n) {
-          return { id: n.id, sol: n.sol, after: n.after.slice(), join: n.join };
+          // x/y sengaja dibuang di sini - generator gak perlu tata letak, itu murni data editor
+          var s = serializeNode(n); delete s.x; delete s.y; return s;
         }) };
       })
       .filter(function (v) { return v.nodes.length; });
@@ -653,15 +928,19 @@ function renderVariantGraph(stKey, vIdx) {
   var variant = motionState[stKey][vIdx];
   var nodes = variant.nodes;
   var key = vKey(stKey, vIdx);
-  var maxY = 40;
-  nodes.forEach(function (n) { if (n.y + NODE_H > maxY) maxY = n.y + NODE_H; });
+  var maxY = 40, maxX = 0;
+  nodes.forEach(function (n) {
+    if (n.y + NODE_H > maxY) maxY = n.y + NODE_H;
+    if (n.x + nodeW(n) > maxX) maxX = n.x + nodeW(n);
+  });
 
   // Node "Start"/"Finish" - MURNI visual, dihitung tiap render dari graph SEKARANG, gak disimpen di
   // state/JSON, gak bisa diklik/geser/hapus. Start nyambung ke tiap node motion yang gak nunjuk node
   // motion lain (root), Finish nyambung DARI tiap node motion yang gak ada yang nunjuk dia (leaf) -
   // biar kelihatan jelas dari mana mulai dan kemana berakhirnya sequence-nya. Lingkaran kecil (logo
-  // flowchart terminal biasa), port di ATAS/BAWAH (vertikal) - bukan kiri/kanan kayak kabel antar-node
-  // biasa (horizontal) - biar dua jenis kabel gak numpuk/nyilang di port yang sama.
+  // flowchart terminal biasa). Titik sambungnya ikut sideAnchor kayak kabel antar-node: karena Start
+  // selalu di atas dan Finish di bawah, sisi yang kepilih ya tetap atas/bawah - tapi sekarang nempel
+  // ke sisi terdekat kalau node-nya digeser jauh ke samping, gak lagi maksa ke tengah atas/bawah.
   var nodeIds = {}; nodes.forEach(function (n) { nodeIds[n.id] = true; });
   var referencedIds = {};
   nodes.forEach(function (n) { (n.after || []).forEach(function (ref) { if (nodeIds[ref]) referencedIds[ref] = true; }); });
@@ -671,13 +950,13 @@ function renderVariantGraph(stKey, vIdx) {
   var fallbackSources = leaves.length ? leaves : nodes.filter(function (n) { return n.type === 'motion'; });
   function avgCenterX(list, fallbackX) {
     if (!list.length) return fallbackX;
-    var sum = 0; list.forEach(function (n) { sum += n.x + NODE_W / 2; });
+    var sum = 0; list.forEach(function (n) { sum += nodeCenter(n).x; });
     return sum / list.length;
   }
   var startAnchor = { x: avgCenterX(fallbackTargets, 20 + NODE_W / 2) - ANCHOR_R, y: 18 - ANCHOR_R };
   var finishAnchor = { x: avgCenterX(fallbackSources, 20 + NODE_W / 2) - ANCHOR_R, y: maxY + 22 };
 
-  var svg = svgEl('svg', { class: 'graph-canvas', width: 620, height: Math.max(160, finishAnchor.y + ANCHOR_R * 2 + 30) });
+  var svg = svgEl('svg', { class: 'graph-canvas', width: Math.max(620, maxX + 40), height: Math.max(160, finishAnchor.y + ANCHOR_R * 2 + 30) });
   var markerId = 'arrow-' + stKey + '-' + vIdx;
   var defs = svgEl('defs');
   var marker = svgEl('marker', { id: markerId, markerWidth: 8, markerHeight: 8, refX: 7, refY: 4, orient: 'auto' });
@@ -686,14 +965,16 @@ function renderVariantGraph(stKey, vIdx) {
   svg.appendChild(defs);
 
   function anchorEdgeDown(fromCx, fromCy, toNode) {
+    var p = sideAnchor(toNode, fromCx, fromCy);
     svg.appendChild(svgEl('line', {
-      class: 'gedge-line anchor', x1: fromCx, y1: fromCy, x2: toNode.x + NODE_W / 2, y2: toNode.y,
+      class: 'gedge-line anchor', x1: fromCx, y1: fromCy, x2: p.x, y2: p.y,
       'marker-end': 'url(#' + markerId + ')'
     }));
   }
   function anchorEdgeUp(fromNode, toCx, toCy) {
+    var p = sideAnchor(fromNode, toCx, toCy);
     svg.appendChild(svgEl('line', {
-      class: 'gedge-line anchor', x1: fromNode.x + NODE_W / 2, y1: fromNode.y + NODE_H, x2: toCx, y2: toCy,
+      class: 'gedge-line anchor', x1: p.x, y1: p.y, x2: toCx, y2: toCy,
       'marker-end': 'url(#' + markerId + ')'
     }));
   }
@@ -713,14 +994,17 @@ function renderVariantGraph(stKey, vIdx) {
   fallbackSources.forEach(function (n) { anchorEdgeUp(n, finishC.cx, finishC.cy - ANCHOR_R); });
 
   nodes.forEach(function (n) {
-    if (n.type !== 'motion') return;
+    if ((n.type || 'motion') === 'condition') return;
     (n.after || []).forEach(function (fromId) {
-      var from = findNode(stKey, vIdx, fromId);
+      // fromId bisa "d1#Y" - node sumbernya tetap "d1"
+      var from = findNode(stKey, vIdx, refBase(fromId));
       if (!from) return;
       var isSel = selected && selected.kind === 'edge' && selected.stKey === stKey && selected.vIdx === vIdx &&
         selected.fromId === fromId && selected.toId === n.id;
+      var p1 = sideAnchor(from, nodeCenter(n).x, nodeCenter(n).y);
+      var p2 = sideAnchor(n, nodeCenter(from).x, nodeCenter(from).y);
       var line = svgEl('line', {
-        class: 'gedge-line' + (isSel ? ' selected' : ''), x1: from.x + NODE_W, y1: from.y + NODE_H / 2, x2: n.x, y2: n.y + NODE_H / 2,
+        class: 'gedge-line' + (isSel ? ' selected' : ''), x1: p1.x, y1: p1.y, x2: p2.x, y2: p2.y,
         'marker-end': 'url(#' + markerId + ')'
       });
       line.addEventListener('click', function (ev) {
@@ -735,8 +1019,9 @@ function renderVariantGraph(stKey, vIdx) {
   if (dragState && dragState.mode === 'connect' && dragState.stKey === stKey && dragState.vIdx === vIdx) {
     var src = findNode(stKey, vIdx, dragState.fromId);
     if (src) {
+      var sp = sideAnchor(src, dragState.x, dragState.y);
       svg.appendChild(svgEl('line', {
-        class: 'gtemp-line', x1: src.x + NODE_W, y1: src.y + NODE_H / 2, x2: dragState.x, y2: dragState.y
+        class: 'gtemp-line', x1: sp.x, y1: sp.y, x2: dragState.x, y2: dragState.y
       }));
     }
   }
@@ -749,7 +1034,9 @@ function renderVariantGraph(stKey, vIdx) {
       var titleEl = svgEl('title'); titleEl.textContent = n.comment; g.appendChild(titleEl);
     }
 
-    var rect = svgEl('rect', { class: 'gnode-rect' + (n.type === 'condition' ? ' condition' : '') + (isSelNode ? ' selected' : ''), width: NODE_W, height: NODE_H, rx: 6 });
+    var w = nodeW(n);
+    var ntype = n.type || 'motion';
+    var rect = svgEl('rect', { class: 'gnode-rect' + (ntype === 'motion' ? '' : ' ' + ntype) + (isSelNode ? ' selected' : ''), width: w, height: NODE_H, rx: 6 });
     rect.addEventListener('mousedown', function (ev) {
       ev.stopPropagation();
       selected = { stKey: stKey, vIdx: vIdx, kind: 'node', id: n.id };
@@ -763,25 +1050,36 @@ function renderVariantGraph(stKey, vIdx) {
     text.textContent = nodeLabel(n);
     g.appendChild(text);
 
-    var delC = svgEl('circle', { class: 'gnode-del', cx: NODE_W, cy: 0, r: 7 });
+    var delC = svgEl('circle', { class: 'gnode-del', cx: w, cy: 0, r: 7 });
     delC.addEventListener('mousedown', function (ev) { ev.stopPropagation(); });
     delC.addEventListener('click', function (ev) {
       ev.stopPropagation(); removeNode(stKey, vIdx, n.id); renderMotionPanel(); regenerate();
     });
     g.appendChild(delC);
-    var delT = svgEl('text', { class: 'gnode-del-text', x: NODE_W, y: 3 });
+    var delT = svgEl('text', { class: 'gnode-del-text', x: w, y: 3 });
     delT.textContent = 'x';
     g.appendChild(delT);
 
-    var handle = svgEl('circle', { class: 'gnode-handle', cx: NODE_W, cy: NODE_H / 2, r: 6 });
-    handle.addEventListener('mousedown', function (ev) {
-      ev.stopPropagation();
-      dragState = { mode: 'connect', stKey: stKey, vIdx: vIdx, fromId: n.id, x: n.x + NODE_W, y: n.y + NODE_H / 2 };
-    });
-    g.appendChild(handle);
+    // Blok decision punya DUA port keluar: Y (kanan, kuning) dan N (bawah, abu). Tiap port nyeret
+    // rujukan "id#Y"/"id#N" - itu yang bikin generator tau cabang mana yang nyambung ke node hilir.
+    function addHandle(port, hx, hy) {
+      var h = svgEl('circle', { class: 'gnode-handle' + (port === 'N' ? ' port-n' : ''), cx: hx, cy: hy, r: 6 });
+      h.addEventListener('mousedown', function (ev) {
+        ev.stopPropagation();
+        dragState = { mode: 'connect', stKey: stKey, vIdx: vIdx, fromId: n.id + (port ? '#' + port : ''),
+                      x: n.x + hx, y: n.y + hy };
+      });
+      g.appendChild(h);
+      if (port) {
+        var pt = svgEl('text', { class: 'gport-text', x: hx, y: hy + 3 });
+        pt.textContent = port; g.appendChild(pt);
+      }
+    }
+    if (ntype === 'decision') { addHandle('Y', w, NODE_H / 2); addHandle('N', w / 2, NODE_H); }
+    else { addHandle('', w, NODE_H / 2); }
 
-    if (n.type === 'motion' && (n.after || []).length >= 2) {
-      var badgeG = svgEl('g', { class: 'gjoin-badge', transform: 'translate(' + (NODE_W / 2 - 16) + ',' + (NODE_H + 4) + ')' });
+    if (ntype !== 'condition' && (n.after || []).length >= 2) {
+      var badgeG = svgEl('g', { class: 'gjoin-badge', transform: 'translate(' + (w / 2 - 16) + ',' + (NODE_H + 4) + ')' });
       badgeG.appendChild(svgEl('rect', { width: 32, height: 14, rx: 3 }));
       var badgeText = svgEl('text', { x: 16, y: 10 });
       badgeText.textContent = n.join === 'OR' ? 'OR' : 'AND';
@@ -825,7 +1123,7 @@ function onDocMouseUp(ev) {
       var mx = ev.clientX - bb.left, my = ev.clientY - bb.top;
       var nodes = motionState[dragState.stKey][dragState.vIdx].nodes;
       var target = nodes.filter(function (n) {
-        return mx >= n.x && mx <= n.x + NODE_W && my >= n.y && my <= n.y + NODE_H;
+        return mx >= n.x && mx <= n.x + nodeW(n) && my >= n.y && my <= n.y + NODE_H;
       })[0];
       if (target) addEdge(dragState.stKey, dragState.vIdx, dragState.fromId, target.id);
     }
@@ -872,14 +1170,16 @@ function renderMotionPanel() {
       // Isi bit Condition section (LB300, LB301, ...), BUKAN coil latch varian-nya (LB401, LB402, ...) -
       // coil latch dibikin otomatis oleh generator; kalau diketik coil-nya sendiri, generator remap
       // balik ke LB30x + kasih warning (latch gak bisa nge-trigger dirinya sendiri).
-      var condInput = document.createElement('input'); condInput.placeholder = '(kosong = selalu aktif, mis. LB300)'; condInput.title = 'Bit Condition section (LB300, LB301, ...) yang nge-select varian ini. Jangan diisi LB401/LB402 - itu coil latch yang dibikin otomatis.'; condInput.value = variant.condition;
-      condInput.addEventListener('change', function () { setVariantCondition(stKey, vIdx, condInput.value); regenerate(); });
+      var condPick = makeBitPicker(stKey, variant.condition, '(kosong = selalu aktif)', function (val) {
+        setVariantCondition(stKey, vIdx, val); regenerate();
+      });
+      condPick.el.title = 'Bit Condition section (LB300, LB301, ...) yang nge-select varian ini. Jangan diisi LB401/LB402 - itu coil latch yang dibikin otomatis.';
       var cmtLbl = document.createElement('b'); cmtLbl.textContent = 'Comment:'; cmtLbl.style.marginLeft = '8px';
       var cmtInput = document.createElement('input'); cmtInput.placeholder = '(nama/keterangan varian, muncul di JSON+XML)'; cmtInput.value = variant.comment || ''; cmtInput.style.width = '220px';
       cmtInput.addEventListener('change', function () { setVariantComment(stKey, vIdx, cmtInput.value); regenerate(); });
       var rmV = document.createElement('button'); rmV.className = 'rm-variant'; rmV.textContent = 'Remove variant';
       rmV.addEventListener('click', function () { removeVariant(stKey, vIdx); renderMotionPanel(); regenerate(); });
-      head.appendChild(lbl); head.appendChild(condInput); head.appendChild(cmtLbl); head.appendChild(cmtInput); head.appendChild(rmV);
+      head.appendChild(lbl); head.appendChild(condPick.el); head.appendChild(cmtLbl); head.appendChild(cmtInput); head.appendChild(rmV);
       vbox.appendChild(head);
 
       var toolbar = document.createElement('div'); toolbar.className = 'graph-toolbar';
@@ -888,16 +1188,63 @@ function renderMotionPanel() {
         btn.addEventListener('click', function () { addMotionNode(stKey, vIdx, n); renderMotionPanel(); regenerate(); });
         toolbar.appendChild(btn);
       });
-      var condBitInput = document.createElement('input'); condBitInput.placeholder = 'LB300 / bit lain';
       var condCmtInput = document.createElement('input'); condCmtInput.placeholder = 'komen bit ini (opsional)'; condCmtInput.style.width = '160px';
+      // Pilih Condition yang udah dibikin -> komennya ikut keisi dari nama Condition-nya, selama user
+      // belum ngetik komen sendiri (jangan nimpa yang udah diketik).
+      var condNodePick = makeBitPicker(stKey, '', '-- pilih condition --', function (val) {
+        if (condCmtInput.value.trim()) return;
+        var def = (conditionState[stKey] || []).filter(function (d) { return d.bit === val; })[0];
+        if (def && def.name) condCmtInput.value = def.name;
+      });
       var condBtn = document.createElement('button'); condBtn.className = 'add-cond'; condBtn.textContent = '+ Condition/bit';
       condBtn.addEventListener('click', function () {
-        if (addConditionNode(stKey, vIdx, condBitInput.value, condCmtInput.value)) {
-          condBitInput.value = ''; condCmtInput.value = ''; renderMotionPanel(); regenerate();
+        if (addConditionNode(stKey, vIdx, condNodePick.get(), condCmtInput.value)) {
+          condNodePick.reset(); condCmtInput.value = ''; renderMotionPanel(); regenerate();
         }
       });
-      toolbar.appendChild(condBitInput); toolbar.appendChild(condCmtInput); toolbar.appendChild(condBtn);
+      toolbar.appendChild(condNodePick.el); toolbar.appendChild(condCmtInput); toolbar.appendChild(condBtn);
       vbox.appendChild(toolbar);
+
+      // ===== Baris blok flowchart: IF-ELSE / SET / RESET / ALARM =====
+      // Bit yang dipakai (kondisi judgement, target memory) dipilih lewat dropdown yang sama dengan
+      // Condition - jadi sensor, bit Condition, atau bit custom semuanya bisa dipakai.
+      var blockBar = document.createElement('div'); blockBar.className = 'graph-toolbar';
+      var blkLbl = document.createElement('b'); blkLbl.textContent = 'Blok:'; blkLbl.style.fontSize = '11px';
+      blockBar.appendChild(blkLbl);
+
+      var blkPick = makeBitPicker(stKey, '', '-- pilih bit --', null);
+      var blkCmt = document.createElement('input'); blkCmt.placeholder = 'komen blok (opsional)'; blkCmt.style.width = '150px';
+      blockBar.appendChild(blkPick.el); blockBar.appendChild(blkCmt);
+
+      function addBlk(spec, needBit) {
+        var bit = blkPick.get();
+        if (needBit && !bit) { window.alert('Pilih dulu bit-nya di dropdown "-- pilih bit --".'); return; }
+        spec.comment = blkCmt.value.trim();
+        addBlockNode(stKey, vIdx, spec);
+        blkPick.reset(); blkCmt.value = '';
+        renderMotionPanel(); regenerate();
+      }
+      function blkBtn(label, title, cls, fn) {
+        var b = document.createElement('button'); b.className = cls; b.textContent = label; b.title = title;
+        b.addEventListener('click', fn); blockBar.appendChild(b);
+      }
+      blkBtn('+ IF/ELSE', 'Blok judgement: satu masuk, dua keluar (port Y kanan, port N bawah)', 'add-cond',
+        function () { addBlk({ type: 'decision', cond: blkPick.get() }, true); });
+      blkBtn('+ SET mem', 'Set bit memory (latch, bertahan sampai di-reset)', 'add-cond',
+        function () { addBlk({ type: 'setmem', bit: blkPick.get() }, true); });
+      blkBtn('+ RESET mem', 'Reset bit memory', 'add-cond',
+        function () { addBlk({ type: 'resetmem', bit: blkPick.get() }, true); });
+
+      var alarmSel = document.createElement('select');
+      ALARM_CATS.forEach(function (c) {
+        var o = document.createElement('option'); o.value = c; o.textContent = ALARM_CAT_LABEL[c]; alarmSel.appendChild(o);
+      });
+      alarmSel.value = 'faultstop';
+      blockBar.appendChild(alarmSel);
+      blkBtn('+ ALARM', 'Trigger alarm: dapat slot AL[] otomatis dan masuk grup kategori yang dipilih', 'add-cond',
+        function () { addBlk({ type: 'alarm', category: alarmSel.value }, false); });
+
+      vbox.appendChild(blockBar);
 
       vbox.appendChild(renderVariantGraph(stKey, vIdx));
 
@@ -928,18 +1275,16 @@ function renderMotionPanel() {
     jsonLabel.textContent = 'Import/Export JSON (array varian)';
     var jsonTa = document.createElement('textarea');
     jsonTa.placeholder = '[{"condition":"","comment":"","nodes":[{"id":"n1","sol":"' + (names[0] || 'SOL_...') + '","after":[],"join":"AND"}]}]';
-    var jsonRow = document.createElement('div'); jsonRow.className = 'row';
     var jsonMsg = document.createElement('div'); jsonMsg.className = 'json-msg';
-    var importBtn = document.createElement('button'); importBtn.className = 'json-import'; importBtn.textContent = 'Import JSON';
-    importBtn.addEventListener('click', function () {
-      var err = importSequenceJSON(stKey, jsonTa.value);
-      if (err) { jsonMsg.className = 'json-msg err'; jsonMsg.textContent = err; return; }
-      jsonMsg.className = 'json-msg ok'; jsonMsg.textContent = 'Imported.';
-      renderMotionPanel(); regenerate();
-    });
-    var exportBtn = document.createElement('button'); exportBtn.className = 'json-export'; exportBtn.textContent = 'Export JSON';
-    exportBtn.addEventListener('click', function () { jsonTa.value = variantsToJSON(stKey); jsonMsg.className = 'json-msg'; jsonMsg.textContent = ''; });
-    jsonRow.appendChild(importBtn); jsonRow.appendChild(exportBtn);
+    var jsonRow = buildJsonIORow(jsonTa, jsonMsg,
+      function () { return variantsToJSON(stKey); },
+      function (text) {
+        var err = importSequenceJSON(stKey, text);
+        if (err) return err;
+        renderMotionPanel(); regenerate();
+        return null;
+      },
+      'motion-' + stKey + '.json');
     jsonBox.appendChild(jsonLabel); jsonBox.appendChild(jsonTa); jsonBox.appendChild(jsonRow); jsonBox.appendChild(jsonMsg);
     box.appendChild(jsonBox);
 
@@ -974,12 +1319,15 @@ function renderConditionPanel() {
       var head = document.createElement('div'); head.className = 'variant-head';
       var nameLbl = document.createElement('b'); nameLbl.textContent = 'Condition ' + (di + 1) + ' - Name:';
       var nameInput = document.createElement('input'); nameInput.placeholder = 'mis. P&P Take Out Lowering Auto Start Condition'; nameInput.value = def.name; nameInput.style.width = '260px';
-      nameInput.addEventListener('change', function () { setConditionDefName(stKey, di, nameInput.value); regenerate(); });
+      // renderMotionPanel() ikut dipanggil: dropdown Condition di panel Motion ngambil isinya dari
+      // conditionState, jadi tiap nama/bit berubah daftarnya harus dibangun ulang biar gak basi.
+      // Aman dari rebutan fokus - yang dirender ulang panel Motion, bukan panel Condition ini.
+      nameInput.addEventListener('change', function () { setConditionDefName(stKey, di, nameInput.value); renderMotionPanel(); regenerate(); });
       var bitLbl = document.createElement('b'); bitLbl.textContent = 'Bit:'; bitLbl.style.marginLeft = '8px';
       var bitInput = document.createElement('input'); bitInput.placeholder = '(kosong = auto LB30' + di + ')'; bitInput.value = def.bit;
-      bitInput.addEventListener('change', function () { setConditionDefBit(stKey, di, bitInput.value); regenerate(); });
+      bitInput.addEventListener('change', function () { setConditionDefBit(stKey, di, bitInput.value); renderMotionPanel(); regenerate(); });
       var rmD = document.createElement('button'); rmD.className = 'rm-variant'; rmD.textContent = 'Remove condition';
-      rmD.addEventListener('click', function () { removeConditionDef(stKey, di); renderConditionPanel(); regenerate(); });
+      rmD.addEventListener('click', function () { removeConditionDef(stKey, di); renderConditionPanel(); renderMotionPanel(); regenerate(); });
       head.appendChild(nameLbl); head.appendChild(nameInput); head.appendChild(bitLbl); head.appendChild(bitInput); head.appendChild(rmD);
       dbox.appendChild(head);
 
@@ -1033,18 +1381,16 @@ function renderConditionPanel() {
     jsonLabel.textContent = 'Import/Export JSON (array condition)';
     var jsonTa = document.createElement('textarea');
     jsonTa.placeholder = '[{"name":"","bit":"","groups":[[{"bit":"LB206","neg":false}]]}]';
-    var jsonRow = document.createElement('div'); jsonRow.className = 'row';
     var jsonMsg = document.createElement('div'); jsonMsg.className = 'json-msg';
-    var importBtn = document.createElement('button'); importBtn.className = 'json-import'; importBtn.textContent = 'Import JSON';
-    importBtn.addEventListener('click', function () {
-      var err = importConditionJSON(stKey, jsonTa.value);
-      if (err) { jsonMsg.className = 'json-msg err'; jsonMsg.textContent = err; return; }
-      jsonMsg.className = 'json-msg ok'; jsonMsg.textContent = 'Imported.';
-      renderConditionPanel(); regenerate();
-    });
-    var exportBtn = document.createElement('button'); exportBtn.className = 'json-export'; exportBtn.textContent = 'Export JSON';
-    exportBtn.addEventListener('click', function () { jsonTa.value = conditionDefsToJSON(stKey); jsonMsg.className = 'json-msg'; jsonMsg.textContent = ''; });
-    jsonRow.appendChild(importBtn); jsonRow.appendChild(exportBtn);
+    var jsonRow = buildJsonIORow(jsonTa, jsonMsg,
+      function () { return conditionDefsToJSON(stKey); },
+      function (text) {
+        var err = importConditionJSON(stKey, text);
+        if (err) return err;
+        renderConditionPanel(); renderMotionPanel(); regenerate();
+        return null;
+      },
+      'condition-' + stKey + '.json');
     jsonBox.appendChild(jsonLabel); jsonBox.appendChild(jsonTa); jsonBox.appendChild(jsonRow); jsonBox.appendChild(jsonMsg);
     box.appendChild(jsonBox);
 
@@ -1229,16 +1575,14 @@ timerMotionEl = document.getElementById('timerMotion');
 timerPhpxEl.addEventListener('change', function () { if (lastSplitMsg) regenerate(); });
 timerMotionEl.addEventListener('change', function () { if (lastSplitMsg) regenerate(); });
 document.getElementById('genBtn').addEventListener('click', runFullPipeline);
-document.getElementById('projectExportBtn').addEventListener('click', function () {
-  document.getElementById('projectJsonTa').value = exportProjectJSON();
-  var m = document.getElementById('projectJsonMsg'); m.className = 'json-msg'; m.textContent = '';
-});
-document.getElementById('projectImportBtn').addEventListener('click', function () {
-  var m = document.getElementById('projectJsonMsg');
-  var err = importProjectJSON(document.getElementById('projectJsonTa').value);
-  if (err) { m.className = 'json-msg err'; m.textContent = err; return; }
-  m.className = 'json-msg ok'; m.textContent = 'Imported.';
-});
+(function () {
+  var ta = document.getElementById('projectJsonTa');
+  var msg = document.getElementById('projectJsonMsg');
+  var row = buildJsonIORow(ta, msg, exportProjectJSON, function (text) {
+    return importProjectJSON(text);
+  }, 'project-susmax.json');
+  document.getElementById('projectJsonRow').appendChild(row);
+})();
 document.addEventListener('mousemove', onDocMouseMove);
 document.addEventListener('mouseup', onDocMouseUp);
 document.addEventListener('keydown', onDocKeyDown);
