@@ -26,9 +26,16 @@ sisanya masuk ke program MAIN.
 
 ```bash
 python3 scripts/build_html.py           # -> index.html standalone, tinggal dibuka di browser
-node scripts/test.js                    # jalankan seluruh pipeline + validasi hasil
+node tests/run.js                       # SELURUH suite: pipeline + harness per-area
 node scripts/core.js project.json out/  # generate dari CLI, tanpa browser
 ```
+
+`tests/run.js` membaca `index.html`, jadi build dulu baru test kalau yang diubah
+ada di `scripts/build_html.py`.
+
+Sebelum mengubah kode, baca **[CLAUDE.md](CLAUDE.md)** - berisi jebakan yang tidak
+kelihatan dari kode (escape Python di template, aturan seal contact, kontrak kode
+warning). Daftar pekerjaan yang belum selesai ada di **[TODO.md](TODO.md)**.
 
 `index.html` menempel semua logic `js/*.js` jadi satu file lewat `build_html.py` -
 tempel IO list, klik Generate, download hasilnya. Jangan edit `index.html`
@@ -266,7 +273,9 @@ kecek manual - kepercayaan cocoknya lemah, gampang salah pasang device mirip.
 | `js/gen_all.js` | Pembangkit seluruh program |
 | `scripts/build_html.py` | Perakit `index.html` standalone |
 | `scripts/core.js` | Runner pipeline headless (modul + CLI) |
-| `scripts/test.js` | Uji jalan dan validasi |
+| `scripts/test.js` | Uji pipeline end-to-end |
+| `tests/run.js` | Penjalan seluruh suite |
+| `tests/*.test.js` | Harness per-area (editor, warning, array, blok, JSON, grid IO) |
 | `index.html` | Hasil build, jangan diedit langsung |
 
 ## Uji yang dijalankan `test.js`
