@@ -99,6 +99,7 @@ HTML = '''<!doctype html>
   .gnode-rect.alarm{fill:#b91c1c;stroke:#8f1717}
   .gnode-handle.port-n{fill:#e5e7eb}
   .gport-text{font-size:8px;fill:#111;font-family:Consolas,monospace;pointer-events:none;text-anchor:middle}
+  .graph-hint{font-size:11px;color:#8a4008;background:#fff7ed;border:1px solid #fed7aa;border-radius:4px;padding:5px 8px;margin-top:4px}
   .gnode-rect.selected{stroke:#f1c40f;stroke-width:3}
   .gnode-rect.anchor{fill:#37424f;stroke:#232a33;cursor:move;rx:14}
   .gedge-line.anchor{stroke:#9aa3ad;stroke-dasharray:3,2}
@@ -458,6 +459,10 @@ function conditionBitOptions(stKey, current) {
 }
 
 var BIT_MANUAL = '(manual)';
+
+// Pesan sekali-pakai di bawah kanvas varian tertentu, mis. alasan sambungan ditolak.
+// Bentuknya {key: vKey, text}. Dibersihin tiap kali ada aksi sambung berikutnya.
+var graphHint = null;
 
 // Sengaja cuma dengerin 'change', bukan 'input': handler-nya manggil regenerate(), dan kalau dipasang
 // di 'input' tiap ketikan bakal ngerender ulang panel lalu ngerebut fokus dari kolomnya sendiri.
@@ -1118,9 +1123,20 @@ function renderVariantGraph(stKey, vIdx) {
     var isSelNode = selected && selected.kind === 'node' && selected.stKey === stKey && selected.vIdx === vIdx && selected.id === n.id;
 
     // Tooltip buat SEMUA blok berkomen, bukan cuma condition - berguna kalau komennya panjang dan
-    // label di kanvas jadi lebar; hover tetap nampilin teks utuhnya.
-    if (n.comment) {
-      var titleEl = svgEl('title'); titleEl.textContent = n.comment; g.appendChild(titleEl);
+    // label di kanvas jadi lebar; hover tetap nampilin teks utuhnya. Node syarat SELALU dapat tooltip
+    // walau gak berkomen, isinya arah sambungan - itu yang paling sering bikin bingung: dia cuma bisa
+    // jadi SUMBER, dan nyeret ke arah dia bakal ditolak diam-diam.
+    var tipTxt = n.comment || '';
+    if (ntype === 'condition') {
+      // Backslash-nya WAJIB dobel di sini. HTML di build_html.py itu string Python BIASA (bukan raw),
+      // jadi escape tunggal bakal ditelan Python jadi baris baru beneran dan literal JS-nya kebuka.
+      // Konvensi yang sama dipakai placeholder JSON di atas (tab-nya juga ditulis dobel).
+      tipTxt = 'Syarat: ' + n.bit + (n.comment ? ' - ' + n.comment : '') +
+        '\\nTarik dari bulatan kuning ke langkah yang harus NUNGGU bit ini.' +
+        '\\nGak bisa jadi tujuan panah: bit ini didrive di luar flowchart (Condition section / sensor).';
+    }
+    if (tipTxt) {
+      var titleEl = svgEl('title'); titleEl.textContent = tipTxt; g.appendChild(titleEl);
     }
 
     var w = nodeW(n);
@@ -1221,7 +1237,17 @@ function onDocMouseUp(ev) {
       var target = nodes.filter(function (n) {
         return mx >= n.x && mx <= n.x + nodeW(n) && my >= n.y && my <= n.y + NODE_H;
       })[0];
-      if (target) addEdge(dragState.stKey, dragState.vIdx, dragState.fromId, target.id);
+      // Penolakan sambungan dulu diem total - user cuma lihat panahnya ilang tanpa tau kenapa.
+      graphHint = null;
+      if (target) {
+        var ok = addEdge(dragState.stKey, dragState.vIdx, dragState.fromId, target.id);
+        if (!ok) {
+          graphHint = { key: key, text: (target.type || 'motion') === 'condition'
+            ? 'Blok syarat "' + target.bit + '" gak bisa jadi TUJUAN panah - dia sumber. '
+              + 'Tarik dari bulatan kuningnya ke langkah yang harus nunggu bit ini.'
+            : 'Sambungan ditolak: tujuannya sama dengan sumbernya, panahnya sudah ada, atau bakal bikin alur muter.' };
+        }
+      }
     }
   }
   dragState = null;
@@ -1292,7 +1318,10 @@ function renderMotionPanel() {
         var def = (conditionState[stKey] || []).filter(function (d) { return d.bit === val; })[0];
         if (def && def.name) condCmtInput.value = def.name;
       });
-      var condBtn = document.createElement('button'); condBtn.className = 'add-cond'; condBtn.textContent = '+ Condition/bit';
+      var condBtn = document.createElement('button'); condBtn.className = 'add-cond'; condBtn.textContent = '+ Syarat/bit';
+      condBtn.title = 'Taruh bit yang SUDAH ada (Condition section, sensor, memory) sebagai SYARAT. '
+        + 'Tarik dari bulatan kuningnya ke langkah yang harus nunggu bit itu ON. '
+        + 'Arahnya satu jalur: dia sumber, gak bisa jadi tujuan panah - logic yang nyalain bit itu ditulis di luar flowchart.';
       condBtn.addEventListener('click', function () {
         if (addConditionNode(stKey, vIdx, condNodePick.get(), condCmtInput.value)) {
           condNodePick.reset(); condCmtInput.value = ''; renderMotionPanel(); regenerate();
@@ -1343,6 +1372,13 @@ function renderMotionPanel() {
       vbox.appendChild(blockBar);
 
       vbox.appendChild(renderVariantGraph(stKey, vIdx));
+
+      if (graphHint && graphHint.key === vKey(stKey, vIdx)) {
+        var hintEl = document.createElement('div');
+        hintEl.className = 'graph-hint';
+        hintEl.textContent = graphHint.text;
+        vbox.appendChild(hintEl);
+      }
 
       if (selected && selected.kind === 'node' && selected.stKey === stKey && selected.vIdx === vIdx) {
         var selNode = findNode(stKey, vIdx, selected.id);
