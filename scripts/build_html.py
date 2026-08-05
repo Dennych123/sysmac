@@ -479,6 +479,17 @@ function ioStationOf(komen) {
   return m ? 'ST' + m[1] : 'MAIN';
 }
 
+// SATU-SATUNYA cara yang benar buat ngeset IO list dari kode. Nulis langsung ke textarea gak cukup:
+// mode Tabel itu tampilan default, dan dia baca dari ioRows - kalau gak di-reload, pipeline jalan
+// pakai teks baru (aktuator muncul) tapi tabelnya masih nampilin isi lama. Persis itu yang kejadian
+// waktu import Project JSON.
+function setIoText(text) {
+  var ta = document.getElementById('ioText');
+  if (ta) ta.value = String(text || '');
+  ioLoadFromText();
+  renderIoGrid();
+}
+
 function ioSyncToText() {
   var ta = document.getElementById('ioText');
   if (ta) ta.value = ioRowsToText(ioRows);
@@ -2156,7 +2167,7 @@ function importProjectJSON(jsonText) {
   }
   if (typeof parsed.io !== 'string' || !parsed.io.trim()) return 'Field "io" (IO list, string) wajib ada dan gak boleh kosong';
 
-  document.getElementById('ioText').value = parsed.io;
+  setIoText(parsed.io);   // WAJIB lewat setIoText - tabel IO harus ikut kebaca ulang, bukan cuma textarea
   runFullPipeline(); // parse+split+generate dulu biar station-nya kekenal sebelum import motion/condition per-station
   if (errEl.textContent) return 'Generate IO list dari project JSON gagal: ' + errEl.textContent;
 

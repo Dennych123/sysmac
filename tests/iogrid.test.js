@@ -65,5 +65,16 @@ chk('alamat sama beda arah IN/OUT itu SAH (bukan ganda)',
 p=M.problems(rows);
 chk('data valid -> gak ada masalah', Object.keys(p).length===0, JSON.stringify(p));
 
+// --- Penjaga regresi: import Project JSON WAJIB nyegerin tabel, bukan cuma textarea ---
+// Ini cek di tingkat sumber (bukan perilaku) karena butuh DOM. Sengaja: bug-nya justru "panggilan
+// yang lupa dilakukan", dan itu gak keliatan dari fungsi murni manapun. Kejadian nyata: setelah
+// import, aktuator muncul semua tapi tabel IO-nya kosong karena cuma textarea yang keisi.
+const src=require('fs').readFileSync(require('path').join(__dirname,'..','index.html'),'utf8');
+chk('setIoText() ada sebagai satu-satunya pintu ngeset IO list', /function setIoText\(/.test(src));
+chk('setIoText() nge-reload baris DAN nge-render tabel',
+    /function setIoText\([\s\S]{0,400}?ioLoadFromText\(\)[\s\S]{0,120}?renderIoGrid\(\)/.test(src));
+chk('importProjectJSON pakai setIoText, bukan nulis .value langsung',
+    /setIoText\(parsed\.io\)/.test(src) && !/getElementById\('ioText'\)\.value = parsed\.io/.test(src));
+
 console.log('\n'+(fail?fail+' GAGAL':'SEMUA LULUS'));
 process.exit(fail?1:0);
