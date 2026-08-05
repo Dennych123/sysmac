@@ -563,14 +563,19 @@ var ALARM_CAT_LABEL = { emergency: 'Emergency stop', autostop: 'Auto stop', cycl
 function refBase(ref) { var s = String(ref), i = s.indexOf('#'); return i < 0 ? s : s.slice(0, i); }
 function refPort(ref) { var s = String(ref), i = s.indexOf('#'); return i < 0 ? '' : s.slice(i + 1); }
 
+// Komen blok ikut tampil di label, bukan cuma kesimpen di state. Tanpa ini semua blok alarm kelihatan
+// "ALARM Fault stop" persis sama dan semua judgement cuma beda nama bit - padahal justru komennya yang
+// bilang blok itu ngapain. Node melebar sendiri ngikutin label (nodeW), jadi aman dipanjangin.
 function nodeLabel(n) {
   var t = n.type || 'motion';
-  if (t === 'condition') return n.bit + (n.comment ? ' *' : '');
+  var c = (n.comment || '').trim();
+  var tail = c ? ' - ' + c : '';
+  if (t === 'condition') return n.bit + (c ? ' *' : '');
   if (t === 'motion')    return n.sol;
-  if (t === 'decision')  return '? ' + (n.cond || '(bit?)');
-  if (t === 'setmem')    return 'SET ' + (n.bit || '(bit?)');
-  if (t === 'resetmem')  return 'RST ' + (n.bit || '(bit?)');
-  if (t === 'alarm')     return 'ALARM ' + (ALARM_CAT_LABEL[n.category] || n.category || 'faultstop');
+  if (t === 'decision')  return '? ' + (n.cond || '(bit?)') + tail;
+  if (t === 'setmem')    return 'SET ' + (n.bit || '(bit?)') + tail;
+  if (t === 'resetmem')  return 'RST ' + (n.bit || '(bit?)') + tail;
+  if (t === 'alarm')     return 'ALARM ' + (ALARM_CAT_LABEL[n.category] || n.category || 'faultstop') + tail;
   return t;
 }
 
@@ -912,6 +917,27 @@ function regenerate() {
   }
 }
 
+// Titik masuk (root) dan titik akhir (leaf) sebuah varian. Dipisah dari renderVariantGraph biar bisa
+// diuji tanpa DOM - ini logika yang nentuin ke mana panah START dan END digambar, dan salah sedikit
+// aja gambarnya langsung nyeritain alur yang beda dari ladder-nya.
+function graphEnds(nodes) {
+  var nodeIds = {}; nodes.forEach(function (n) { nodeIds[n.id] = true; });
+  var isStep = function (n) { return (n.type || 'motion') !== 'condition'; };
+  var referencedIds = {};
+  nodes.forEach(function (n) {
+    (n.after || []).forEach(function (ref) { var b = refBase(ref); if (nodeIds[b]) referencedIds[b] = true; });
+  });
+  var roots = nodes.filter(function (n) {
+    return isStep(n) && !(n.after || []).some(function (ref) { return nodeIds[refBase(ref)]; });
+  });
+  var leaves = nodes.filter(function (n) { return isStep(n) && !referencedIds[n.id]; });
+  return {
+    nodeIds: nodeIds, roots: roots, leaves: leaves,
+    targets: roots.length ? roots : nodes.filter(isStep),
+    sources: leaves.length ? leaves : nodes.filter(isStep)
+  };
+}
+
 function renderVariantGraph(stKey, vIdx) {
   var variant = motionState[stKey][vIdx];
   var nodes = variant.nodes;
@@ -929,13 +955,14 @@ function renderVariantGraph(stKey, vIdx) {
   // flowchart terminal biasa). Titik sambungnya ikut sideAnchor kayak kabel antar-node: karena Start
   // selalu di atas dan Finish di bawah, sisi yang kepilih ya tetap atas/bawah - tapi sekarang nempel
   // ke sisi terdekat kalau node-nya digeser jauh ke samping, gak lagi maksa ke tengah atas/bawah.
-  var nodeIds = {}; nodes.forEach(function (n) { nodeIds[n.id] = true; });
-  var referencedIds = {};
-  nodes.forEach(function (n) { (n.after || []).forEach(function (ref) { if (nodeIds[ref]) referencedIds[ref] = true; }); });
-  var roots = nodes.filter(function (n) { return n.type === 'motion' && !(n.after || []).some(function (ref) { return nodeIds[ref]; }); });
-  var leaves = nodes.filter(function (n) { return n.type === 'motion' && !referencedIds[n.id]; });
-  var fallbackTargets = roots.length ? roots : nodes.filter(function (n) { return n.type === 'motion'; });
-  var fallbackSources = leaves.length ? leaves : nodes.filter(function (n) { return n.type === 'motion'; });
+  // refBase() WAJIB di sini. Rujukan cabang decision bentuknya "d1#Y" - tanpa dikupas port-nya dia
+  // gak match id node manapun, jadi node yang SUDAH nunggu hasil judgement kebaca sebagai root dan
+  // ikut ditarik START. Gambarnya lalu bohong: kelihatan jalan barengan padahal ladder-nya nunggu.
+  // Semua tipe blok ikut dihitung (bukan cuma motion): sequence sah dimulai dari judgement, dan sah
+  // berakhir di alarm. Yang dikecualikan cuma "condition" - itu penanda bit rujukan, bukan langkah.
+  var ends = graphEnds(nodes);
+  var nodeIds = ends.nodeIds;
+  var fallbackTargets = ends.targets, fallbackSources = ends.sources;
   function avgCenterX(list, fallbackX) {
     if (!list.length) return fallbackX;
     var sum = 0; list.forEach(function (n) { sum += nodeCenter(n).x; });
@@ -1018,7 +1045,9 @@ function renderVariantGraph(stKey, vIdx) {
     var g = svgEl('g', { transform: 'translate(' + n.x + ',' + n.y + ')' });
     var isSelNode = selected && selected.kind === 'node' && selected.stKey === stKey && selected.vIdx === vIdx && selected.id === n.id;
 
-    if (n.type === 'condition' && n.comment) {
+    // Tooltip buat SEMUA blok berkomen, bukan cuma condition - berguna kalau komennya panjang dan
+    // label di kanvas jadi lebar; hover tetap nampilin teks utuhnya.
+    if (n.comment) {
       var titleEl = svgEl('title'); titleEl.textContent = n.comment; g.appendChild(titleEl);
     }
 
