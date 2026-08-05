@@ -1,6 +1,6 @@
 const fs=require('fs');
 const path=require('path');
-const flowJson=JSON.parse(fs.readFileSync(path.join(__dirname,'..','outputs','sysmac-program-generator-flow.json')));
+const flowJson=JSON.parse(fs.readFileSync(path.join(__dirname,'..','outputs','susmax-program-generator-flow.json')));
 const byId={}; flowJson.forEach(n=>byId[n.id]=n);
 const run=(id,msg,flow)=>new Function('msg','flow','node','return (function(){'+byId[id].func+'})()')(msg,flow,{warn:console.warn});
 
@@ -250,7 +250,7 @@ console.log(usedRealSequence ? 'MOTION SEQUENCE OK: ST1 pakai 2 varian (fork+AND
                               : 'MOTION SEQUENCE GAGAL: ST1 masih stub atau graph gak lengkap kepakai');
 
 // Skenario 3: conditionDefs - Condition section dinamis, bukan 3 slot cadangan generik. LB300 = OR
-// dari 2 AND-group (persis pola Denso PATTERN 3 dari screenshot: "(A AND B ANDNOT C) OR (D AND E)"),
+// dari 2 AND-group (persis pola Ndeso PATTERN 3 dari screenshot: "(A AND B ANDNOT C) OR (D AND E)"),
 // LB301 = 1 AND-group doang, ikut makein LB300 sebagai salah satu term-nya (referensi silang antar
 // Condition, buktiin urutan declare gak masalah). Term dikirim sebagai OBJECT {bit,neg} - PERSIS
 // bentuk yang beneran dikirim build_html.py (conditionDefsToJSON/regenerate), BUKAN [bit,neg] array

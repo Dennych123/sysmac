@@ -3,7 +3,7 @@ _D = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) if '__file__' i
 _D = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 J = lambda f: open(os.path.join(_D,'js',f)).read()
 LIB = J('lib.js')
-TAB, UT, G1 = "sysmacgen_tab_01", "sysmac_uitab_01", "sg_g1"
+TAB, UT, G1 = "susmaxgen_tab_01", "susmax_uitab_01", "sg_g1"
 nodes = []
 H = {"s_in":[12,10], "s_out":[12,22], "s_warn":[12,5], "s_err":[12,3]}
 
@@ -15,7 +15,7 @@ def tpl(i,n,o,f,x,y,w):
         "format":f,"storeOutMessages":True,"fwdInMessages":True,"resendOnRefresh":True,
         "templateScope":"local","className":"","x":x,"y":y,"wires":w})
 
-nodes.append({"id":TAB,"type":"tab","label":"Sysmac Program Generator","disabled":False,"info":"","env":[]})
+nodes.append({"id":TAB,"type":"tab","label":"Susmax Program Generator","disabled":False,"info":"","env":[]})
 
 tpl("s_in","Input: Alamat/Jenis/IO/Komen",1,
  '<div style="padding:6px">\n  <p style="margin:4px 0"><b>Tempel IO list: Alamat / Jenis / IN-OUT / Komen</b></p>\n'
@@ -56,13 +56,13 @@ tpl("s_out","Hasil: program XML + tabel Global Variables",4,
  'var a=document.createElement("a");a.href=u;a.download=f.name;document.body.appendChild(a);a.click();'
  'document.body.removeChild(a);URL.revokeObjectURL(u);};})(scope);\n</script>',1300,120,[[]])
 
-nodes.append({"id":G1,"type":"ui_group","name":"Sysmac Program Generator (MAIN + ST1..ST3)","tab":UT,
+nodes.append({"id":G1,"type":"ui_group","name":"Susmax Program Generator (MAIN + ST1..ST3)","tab":UT,
               "order":1,"disp":True,"width":"12","collapse":False})
-nodes.append({"id":UT,"type":"ui_tab","name":"Sysmac Generator","icon":"dashboard","order":1,"disabled":False,"hidden":False})
+nodes.append({"id":UT,"type":"ui_tab","name":"Susmax Generator","icon":"dashboard","order":1,"disabled":False,"hidden":False})
 nodes.append({"id":"gcfg_01","type":"global-config","env":[],"modules":{"node-red-dashboard":"3.6.6"}})
 
 outdir = os.path.join(_D,'outputs')
 os.makedirs(outdir, exist_ok=True)
-out = os.path.join(outdir,'sysmac-program-generator-flow.json')
+out = os.path.join(outdir,'susmax-program-generator-flow.json')
 json.dump(nodes, open(out,'w'), indent=4)
 print("WROTE",out,len(nodes),"nodes")

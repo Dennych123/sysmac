@@ -14,7 +14,7 @@ HTML = '''<!doctype html>
 <html lang="id">
 <head>
 <meta charset="utf-8">
-<title>Sysmac Program Generator</title>
+<title>Susmax Program Generator</title>
 <style>
   :root{--fg:#1c2430;--muted:#5c6673;--line:#dde1e7;--card:#fff;--bg:#f4f6f8;--accent:#2563eb;--accent-dk:#1d4ed8;--radius:8px}
   *{box-sizing:border-box}
@@ -126,7 +126,7 @@ HTML = '''<!doctype html>
 </style>
 </head>
 <body>
-<h1>Sysmac Program Generator</h1>
+<h1>Susmax Program Generator</h1>
 <p class="hint">Tempel IO list: Alamat / Jenis / IN-OUT / Komen (pisah TAB). Komen ada ST1/ST2/ST3 -&gt; masuk program unit. Tanpa ST -&gt; program MAIN.</p>
 <textarea id="ioText" placeholder="CH000_00&#9;PB&#9;IN&#9;NOT EMERGENCY STOP"></textarea>
 <div><button id="genBtn">Generate Program</button></div>
@@ -167,7 +167,7 @@ ke step berikutnya).</p>
 <h2>Condition (opsional)</h2>
 <p class="hint">Tiap station boleh punya sejumlah bit Condition BERNAMA (gak dibatasin 3 slot lama) -
 tiap bit = OR dari beberapa kombinasi AND-syarat ("+ OR group", "+ term" per group, klik badge
-AND/NOT buat toggle negate) - persis pola Denso PATTERN 3 (mis. bit "P&amp;P Take Out Lowering Auto
+AND/NOT buat toggle negate) - persis pola Ndeso PATTERN 3 (mis. bit "P&amp;P Take Out Lowering Auto
 Start Condition" = grupA OR grupB). Bit boleh ngerujuk bit Condition LAIN (referensi silang, mis.
 condition ke-2 makein bit condition ke-1 sebagai salah satu term), sensor, atau bit apapun yang
 sudah ada - kalau belum kedeklarasi, otomatis dibikinin placeholder biar gak error pas import.
@@ -215,9 +215,12 @@ function downloadFile(name, text) {
   document.body.removeChild(a); URL.revokeObjectURL(u);
 }
 
+// SRV_CMD ikut masuk palette sequence: tiap command servo itu aktuator MANDIRI di gen_all.js
+// (srvActus -> solByName), jadi node-nya valid dipakai sebagai langkah motion persis kayak SOL/CR.
+// Tanpa SRV_CMD di sini, station yang aktuatornya servo doang gak kegambar sama sekali di panel.
 function actuatorNamesForStation(devices) {
   return (devices || [])
-    .filter(function (d) { return d.io === 'OUT' && (d.jenis === 'CR' || d.jenis === 'SOL'); })
+    .filter(function (d) { return d.io === 'OUT' && (d.jenis === 'CR' || d.jenis === 'SOL' || d.jenis === 'SRV_CMD'); })
     .map(function (d) { return d.name; })
     .filter(Boolean);
 }
@@ -496,7 +499,7 @@ function importSequenceJSON(stKey, jsonText) {
   return null;
 }
 
-// ===== Condition section: bit bernama, tiap bit = OR dari beberapa AND-group (PATTERN 3 Denso) =====
+// ===== Condition section: bit bernama, tiap bit = OR dari beberapa AND-group (PATTERN 3 Ndeso) =====
 // Station yang gak disentuh (conditionState[st] kosong/gak ada) tetap dapat 3 slot cadangan generik
 // lama - lihat gen_all.js section 8. Beda dari Motion Sequence: gak ada topologi graph/chaining,
 // cuma daftar bit -> daftar OR-group -> daftar AND-term (bit + NOT), jadi list editor biasa cukup.
