@@ -1,8 +1,11 @@
 const fs=require('fs');
 const path=require('path');
-const flowJson=JSON.parse(fs.readFileSync(path.join(__dirname,'..','outputs','susmax-program-generator-flow.json')));
-const byId={}; flowJson.forEach(n=>byId[n.id]=n);
-const run=(id,msg,flow)=>new Function('msg','flow','node','return (function(){'+byId[id].func+'})()')(msg,flow,{warn:console.warn});
+// Pipeline diambil LANGSUNG dari js/*.js lewat core.js - gak lagi lewat flow Node-RED. Efeknya:
+// ganti js/ langsung kebaca test tanpa rebuild apa-apa dulu.
+const core=require('./core.js');
+const STEP={ s_parse:core.STEPS.parse, s_name:core.STEPS.genname, s_val:core.STEPS.validate,
+             s_split:core.STEPS.split, s_all:core.STEPS.gen_all };
+const run=(id,msg,flow)=>core.runStep(STEP[id],msg,flow,{warn:console.warn});
 
 const IO=`CH0_00\tPB\tIN\tNOT EMERGENCY STOP
 CH0_01\tCR\tIN\tFUSE GOOD CONF
