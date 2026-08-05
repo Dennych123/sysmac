@@ -182,8 +182,18 @@ HTML = '''<!doctype html>
   .gedge-line.anchor{stroke:#9aa3ad;stroke-dasharray:3,2}
   .gnode-text{fill:#fff;font-size:10.5px;font-family:Consolas,monospace}
   .gnode-del{fill:#b91c1c;cursor:pointer}
-  .gnode-del-text{fill:#fff;font-size:9px;text-anchor:middle;font-family:Consolas,monospace}
+  .gnode-del-text{fill:#fff;font-size:9px;text-anchor:middle;font-family:Consolas,monospace;pointer-events:none}
   .gnode-handle{fill:#f1c40f;stroke:#333;stroke-width:1;cursor:crosshair}
+  /* Tombol hapus dan bulatan sambung cuma muncul pas kursor di atas node-nya (atau node lagi
+     keselect). Dulu semuanya kelihatan sekaligus - di flowchart 8 node itu 16 bulatan berwarna yang
+     bersaing perhatian sama isi diagramnya sendiri. pointer-events ikut dimatikan pas tersembunyi,
+     biar gak ada target klik tak kasatmata. */
+  .gnode .gnode-del,.gnode .gnode-del-text,.gnode .gnode-handle,.gnode .gport-text{
+    opacity:0;pointer-events:none;transition:opacity .1s}
+  .gnode:hover .gnode-del,.gnode:hover .gnode-handle,
+  .gnode.sel .gnode-del,.gnode.sel .gnode-handle{opacity:1;pointer-events:auto}
+  .gnode:hover .gnode-del-text,.gnode:hover .gport-text,
+  .gnode.sel .gnode-del-text,.gnode.sel .gport-text{opacity:1}
   .gedge-line{stroke:#8a93a0;stroke-width:2;cursor:pointer}
   .gedge-line:hover{stroke:#b91c1c}
   .gedge-line.selected{stroke:#f1c40f;stroke-width:3}
@@ -901,12 +911,35 @@ function refPort(ref) { var s = String(ref), i = s.indexOf('#'); return i < 0 ? 
 // Komen blok ikut tampil di label, bukan cuma kesimpen di state. Tanpa ini semua blok alarm kelihatan
 // "ALARM Fault stop" persis sama dan semua judgement cuma beda nama bit - padahal justru komennya yang
 // bilang blok itu ngapain. Node melebar sendiri ngikutin label (nodeW), jadi aman dipanjangin.
+// Peta nama simbol -> komen IO list. Dibangun ulang tiap pipeline jalan.
+var devKomen = {};
+function rebuildDevKomen() {
+  devKomen = {};
+  if (!lastSplitMsg) return;
+  var g = lastSplitMsg.payload;
+  Object.keys(g).forEach(function (k) {
+    (g[k] || []).forEach(function (d) { if (d.name) devKomen[d.name] = d.komen || ''; });
+  });
+}
+
+// Nama aktuator di kanvas pakai KOMEN IO-nya, bukan nama simbol. "ST2 SERVO CENTER POS1" langsung
+// kebayang bendanya; "SRV_ST2_SRV_CTR_POS1" harus diterjemahin dulu di kepala tiap kali baca.
+// Prefix "ST2 " dibuang karena kotak diagramnya memang sudah milik station itu - ngulang nomornya di
+// tiap node cuma makan lebar. Nama simbolnya tetap ada di tooltip, dan yang dipakai JSON maupun
+// generator tetap simbol - ini murni yang dilihat mata.
+function deviceLabel(sym) {
+  var k = devKomen[sym];
+  if (!k) return sym;
+  var s = String(k).replace(/^ST\\s*\\d+\\s*/i, '').replace(/\\s+/g, ' ').trim();
+  return s || sym;
+}
+
 function nodeLabel(n) {
   var t = n.type || 'motion';
   var c = (n.comment || '').trim();
   var tail = c ? ' - ' + c : '';
   if (t === 'condition') return n.bit + (c ? ' *' : '');
-  if (t === 'motion')    return n.sol;
+  if (t === 'motion')    return deviceLabel(n.sol);
   if (t === 'decision')  return '? ' + (n.cond || '(bit?)') + tail;
   if (t === 'setmem')    return 'SET ' + (n.bit || '(bit?)') + tail;
   if (t === 'resetmem')  return 'RST ' + (n.bit || '(bit?)') + tail;
@@ -1466,14 +1499,21 @@ function renderVariantGraph(stKey, vIdx) {
   }
 
   nodes.forEach(function (n) {
-    var g = svgEl('g', { transform: 'translate(' + n.x + ',' + n.y + ')' });
     var isSelNode = selected && selected.kind === 'node' && selected.stKey === stKey && selected.vIdx === vIdx && selected.id === n.id;
+    // class "gnode" yang bikin aturan hover di CSS kena; "sel" nahan kontrolnya tetap kelihatan
+    // selama node-nya keselect, jadi habis diklik gak perlu cari-cari bulatannya lagi.
+    var g = svgEl('g', { class: 'gnode' + (isSelNode ? ' sel' : ''), transform: 'translate(' + n.x + ',' + n.y + ')' });
 
     // Tooltip buat SEMUA blok berkomen, bukan cuma condition - berguna kalau komennya panjang dan
     // label di kanvas jadi lebar; hover tetap nampilin teks utuhnya. Node syarat SELALU dapat tooltip
     // walau gak berkomen, isinya arah sambungan - itu yang paling sering bikin bingung: dia cuma bisa
     // jadi SUMBER, dan nyeret ke arah dia bakal ditolak diam-diam.
     var tipTxt = n.comment || '';
+    // Node motion: tooltip nampilin nama simbol yang sebenarnya, karena label di kanvas sekarang
+    // pakai komen. Itu yang dipakai di JSON dan ladder, jadi harus tetap gampang dilihat.
+    if (ntype === 'motion') {
+      tipTxt = n.sol + (devKomen[n.sol] ? '\\n' + devKomen[n.sol] : '');
+    }
     if (ntype === 'condition') {
       // Backslash-nya WAJIB dobel di sini. HTML di build_html.py itu string Python BIASA (bukan raw),
       // jadi escape tunggal bakal ditelan Python jadi baris baru beneran dan literal JS-nya kebuka.
@@ -1653,7 +1693,10 @@ function renderMotionPanel() {
 
       var toolbar = document.createElement('div'); toolbar.className = 'graph-toolbar';
       names.forEach(function (n) {
-        var btn = document.createElement('button'); btn.className = 'avail-btn'; btn.textContent = '+ ' + n;
+        var btn = document.createElement('button'); btn.className = 'avail-btn';
+        // Sama seperti label node: yang dibaca komen, simbolnya di tooltip
+        btn.textContent = '+ ' + deviceLabel(n);
+        btn.title = n + (devKomen[n] ? ' - ' + devKomen[n] : '');
         btn.addEventListener('click', function () { addMotionNode(stKey, vIdx, n); renderMotionPanel(); regenerate(); });
         toolbar.appendChild(btn);
       });
@@ -1748,7 +1791,9 @@ function renderMotionPanel() {
           if (selType === 'motion') {
             var solSel = document.createElement('select');
             names.forEach(function (nm) {
-              var o = document.createElement('option'); o.value = nm; o.textContent = nm; solSel.appendChild(o);
+              var o = document.createElement('option'); o.value = nm;
+              o.textContent = deviceLabel(nm) + (devKomen[nm] ? '  (' + nm + ')' : '');
+              solSel.appendChild(o);
             });
             solSel.value = selNode.sol;
             solSel.addEventListener('change', function () { applyEdit('sol', solSel.value); });
@@ -2163,6 +2208,7 @@ function runFullPipeline() {
     if (v[1]) { errEl.textContent = v[1].payload; return; }
     msg = runNode(SPLIT_JS, v[0], flowStore);
     lastSplitMsg = msg;
+    rebuildDevKomen();   // label kanvas ambil komen dari sini, harus segar sebelum panel dirender
   } catch (e) {
     errEl.textContent = 'Error: ' + e.message;
     return;
