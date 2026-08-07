@@ -9,14 +9,32 @@ bisa: `.smc2` itu container ZIP berisi XML, dan isinya tetap terbaca.
 
 ## Untuk apa
 
+**Bertanya ke AI sebelum memodifikasi program orang lain.** Perintah `--llm`
+mengekstrak SELURUH konteks jadi satu berkas Markdown: logika tiap rung dalam
+bentuk ekspresi boolean, komentar rung, arti tiap bit, dan silang-rujuk siapa
+menulis siapa membaca. Berkas itu tinggal disuap ke LLM.
+
+```
+$ python read_smc2.py project.smc2 --llm program.md
+WROTE program.md  (13703 baris)
+```
+
+Isinya seperti ini — ladder yang sudah jadi kalimat logika, lengkap dengan arti
+tiap bit yang dipakai:
+
+```
+**12. Master ON confirmation**
+(PB013_003 OR P_First_Run) AND /GB000[100]  ->  GB000[100]
+- `PB013_003` PB Master ON [IOBus://unit#2/Input Bit 03]
+- `P_First_Run` First scan after RUN
+```
+
 **Memahami program orang lain tanpa berhari-hari.** Pertanyaan pertama yang
-selalu muncul saat membuka program orang — *"bit ini siapa yang menyalakan?"* —
-dijawab satu perintah:
+selalu muncul — *"bit ini siapa yang menyalakan?"* — dijawab satu perintah:
 
 ```
 $ python read_smc2.py project.smc2 --xref MASTER_READY
 
-OPERAND                  TULIS  BACA  KOMEN
 MASTER_READY                 1    44  Master ON Confirmation
         TULIS  P000_Main/Device_Input#6
         baca   P000_Main/Timers#2
@@ -24,8 +42,8 @@ MASTER_READY                 1    44  Master ON Confirmation
         ...
 ```
 
-**Memetakan program jadi graf**, supaya alur sinyal antar section kelihatan
-tanpa membuka ladder-nya — dan supaya bisa dicerna alat lain atau LLM:
+**Memetakan program jadi graf**, supaya alur sinyal antar program dan section
+kelihatan tanpa membuka ladder-nya:
 
 ```
 $ python read_smc2.py project.smc2 --graph graph.json
@@ -38,6 +56,21 @@ satu per satu di Studio.
 **Menarik IO list dari mesin lama** untuk mesin copy atau retrofit — Studio
 versi baru menyimpan tabel variabel lengkap dengan alamat fisik dan komentar.
 
+## Rekonstruksi logika rung
+
+Format Studio ≥ 1.66 menyimpan posisi grid tiap elemen (`X` kolom, `Y` baris),
+jadi seri dan paralel bisa disusun ulang tanpa menelusuri sambungan:
+
+- satu baris, kolom menaik → seri (`AND`)
+- baris > 0 yang menutupi rentang kolom yang sama → cabang paralel (`OR`)
+- `/BIT` = kontak normally-closed
+
+Pada project uji, **77% rung** terekonstruksi tepat. Sisanya cabang bersarang
+yang disederhanakan jadi satu tingkat — dan **selalu ditandai `~`**, supaya tidak
+ada yang mengira presisi penuh padahal bukan. Ini penting: ekspresi yang salah
+susun tetap terlihat masuk akal, dan itulah yang berbahaya kalau dipercaya
+mentah-mentah oleh engineer maupun LLM.
+
 ## Pakai
 
 ```bash
@@ -45,6 +78,7 @@ python read_smc2.py project.smc2                  # ringkasan program & section
 python read_smc2.py project.smc2 --operands       # inventaris operand + komen
 python read_smc2.py project.smc2 --xref           # ditulis di mana, dibaca di mana
 python read_smc2.py project.smc2 --xref LB800     # difilter, sekalian lokasinya
+python read_smc2.py project.smc2 --llm prog.md    # SELURUH konteks buat LLM
 python read_smc2.py project.smc2 --graph g.json   # node + edge
 python read_smc2.py project.smc2 --json out.json  # dump mentah
 ```
@@ -126,8 +160,7 @@ Nama, tipe, **alamat fisik**, grup, dan komentar — praktis IO list siap pakai.
 ## Uji
 
 ```bash
-node tests/reader.test.js    # CLI Python, diuji ke dua versi format
-node tests/viewer.test.js    # mesin parsing di versi browser
+node tests/run.js            # semua suite
 ```
 
 Keduanya **skip** (bukan gagal) kalau file `.smc2` contohnya tidak ada, jadi
@@ -139,6 +172,6 @@ Terverifikasi pada dua project sungguhan: **1207 rung / 62 section** (Studio
 
 ## Rencana
 
-- Rekonstruksi logika rung (seri/paralel) dari koordinat grid dan link vertikal
+- Rekonstruksi cabang bersarang (sekarang disederhanakan satu tingkat)
 - Pembaca untuk CX-Programmer, Keyence, dan Mitsubishi
 - Pembanding dua project — apa yang berubah antar revisi

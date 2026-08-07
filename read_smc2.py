@@ -8,6 +8,7 @@ container ZIP berisi XML, jadi isinya tetap bisa dibaca dari luar.
   python read_smc2.py project.smc2 --operands       # inventaris operand + komen
   python read_smc2.py project.smc2 --xref           # ditulis di mana, dibaca di mana
   python read_smc2.py project.smc2 --xref LB800     # sama, tapi difilter + lokasinya
+  python read_smc2.py project.smc2 --llm prog.md    # SELURUH konteks buat disuap ke LLM
   python read_smc2.py project.smc2 --graph g.json   # node+edge buat dipetakan
   python read_smc2.py project.smc2 --json out.json  # dump mentah
 
@@ -276,6 +277,168 @@ def read_project(path):
     return proj
 
 
+# ------------------------------------------------- rekonstruksi logika rung
+# Format JSON (Studio >= 1.66) menyimpan posisi grid tiap elemen: X = kolom,
+# Y = baris (0 = jalur utama). Dari situ seri/paralel bisa disusun ulang tanpa
+# menelusuri sambungan:
+#   - satu baris, kolom menaik   -> seri  (AND)
+#   - baris > 0 yang menutupi rentang kolom yang sama -> cabang paralel (OR)
+#
+# Hasilnya ekspresi boolean yang bisa dibaca manusia MAUPUN LLM, mis.
+#   (/LB010 OR GB012_015) AND LB011 AND LB050  ->  LB300
+#
+# Untuk ladder bercabang bertingkat, hasilnya pendekatan - cabang yang bersarang
+# dalam cabang disederhanakan jadi satu tingkat. Ditandai di keluaran biar tidak
+# dikira presisi penuh.
+def rung_expr(rung):
+    els = [e for e in rung['elements'] if e.get('var') or e.get('func')]
+    if not els:
+        return '', [], False
+
+    def label(e):
+        if e.get('func'):
+            return e['func'] + '()'
+        v = e['var']
+        return ('/' + v) if (e.get('nc') or e.get('neg')) else v
+
+    outs = [e for e in els if e['kind'] == 'Coil']
+    ins = [e for e in els if e['kind'] != 'Coil']
+    if not ins:
+        return '', [label(e) for e in outs], False
+
+    # Tanpa koordinat (format XML lama, atau rung satu kolom) pakai urutan dokumen.
+    # Ditandai perkiraan HANYA kalau elemennya lebih dari satu - kalau cuma satu,
+    # urutan tidak bisa salah dan menandainya cuma bikin ragu tanpa alasan.
+    if not any('x' in e or 'y' in e for e in ins):
+        return ' AND '.join(label(e) for e in ins), [label(e) for e in outs], len(ins) > 1
+
+    grid = {}
+    for e in ins:
+        grid.setdefault(e.get('y', 0), {})[e.get('x', 0)] = e
+    maxc = max(max(r) for r in grid.values())
+
+    # cabang: deretan kolom bersambung pada baris > 0
+    branches = []
+    for y in sorted(k for k in grid if k):
+        cols = sorted(grid[y])
+        run = [cols[0]]
+        for c in cols[1:]:
+            if c == run[-1] + 1:
+                run.append(c)
+            else:
+                branches.append((run[0], run[-1], y)); run = [c]
+        branches.append((run[0], run[-1], y))
+
+    main = grid.get(0, {})
+    parts, c, approx = [], 0, False
+    while c <= maxc:
+        here = [b for b in branches if b[0] == c]
+        if here:
+            end = max(b[1] for b in here)
+            alts = []
+            m = [label(main[i]) for i in range(c, end + 1) if i in main]
+            if m:
+                alts.append(' AND '.join(m))
+            for b0, b1, y in here:
+                alts.append(' AND '.join(label(grid[y][i]) for i in range(b0, b1 + 1) if i in grid[y]))
+            if len(here) > 1 or len([b for b in branches if b[0] > c and b[0] <= end]):
+                approx = True
+            parts.append('(' + ' OR '.join(a for a in alts if a) + ')')
+            c = end + 1
+        else:
+            if c in main:
+                parts.append(label(main[c]))
+            c += 1
+    return ' AND '.join(parts), [label(e) for e in outs], approx
+
+
+def llm_dump(p, out):
+    """Ekspor SELURUH konteks program jadi satu berkas Markdown.
+
+    Tujuannya: engineer bisa bertanya ke AI sebelum memodifikasi program orang
+    lain. Yang dibutuhkan untuk itu bukan cuma ladder-nya, tapi konteksnya -
+    komentar rung, arti tiap bit, siapa menulis siapa membaca. Semuanya
+    dikumpulkan di sini dalam bentuk teks biasa supaya bisa langsung disuap ke
+    LLM atau di-index alat lain.
+    """
+    cmt = {v['name']: v.get('comment', '') for v in (p.get('variables') or [])}
+    addr = {v['name']: v.get('address', '') for v in (p.get('variables') or [])}
+
+    wr = collections.defaultdict(list)
+    rd = collections.defaultdict(list)
+    for prog in p['programs']:
+        for s in prog['sections']:
+            for i, r in enumerate(s['rungs'], 1):
+                loc = '%s/%s#%d' % (prog['name'], s['name'], i)
+                for e in r['elements']:
+                    if e.get('var'):
+                        (wr if e['kind'] == 'Coil' else rd)[e['var']].append(loc)
+
+    L = []
+    A = L.append
+    A('# Program PLC: %s\n' % (p.get('solution') or '(tanpa nama)'))
+    A('Diekstrak dari file project Sysmac. Berkas ini memuat seluruh konteks yang')
+    A('dibutuhkan untuk memahami program: logika tiap rung, komentarnya, arti tiap')
+    A('bit, dan silang-rujuk siapa menulis siapa membaca.\n')
+    A('- Program: %d' % len(p['programs']))
+    A('- Section: %d' % sum(len(x['sections']) for x in p['programs']))
+    A('- Rung: %d' % sum(len(s['rungs']) for x in p['programs'] for s in x['sections']))
+    A('- Variabel: %d\n' % len(p.get('variables') or []))
+
+    A('## Cara membaca\n')
+    A('`/BIT` berarti kontak normally-closed (kebalikan). `->` menunjuk keluaran')
+    A('(coil). Baris bertanda `~` artinya susunan cabangnya disederhanakan.\n')
+
+    for prog in p['programs']:
+        A('\n---\n')
+        A('# PROGRAM %s\n' % prog['name'])
+        for s in prog['sections']:
+            if not s['rungs'] and not s.get('st'):
+                continue
+            A('\n## %s / %s\n' % (prog['name'], s['name']))
+            if s.get('st'):
+                A('```\n%s\n```\n' % (s['st'] or '').strip()[:4000])
+                continue
+            for i, r in enumerate(s['rungs'], 1):
+                expr, outs, approx = rung_expr(r)
+                if r.get('comment'):
+                    A('\n**%d. %s**' % (i, r['comment']))
+                else:
+                    A('\n**%d.**' % i)
+                if expr or outs:
+                    A('```')
+                    A(('~ ' if approx else '') + (expr or 'TRUE') +
+                      ('  ->  ' + ', '.join(outs) if outs else ''))
+                    A('```')
+                # arti tiap bit yang dipakai di rung ini - inilah konteks yang
+                # biasanya hilang kalau cuma membaca ladder
+                seen, gloss = set(), []
+                for e in r['elements']:
+                    v = e.get('var')
+                    if not v or v in seen:
+                        continue
+                    seen.add(v)
+                    c = cmt.get(v, '')
+                    a = addr.get(v, '')
+                    if c or a:
+                        gloss.append('- `%s` %s%s' % (v, c, (' [%s]' % a) if a else ''))
+                if gloss:
+                    A('\n'.join(gloss))
+
+    A('\n---\n')
+    A('# Silang-rujuk operand\n')
+    A('| Operand | Arti | Ditulis di | Dibaca (kali) |')
+    A('|---|---|---|---|')
+    for v in sorted(set(list(wr) + list(rd))):
+        A('| `%s` | %s | %s | %d |' % (v, cmt.get(v, ''),
+                                       ', '.join(wr[v][:3]) or '(tidak ditulis di project ini)',
+                                       len(rd[v])))
+
+    with open(out, 'w', encoding='utf-8') as f:
+        f.write('\n'.join(L))
+    print('WROTE %s  (%d baris)' % (out, len(L)))
+
+
 def xref(p, only=None):
     """Cross-reference: tiap operand DITULIS di mana, DIBACA di mana.
 
@@ -413,6 +576,9 @@ if __name__ == '__main__':
         with open(out, 'w', encoding='utf-8') as f:
             json.dump(p, f, ensure_ascii=False, indent=2)
         print('WROTE', out)
+    elif '--llm' in sys.argv:
+        i = sys.argv.index('--llm')
+        llm_dump(p, sys.argv[i + 1] if len(sys.argv) > i + 1 else 'program.md')
     elif '--graph' in sys.argv:
         i = sys.argv.index('--graph')
         graph(p, sys.argv[i + 1] if len(sys.argv) > i + 1 else 'graph.json')
