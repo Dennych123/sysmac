@@ -79,25 +79,19 @@ export–import (mis. lewat MCP).
 
 ---
 
-## 5. Manfaatkan pembaca `.smc2`
+## 5. Manfaatkan pembaca `.smc2` (repo **plc-reader**)
 
-`scripts/read_smc2.py` sudah bisa membaca project Sysmac (dua versi format,
-lihat [CLAUDE.md](CLAUDE.md)). Yang belum: memakainya untuk sesuatu.
-
-Urut dari yang paling bernilai:
+Pembacanya sudah jadi dan pindah ke repo tersendiri. Yang belum: memakainya.
 
 1. **Audit standar program vendor.** Vendor kirim `.smc2`, tools laporkan
-   penamaan yang menyimpang, section yang hilang, alokasi alarm yang salah.
-   Ini menjawab langsung masalah vendor yang jadi alasan utama SS.
-2. **Verifikasi hasil generate.** Generate → import → baca balik → bandingkan.
+   penamaan menyimpang, section hilang, alokasi alarm salah. Ini menjawab
+   langsung masalah vendor yang jadi alasan utama SS.
+2. **Verifikasi hasil generate.** Generate -> import -> baca balik -> bandingkan.
    Ketahuan kalau ada yang mengedit tangan dan menyimpang dari standar.
-3. **Tarik IO list dari mesin lama.** Studio ≥1.66 menyimpan tabel variabel
-   lengkap dengan alamat dan komentar — itu praktis IO list siap pakai untuk
-   mesin copy atau retrofit.
+3. **Tarik IO list dari mesin lama** untuk mesin copy atau retrofit.
 
-Rekonstruksi logika rung (seri/paralel) belum dikerjakan. Untuk audit penamaan
-dan inventaris operand tidak diperlukan; baru perlu kalau mau membandingkan
-logika hasil generate dengan yang ada di mesin.
+Rekonstruksi logika rung (seri/paralel) belum dikerjakan; belum diperlukan untuk
+audit penamaan, baru perlu kalau mau membandingkan logika.
 
 ## 6. Panel warning bisa diklik
 
