@@ -131,8 +131,9 @@ Python 3, tanpa dependensi — `zipfile` dan `ElementTree` sudah bawaan.
 ### Versi browser
 
 Buka **`smc2-viewer.html`** langsung di browser (tidak perlu server), lalu
-jatuhkan file `.smc2`-nya. Menampilkan pohon program, rung, operand, dan tabel
-variabel, semuanya bisa dicari.
+jatuhkan file `.smc2`-nya. Menampilkan pohon program, ladder beserta komentarnya,
+**flowchart urutan gerakan**, inventaris operand, dan tabel variabel — semuanya bisa
+dicari.
 
 Satu file, tanpa library. Struktur ZIP dibaca manual dan dekompresinya memakai
 `DecompressionStream` yang sudah ada di browser. **File tidak dikirim ke mana

@@ -92,6 +92,23 @@
   .lad .rail{color:#475569;font-weight:700}
   .sec-h{background:#f8fafc;font-weight:600;padding:6px 10px;border-bottom:1px solid var(--line);
          position:sticky;top:0;font-size:12.5px}
+
+  /* flowchart urutan gerakan */
+  .fc{padding:12px 14px;border-bottom:1px solid var(--line-soft)}
+  .fc-chain{display:flex;flex-wrap:wrap;align-items:stretch;gap:0;margin:6px 0}
+  .fc-step{border:1px solid var(--accent-dk);background:var(--accent);color:#fff;border-radius:6px;
+           padding:6px 10px;min-width:150px;box-shadow:var(--shadow)}
+  .fc-step .s{font-family:Consolas,monospace;font-size:12px;font-weight:700}
+  .fc-step .d{font-size:10.5px;opacity:.9;margin-top:2px}
+  .fc-cond{border:1px dashed #5b21b6;background:#7c3aed;color:#fff;border-radius:6px;
+           padding:6px 10px;min-width:130px;box-shadow:var(--shadow)}
+  .fc-cond .s{font-family:Consolas,monospace;font-size:12px;font-weight:700}
+  .fc-cond .d{font-size:10.5px;opacity:.9;margin-top:2px}
+  .fc-arrow{align-self:center;color:#94a3b8;font-size:18px;padding:0 8px;flex:none}
+  .fc-note{font-size:12px;color:var(--muted);margin-top:4px}
+  .fc-warn{font-size:12px;color:var(--warn);background:#fffbeb;border:1px solid #fcd34d;
+           border-radius:6px;padding:8px 10px;margin:8px 0}
+  .fc-skip{font-size:11.5px;color:var(--faint);margin-top:6px}
 </style>
 </head>
 <body>
@@ -116,6 +133,7 @@ komputermu.</p>
   <div class="bar">
     <button class="tab active" data-p="sum">Ringkasan</button>
     <button class="tab" data-p="rung">Rung</button>
+    <button class="tab" data-p="flow">Flowchart</button>
     <button class="tab" data-p="op">Operand</button>
     <button class="tab" data-p="var">Variabel</button>
     <span style="flex:1"></span>
@@ -125,6 +143,7 @@ komputermu.</p>
 
   <div class="panel on" id="p-sum"><div class="scroll"><table id="t-sum"></table></div></div>
   <div class="panel" id="p-rung"><div class="scroll" id="t-rung"></div></div>
+  <div class="panel" id="p-flow"><div class="scroll" id="t-flow"></div></div>
   <div class="panel" id="p-op"><div class="scroll"><table id="t-op"></table></div></div>
   <div class="panel" id="p-var"><div class="scroll"><table id="t-var"></table></div></div>
 </div>
@@ -459,6 +478,80 @@ function ladderHtml(rung) {
   return h + '</table></div>';
 }
 
+// ============================================ rekonstruksi urutan gerakan
+// Pola satu langkah gerakan punya bentuk rung yang khas:
+//
+//   x0y0 prevBit -- x1y0 /confirm ----------> Coil cmd
+//                   x1y1 sol - x2y1 lsc ----> Coil confirm
+//                   x1y2 confirm (seal)
+//
+// Pembeda dari rung berkoil-dua yang LAIN - terutama mutex pemilih varian, yang
+// juga punya dua coil dan sama-sama menyeal diri - adalah hanya SATU coil yang
+// di-gate kontak NC. Pada mutex keduanya saling mengunci, dan itu memang bukan
+// langkah gerakan. Ditolak, bukan dipaksa masuk.
+const MOTION_SECT = /auto.*runn|autorunn|motion/i;
+
+function findMotionSteps(section) {
+  const steps = [], unmapped = [];
+  section.rungs.forEach((r, idx) => {
+    const coils = r.elements.filter(e => e.kind === 'Coil' && e.var);
+    const cts = r.elements.filter(e => e.kind === 'Contact' && e.var);
+    if (coils.length !== 2) { unmapped.push('bukan 2 coil'); return; }
+    const ncs = new Set(cts.filter(c => c.nc).map(c => c.var));
+    const cand = coils.filter(c => ncs.has(c.var));
+    if (cand.length !== 1) {
+      unmapped.push(cand.length === 2 ? 'dua coil saling mengunci (mutex)'
+                                      : 'tidak ada coil yang di-gate kontak NC');
+      return;
+    }
+    const confirm = cand[0], cmd = coils.find(c => c !== confirm);
+    const p0 = cts.find(c => (c.y || 0) === 0 && (c.x || 0) === 0);
+    if (!p0) { unmapped.push('tidak ada kontak di kolom 0 baris 0'); return; }
+    const row = confirm.y || 0;
+    const band = cts.filter(c => (c.y || 0) === row &&
+                                 c.var !== p0.var && c.var !== cmd.var && c.var !== confirm.var)
+                    .sort((a, b) => (a.x || 0) - (b.x || 0));
+    if (band.length < 2) { unmapped.push('tidak ketemu pasangan solenoid+sensor'); return; }
+    steps.push({ rung: idx + 1, prev: p0.var, sol: band[0].var, lsc: band[1].var,
+                 cmd: cmd.var, confirm: confirm.var, comment: r.comment || '' });
+  });
+  return { steps, unmapped };
+}
+
+// Rantai antar langkah sering TIDAK langsung: confirm sebuah langkah kerap tidak
+// jadi prevBit langkah berikutnya, melainkan lewat rung perantara. Jadi prevBit
+// ditelusuri mundur lewat rung yang menulisnya. Yang tetap tidak ketemu dibiarkan
+// menunjuk bit aslinya - bukan disembunyikan, supaya kelihatan perlu dicek.
+function chainSteps(section, steps) {
+  const byConfirm = new Map();
+  steps.forEach((st, i) => byConfirm.set(st.confirm, i));
+  const writers = new Map();
+  section.rungs.forEach(r => {
+    const ins = r.elements.filter(e => e.kind === 'Contact' && e.var).map(e => e.var);
+    r.elements.filter(e => e.kind === 'Coil' && e.var).forEach(c => {
+      if (!writers.has(c.var)) writers.set(c.var, []);
+      writers.get(c.var).push(ins);
+    });
+  });
+  function trace(bit, depth, seen) {
+    if (byConfirm.has(bit)) return { idx: byConfirm.get(bit), ok: true };
+    if (depth <= 0 || seen.has(bit)) return { bit, ok: false };
+    seen.add(bit);
+    for (const ins of (writers.get(bit) || [])) {
+      for (const src of ins) {
+        if (src === bit) continue;
+        const g = trace(src, depth - 1, seen);
+        if (g.ok) return g;
+      }
+    }
+    return { bit, ok: false };
+  }
+  return steps.map(st => {
+    const g = trace(st.prev, 6, new Set());
+    return Object.assign({}, st, g.ok ? { afterIdx: g.idx } : { afterBit: st.prev });
+  });
+}
+
 // ================================================================== tampilan
 let PROJ = null;
 let VCMT = new Map(), VADDR = new Map();
@@ -536,6 +629,71 @@ function draw() {
     if (list.length > 200) r += `<div class="rung"><i>... ${list.length - 200} rung lagi disembunyikan (pakai pencarian untuk menyaring)</i></div>`;
   }));
   $('#t-rung').innerHTML = r || '<div class="rung"><i>tidak ada rung yang cocok</i></div>';
+
+  // --- flowchart urutan gerakan ---
+  let f = '';
+  let anySect = false;
+  p.programs.forEach(pr => pr.sections.forEach(s => {
+    if (!MOTION_SECT.test(s.name) || !s.rungs.length) return;
+    if (/output/i.test(s.name)) return;          // itu keluaran, bukan urutan
+    anySect = true;
+    const { steps, unmapped } = findMotionSteps(s);
+    const chain = chainSteps(s, steps);
+    const shown = chain.filter(st => !q || hit(st.sol) || hit(st.lsc) || hit(st.comment) ||
+                                     hit(VCMT.get(st.sol) || '') || hit(s.name) || hit(pr.name));
+    if (!shown.length) return;
+
+    f += `<div class="sec-h">${esc(pr.name)} &rsaquo; ${esc(s.name)} &mdash; ` +
+         `${steps.length} langkah dari ${s.rungs.length} rung</div>`;
+
+    // urutkan: yang berantai mengikuti pendahulunya, sisanya apa adanya
+    shown.forEach(st => {
+      const solC = VCMT.get(st.sol) || '', lscC = VCMT.get(st.lsc) || '';
+      const prevBox = ('afterIdx' in st)
+        ? `<div class="fc-step"><div class="s">${esc(chain[st.afterIdx].sol)}</div>` +
+          `<div class="d">langkah #${chain[st.afterIdx].rung}</div></div>`
+        : `<div class="fc-cond"><div class="s">${esc(st.afterBit)}</div>` +
+          `<div class="d">${esc(VCMT.get(st.afterBit) || 'bit syarat (di luar rantai)')}</div></div>`;
+      f += '<div class="fc">' +
+           (st.comment ? `<div class="c" style="margin-bottom:6px">${esc(st.comment)}</div>` : '') +
+           '<div class="fc-chain">' + prevBox +
+           '<div class="fc-arrow">&#10142;</div>' +
+           `<div class="fc-step"><div class="s">${esc(st.sol)}</div>` +
+           `<div class="d">${esc(solC || 'solenoid')}</div></div>` +
+           '<div class="fc-arrow">&#10142;</div>' +
+           `<div class="fc-cond" style="background:#0f766e;border-color:#0b544e;border-style:solid">` +
+           `<div class="s">${esc(st.lsc)}</div><div class="d">${esc(lscC || 'sensor konfirmasi')}</div></div>` +
+           '</div>' +
+           `<div class="fc-note">rung #${st.rung} &nbsp;&middot;&nbsp; perintah <code>${esc(st.cmd)}</code>` +
+           ` &nbsp;&middot;&nbsp; selesai <code>${esc(st.confirm)}</code></div></div>`;
+    });
+
+    if (unmapped.length) {
+      const why = {};
+      unmapped.forEach(u => { why[u] = (why[u] || 0) + 1; });
+      f += '<div class="fc-skip">' + s.rungs.length + ' rung, ' + steps.length +
+           ' dikenali sebagai langkah. Sisanya bukan langkah gerakan: ' +
+           Object.entries(why).map(([k, v]) => v + '&times; ' + esc(k)).join(', ') + '</div>';
+    }
+  }));
+  if (anySect) {
+    const nc = [];
+    p.programs.forEach(pr => pr.sections.forEach(s => {
+      if (!MOTION_SECT.test(s.name) || /output/i.test(s.name) || !s.rungs.length) return;
+      const { steps } = findMotionSteps(s);
+      const ch = chainSteps(s, steps);
+      nc.push([steps.length, ch.filter(x => 'afterIdx' in x).length]);
+    }));
+    const tot = nc.reduce((a, b) => a + b[0], 0), chd = nc.reduce((a, b) => a + b[1], 0);
+    if (tot && chd < tot) {
+      f = `<div class="fc-warn"><b>${chd} dari ${tot} langkah berhasil dirantai.</b> Sisanya berangkat ` +
+          `dari bit syarat (kotak ungu) karena rantainya lewat rung perantara yang tidak tertelusuri. ` +
+          `Urutannya perlu dicek manual &mdash; yang ditampilkan di sini adalah apa yang benar-benar ` +
+          `terbaca dari program, bukan urutan yang dikarang.</div>` + f;
+    }
+  }
+  $('#t-flow').innerHTML = f ||
+    '<div class="fc"><i>tidak ada section AutoRunning dengan pola langkah gerakan yang dikenali</i></div>';
 
   // --- operand ---
   const use = new Map(), cmt = new Map();
