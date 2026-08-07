@@ -1,6 +1,14 @@
-# project PLC - besar dan isinya program mesin pelanggan, jangan masuk repo
+﻿# project PLC - besar dan isinya program mesin pelanggan, jangan masuk repo
 *.smc2
 *.smc
-# keluaran
+
+# KELUARAN alat ini - isinya juga program mesin, jangan pernah di-commit
+program.md
+motion.json
 graph.json
 *.out.json
+smc2.json
+
+# bytecode
+__pycache__/
+*.pyc
