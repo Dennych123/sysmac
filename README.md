@@ -1,0 +1,144 @@
+# plc-reader
+
+Membaca program PLC dari file project-nya langsung, tanpa membuka software
+vendornya. Saat ini mendukung **Omron Sysmac Studio (`.smc2`)**.
+
+Sysmac Studio bisa meng-*import* XML tapi **tidak bisa meng-export**-nya. Jadi
+sekilas program yang sudah jadi seperti tidak bisa dibaca dari luar. Ternyata
+bisa: `.smc2` itu container ZIP berisi XML, dan isinya tetap terbaca.
+
+## Untuk apa
+
+**Memahami program orang lain tanpa berhari-hari.** Pertanyaan pertama yang
+selalu muncul saat membuka program orang — *"bit ini siapa yang menyalakan?"* —
+dijawab satu perintah:
+
+```
+$ python read_smc2.py project.smc2 --xref MASTER_READY
+
+OPERAND                  TULIS  BACA  KOMEN
+MASTER_READY                 1    44  Master ON Confirmation
+        TULIS  P000_Main/Device_Input#6
+        baca   P000_Main/Timers#2
+        baca   P000_Main/Fault#20
+        ...
+```
+
+**Memetakan program jadi graf**, supaya alur sinyal antar section kelihatan
+tanpa membuka ladder-nya — dan supaya bisa dicerna alat lain atau LLM:
+
+```
+$ python read_smc2.py project.smc2 --graph graph.json
+WROTE graph.json  (2586 node, 6396 edge)
+```
+
+**Audit standar penamaan** pada program yang datang dari vendor, tanpa membuka
+satu per satu di Studio.
+
+**Menarik IO list dari mesin lama** untuk mesin copy atau retrofit — Studio
+versi baru menyimpan tabel variabel lengkap dengan alamat fisik dan komentar.
+
+## Pakai
+
+```bash
+python read_smc2.py project.smc2                  # ringkasan program & section
+python read_smc2.py project.smc2 --operands       # inventaris operand + komen
+python read_smc2.py project.smc2 --xref           # ditulis di mana, dibaca di mana
+python read_smc2.py project.smc2 --xref LB800     # difilter, sekalian lokasinya
+python read_smc2.py project.smc2 --graph g.json   # node + edge
+python read_smc2.py project.smc2 --json out.json  # dump mentah
+```
+
+Python 3, tanpa dependensi — `zipfile` dan `ElementTree` sudah bawaan.
+
+### Versi browser
+
+Buka **`smc2-viewer.html`** langsung di browser (tidak perlu server), lalu
+jatuhkan file `.smc2`-nya. Menampilkan pohon program, rung, operand, dan tabel
+variabel, semuanya bisa dicari.
+
+Satu file, tanpa library. Struktur ZIP dibaca manual dan dekompresinya memakai
+`DecompressionStream` yang sudah ada di browser. **File tidak dikirim ke mana
+pun** — dibaca lokal, penting karena isinya program mesin.
+
+## ⚠️ Baca saja
+
+Format di dalam `.smc2` **tidak didokumentasikan Omron** dan sudah terbukti
+berubah antar versi Studio. Karena itu:
+
+- **Jangan pernah menulis balik** ke `.smc2`. Project bisa rusak tanpa cara
+  memperbaikinya.
+- Kalau perlu membuat program, pakai jalur import XML yang resmi didukung.
+- Kalau formatnya berubah lagi, yang berhenti jalan cuma pembacaan ini — bukan
+  program yang sudah ada.
+
+## Peta format (hasil reverse engineering)
+
+```
+.smc2                      ZIP
+ +- <sol>/<sol>.manifest    nama solution
+ +- <sol>/<sol>.oem         POHON PROJECT  <- kuncinya
+ +- <sol>/<sol>.log         versi Sysmac Studio
+ +- <sol>/<guid>.xml        isi tiap section
+```
+
+Pohon di `.oem` bersarang lewat `<ChildEntities>`:
+
+```
+Solution
+  Group[IecPous]
+    Group[IecPrograms]
+      Program[MultipartLadder]   name = nama program
+        PouBody[Ladder]          name = nama section
+                                 id   = nama file <id>.xml   <-- ladder-nya
+```
+
+**Jebakan.** Di bawah `PouBody` ada `PouBodySourceHolder` yang **juga** punya id
+dan **juga** punya file `.xml` — tapi isinya `CxilVariable`, variabel bantu hasil
+compile, bukan ladder. Salah ambil tidak menghasilkan error apa pun, cuma **0
+rung di semua section** — dan itu terlihat seperti "project-nya kosong", bukan
+seperti salah alamat.
+
+### Bentuk ladder berubah antar versi Studio
+
+| Studio | Bentuk | Isi |
+|---|---|---|
+| ≤ 1.56 | `<LadderDiagram>` DataContract XML | `Contact` / `Coil` dengan `Variable`, `NormallyClosed`, `Negated`, `Set`, `Reset` |
+| ≥ 1.66 | deretan objek JSON, satu per rung | `CLs` (`LD`/`ST`/`F`/`HL`), `Var`, `Not`, koordinat `X`/`Y`, `VLs`, `CMT` |
+
+Yang JSON justru lebih mudah dibaca: tata letaknya eksplisit lewat koordinat,
+tidak perlu menelusuri edge GUID seperti format lama.
+
+Pada format XML, komentar dipakai bersama gaya DataContract — kemunculan pertama
+membawa teks dengan `z:Id`, sisanya cuma `z:Ref` ke id itu. Harus diresolusi,
+kalau tidak sebagian besar komentar terbaca kosong.
+
+### Tabel variabel global (Studio ≥ 1.66)
+
+Disimpan sebagai teks berpenanda `[SLWD version=1.0]`, satu baris per variabel:
+
+```
+++D=BOOL	N=CH0000_00	AT=IOBus://unit#2/Input Bit 00	G=VAR_GLOBAL	Com=PB EMERGENCY STOP
+```
+
+Nama, tipe, **alamat fisik**, grup, dan komentar — praktis IO list siap pakai.
+
+## Uji
+
+```bash
+node tests/reader.test.js    # CLI Python, diuji ke dua versi format
+node tests/viewer.test.js    # mesin parsing di versi browser
+```
+
+Keduanya **skip** (bukan gagal) kalau file `.smc2` contohnya tidak ada, jadi
+tetap aman dijalankan di mesin yang tidak punya project Sysmac. Taruh sebuah
+project sebagai `sample.smc2` di root repo untuk mengaktifkannya.
+
+Terverifikasi pada dua project sungguhan: **1207 rung / 62 section** (Studio
+1.56) dan **2276 rung / 101 section / 6850 variabel** (Studio 1.66).
+
+## Rencana
+
+- Rekonstruksi logika rung (seri/paralel) dari koordinat grid dan link vertikal
+- Pembaca untuk CX-Programmer, Keyence, dan Mitsubishi
+- Pembanding dua project — apa yang berubah antar revisi

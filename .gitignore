@@ -1,0 +1,6 @@
+# project PLC - besar dan isinya program mesin pelanggan, jangan masuk repo
+*.smc2
+*.smc
+# keluaran
+graph.json
+*.out.json
