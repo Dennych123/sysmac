@@ -947,8 +947,39 @@ function buildMain(devs){
 
     // 5. Fault
     var S5=[]; o=1;
-    S5.push(latch(o++,[[sPbMstr,false]],"LB008",[[sMstr,false],["LB009",true]],"Master on and off confirmation"));
-    S5.push(series(o++,[[sMstr,true]],"LB009",null));
+    // Master on/off confirmation: SATU rung, DUA coil, persis pola Ndeso di program asli.
+    //
+    //        MSTR_RDY  /PB_MSTR_ON               /LB009        (LB008)
+    //   rail-+--| |--------|/|------+-------------|/|------------( )
+    //        |                      |
+    //        +--| |----------------+-------------|/|------------( )
+    //           LB008                             /MSTR_RDY      (LB009)
+    //
+    // Tiga hal yang beda dari versi lama, semuanya disengaja:
+    //
+    // 1. PB_MSTR_ON dipakai sebagai kontak NC (negated), sesuai program aslinya. Tombolnya
+    //    diwiring normally-closed, jadi input PLC-nya TRUE saat tombol tidak ditekan. Kontak NC
+    //    di ladder membuat rung ini kembali TRUE begitu tombol dilepas - dan karena LB008 nyeal
+    //    dirinya sendiri, penekanan tombol tetap yang mengawali, bukan yang menahannya.
+    //
+    // 2. Seal LB008 mem-bypass MSTR_RDY *dan* PB_MSTR_ON, bukan cuma PB-nya. Titik cabangnya di
+    //    RAIL. Dulu MSTR_RDY diseri SESUDAH gerbang OR, jadi begitu master ready hilang sekejap
+    //    (mis. drop tegangan kontrol) seal-nya ikut lepas dan konfirmasi master hilang diam-diam.
+    //
+    // 3. LB009 sekarang diambil dari simpul BERSAMA, bukan rung terpisah berisi /MSTR_RDY saja.
+    //    Efeknya LB009 = (master pernah on) DAN master ready hilang. Versi lama LB009 = /MSTR_RDY
+    //    doang, artinya "master off confirmed" nyala sejak PLC baru hidup - padahal master-nya
+    //    belum pernah dinyalakan sama sekali. Itu status palsu yang bisa dipakai logic lain.
+    (function(){
+        var r=new Rung(o++, "Master on and off confirmation");
+        var rail=r.rail();
+        var trig=r.ct(sPbMstr, r.ct(sMstr, rail), true);   // MSTR_RDY -> /PB_MSTR_ON (NC)
+        var seal=r.ct("LB008", rail);                      // seal, langsung dari rail
+        var onCoil =r.cl("LB008", r.ctm("LB009",[trig,seal],true));   // ANDNOT LB009
+        var offCoil=r.cl("LB009", r.ctm(sMstr,   [trig,seal],true));  // ANDNOT MSTR_RDY
+        r.rr([onCoil,offCoil]);
+        S5.push(r.build());
+    })();
     P("LB008","BOOL","Master on confirmed"); P("LB009","BOOL","Master off confirmed");
     var emg=[];
     [[1,sEmg,"Emergency stop button pressed"],[2,sFuse,"Fuse disconnected"],
