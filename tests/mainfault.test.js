@@ -1,11 +1,13 @@
 // Rung "Master on and off confirmation" di MAIN -> Fault.
 // Bentuk yang benar (mengikuti program asli Ndeso): SATU rung, DUA coil.
 //
-//      MSTR_RDY   PB_MSTR_ON              /LB009        (LB008)
-// rail-+--| |--------| |------+-----------|/|------------( )
+//      MSTR_RDY  /PB_MSTR_ON             /LB009        (LB008)
+// rail-+--| |--------|/|------+-----------|/|------------( )
 //      |                      |
 //      +--| |----------------+-----------|/|------------( )
 //         LB008                           /MSTR_RDY      (LB009)
+//
+// PB_MSTR_ON kontak NC - tombolnya diwiring normally-closed.
 const fs = require('fs');
 const path = require('path');
 const root = path.join(__dirname, '..').replace(/\\/g, '/');
@@ -54,6 +56,9 @@ const nMst = by('Contact', 'MSTR_RDY').filter(o => o.neg)[0];
 chk('urutan MSTR_RDY lalu PB_MSTR_ON (bukan sebaliknya)',
     !!mstr && !!pb && mstr.ins.indexOf(rail.out) >= 0 && pb.ins.indexOf(mstr.out) >= 0,
     'MSTR_RDY in[' + (mstr ? mstr.ins : '?') + '] rail=' + rail.out);
+chk('MSTR_RDY kontak NO', !!mstr && !mstr.neg);
+chk('PB_MSTR_ON kontak NC (tombol diwiring normally-closed)', !!pb && pb.neg,
+    pb ? ('negated=' + pb.neg) : 'tidak ketemu');
 
 // Inti perbaikannya: seal LB008 mem-bypass MSTR_RDY DAN PB_MSTR_ON, jadi titiknya di RAIL.
 chk('seal LB008 bercabang dari RAIL (bypass MSTR_RDY + PB_MSTR_ON)',
