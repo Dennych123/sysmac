@@ -71,6 +71,48 @@ ada yang mengira presisi penuh padahal bukan. Ini penting: ekspresi yang salah
 susun tetap terlihat masuk akal, dan itulah yang berbahaya kalau dipercaya
 mentah-mentah oleh engineer maupun LLM.
 
+## Rekonstruksi flowchart urutan gerakan
+
+`--flowchart` mengenali pola motion step di section AutoRunning dan menyusunnya
+jadi `motionSequences` JSON — format yang sama dengan editor flowchart generator,
+jadi bisa langsung diimpor.
+
+```
+$ python read_smc2.py project.smc2 --flowchart motion.json
+
+SECTION                                   RUNG  STEP BERANTAI TAK TERPETAKAN
+P011_WIP_Transfer/AutoRunning               28     4      2/4    24
+P012_ATS3_Unit/Auto_Running                148    46     8/46   102
+
+50 langkah gerakan terpetakan, 10 di antaranya berhasil dirantai.
+```
+
+Pola yang dikenali:
+
+```
+x0y0 prevBit -- x1y0 /confirm ----------> Coil cmd
+                x1y1 sol - x2y1 lsc ----> Coil confirm
+                x1y2 confirm (seal)
+```
+
+Pembedanya dari rung berkoil-dua yang lain — mis. mutex pemilih varian, yang juga
+punya dua coil dan sama-sama menyeal diri — adalah **hanya satu coil yang di-gate
+kontak NC**. Pada mutex keduanya saling mengunci, dan rung seperti itu memang
+bukan langkah gerakan. Ditolak, bukan dipaksakan masuk.
+
+### Yang jujur perlu diketahui
+
+**Rantai antar langkah sering tidak lengkap.** `confirm` sebuah langkah tidak
+selalu langsung menjadi `prevBit` langkah berikutnya — banyak program memakai bit
+perantara. Penelusuran mundur lewat rung penulisnya menemukan sebagian, tapi tidak
+semua (10 dari 50 pada project uji).
+
+Langkah yang tidak berhasil dirantai **dibiarkan menunjuk bit aslinya**, bukan
+disembunyikan — di editor akan muncul sebagai blok syarat. Jadi informasinya utuh
+dan urutannya kelihatan perlu dicek, bukan diam-diam salah.
+
+Ini disengaja: flowchart yang memuat urutan palsu lebih berbahaya daripada
+flowchart yang kurang lengkap. Yang kurang lengkap kelihatan; yang palsu tidak.
 ## Pakai
 
 ```bash
@@ -79,6 +121,7 @@ python read_smc2.py project.smc2 --operands       # inventaris operand + komen
 python read_smc2.py project.smc2 --xref           # ditulis di mana, dibaca di mana
 python read_smc2.py project.smc2 --xref LB800     # difilter, sekalian lokasinya
 python read_smc2.py project.smc2 --llm prog.md    # SELURUH konteks buat LLM
+python read_smc2.py project.smc2 --flowchart m.json  # urutan gerakan -> motionSequences
 python read_smc2.py project.smc2 --graph g.json   # node + edge
 python read_smc2.py project.smc2 --json out.json  # dump mentah
 ```

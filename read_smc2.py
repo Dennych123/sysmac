@@ -352,6 +352,155 @@ def rung_expr(rung):
     return ' AND '.join(parts), [label(e) for e in outs], approx
 
 
+# --------------------------------------------------- rekonstruksi flowchart
+# Pola motion step (satu langkah gerakan) punya bentuk rung yang khas:
+#
+#   x0y0 prevBit --- x1y0 /confirm ------------> Coil cmd
+#                    x1y1 sol - x2y1 lsc ------> Coil confirm
+#                    x1y2 confirm (seal)
+#
+# Pembeda dari rung berkoil-dua yang LAIN (mis. mutex pemilih varian, yang juga
+# punya dua coil dan sama-sama nyeal diri): pada motion step hanya SATU coil yang
+# muncul sebagai kontak NC. Di rung mutex, kedua coil saling mengunci lewat NC,
+# jadi tidak ada yang unik - dan rung seperti itu memang bukan langkah gerakan.
+MOTION_SECT = re.compile(r'auto.*runn|autorunn|motion', re.I)
+
+
+def find_motion_steps(section):
+    """[(idx, prevBit, sol, lsc, cmd, confirm, comment)] + daftar rung tak terpetakan."""
+    steps, unmapped = [], []
+    for i, r in enumerate(section['rungs'], 1):
+        els = r['elements']
+        coils = [e for e in els if e['kind'] == 'Coil' and e.get('var')]
+        cts = [e for e in els if e['kind'] == 'Contact' and e.get('var')]
+        if len(coils) != 2:
+            unmapped.append((i, 'bukan 2 coil'))
+            continue
+        ncs = {c['var'] for c in cts if c.get('nc')}
+        cand = [c for c in coils if c['var'] in ncs]
+        if len(cand) != 1:
+            unmapped.append((i, 'dua coil saling mengunci (mutex), bukan langkah gerakan'
+                                if len(cand) == 2 else 'tidak ada coil yang di-gate kontak NC'))
+            continue
+        confirm = cand[0]
+        cmd = [c for c in coils if c is not confirm][0]
+
+        # prevBit = kontak paling kiri di jalur utama
+        main0 = [c for c in cts if (c.get('y', 0) == 0 and c.get('x', 0) == 0)]
+        if not main0:
+            unmapped.append((i, 'tidak ada kontak di kolom 0 baris 0 (prevBit)'))
+            continue
+        prev = main0[0]['var']
+
+        # sol & lsc = kontak sebaris dengan coil confirm, selain prev/cmd/confirm
+        row = confirm.get('y', 0)
+        band = [c for c in cts if c.get('y', 0) == row
+                and c['var'] not in (prev, cmd['var'], confirm['var'])]
+        band.sort(key=lambda c: c.get('x', 0))
+        if len(band) < 2:
+            unmapped.append((i, 'tidak ketemu pasangan solenoid+sensor di baris confirm'))
+            continue
+        steps.append({'rung': i, 'prev': prev, 'sol': band[0]['var'], 'lsc': band[1]['var'],
+                      'cmd': cmd['var'], 'confirm': confirm['var'],
+                      'comment': r.get('comment', '')})
+    return steps, unmapped
+
+
+def flowchart(p, out):
+    """Susun ulang urutan gerakan jadi motionSequences JSON (siap diimpor editor).
+
+    Rantai langkahnya diambil dari prevBit: kalau prevBit sebuah langkah sama
+    dengan confirm langkah lain, berarti langkah itu menunggu langkah tersebut.
+    Kalau prevBit bukan milik langkah manapun, dia dibiarkan sebagai rujukan bit
+    apa adanya - editor akan menampilkannya sebagai blok syarat, jadi informasinya
+    tidak hilang.
+    """
+    result, report = {}, []
+    for prog in p['programs']:
+        for s in prog['sections']:
+            if not MOTION_SECT.search(s['name']) or not s['rungs']:
+                continue
+            steps, unmapped = find_motion_steps(s)
+            key = '%s/%s' % (prog['name'], s['name'])
+            report.append((key, len(s['rungs']), len(steps), unmapped, 0))
+            if not steps:
+                continue
+            by_confirm = {st['confirm']: 'n%d' % k for k, st in enumerate(steps, 1)}
+
+            # Rantai langkah TIDAK selalu langsung: confirm sebuah langkah sering
+            # tidak jadi prevBit langkah berikutnya, melainkan lewat rung perantara
+            #   #10  LB420 AND ... -> LB428, LB429      <- penghasil step-enable
+            #   #11  LB429 AND ... -> LB430, LB431      <- langkah gerakannya
+            # Jadi prevBit ditelusuri MUNDUR lewat rung yang menulisnya sampai
+            # ketemu confirm langkah lain. Tanpa ini semua langkah terlihat
+            # berangkat sendiri-sendiri - flowchart yang rapi tapi bohong.
+            writers = collections.defaultdict(list)
+            for r in s['rungs']:
+                ins = [e['var'] for e in r['elements']
+                       if e['kind'] == 'Contact' and e.get('var')]
+                for e in r['elements']:
+                    if e['kind'] == 'Coil' and e.get('var'):
+                        writers[e['var']].append(ins)
+
+            def trace(bit, depth=6, seen=None):
+                """Telusuri mundur dari `bit` sampai ketemu confirm langkah lain."""
+                seen = seen or set()
+                if bit in by_confirm:
+                    return by_confirm[bit], True
+                if depth <= 0 or bit in seen:
+                    return bit, False
+                seen.add(bit)
+                for ins in writers.get(bit, []):
+                    for src in ins:
+                        if src == bit:
+                            continue
+                        got, ok = trace(src, depth - 1, seen)
+                        if ok:
+                            return got, True
+                return bit, False
+
+            nodes, chained = [], 0
+            for k, st in enumerate(steps, 1):
+                ref, ok = trace(st['prev'])
+                if ok:
+                    chained += 1
+                nodes.append({
+                    'id': 'n%d' % k, 'type': 'motion', 'sol': st['sol'],
+                    'after': [ref], 'join': 'AND',
+                    'x': 20 + ((k - 1) % 4) * 175,
+                    'y': 75 + ((k - 1) // 4) * 75,
+                })
+            report[-1] = (key, len(s['rungs']), len(steps), unmapped, chained)
+            result[key] = [{'condition': '', 'comment': s['name'],
+                            'conditionComments': {}, 'conditionPositions': {}, 'nodes': nodes}]
+
+    with open(out, 'w', encoding='utf-8') as f:
+        json.dump(result, f, ensure_ascii=False, indent=2)
+
+    print('WROTE %s' % out)
+    print()
+    print('%-40s %5s %5s %8s %s' % ('SECTION', 'RUNG', 'STEP', 'BERANTAI', 'TAK TERPETAKAN'))
+    print('-' * 78)
+    tot_s = tot_u = tot_c = 0
+    for key, nr, ns, un, ch in report:
+        print('%-40s %5d %5d %8s %5d' % (key[:40], nr, ns,
+                                         ('%d/%d' % (ch, ns)) if ns else '-', len(un)))
+        tot_s += ns
+        tot_u += len(un)
+        tot_c += ch
+    print()
+    print('%d langkah gerakan terpetakan, %d di antaranya berhasil dirantai.' % (tot_s, tot_c))
+    if tot_s and tot_c < tot_s:
+        print('Langkah yang TIDAK berantai dibiarkan menunjuk bit aslinya - di editor akan')
+        print('muncul sebagai blok syarat, bukan disembunyikan. Urutannya perlu dicek manual.')
+    print()
+    print('%d rung tidak terpetakan. Itu BUKAN berarti salah - kebanyakan memang bukan' % tot_u)
+    print('langkah gerakan (mutex varian, output, interlock). Alasan per rung:')
+    alasan = collections.Counter(a for _, _, _, un, _ in report for _, a in un)
+    for a, c in alasan.most_common():
+        print('   %4d  %s' % (c, a))
+
+
 def llm_dump(p, out):
     """Ekspor SELURUH konteks program jadi satu berkas Markdown.
 
@@ -576,6 +725,9 @@ if __name__ == '__main__':
         with open(out, 'w', encoding='utf-8') as f:
             json.dump(p, f, ensure_ascii=False, indent=2)
         print('WROTE', out)
+    elif '--flowchart' in sys.argv:
+        i = sys.argv.index('--flowchart')
+        flowchart(p, sys.argv[i + 1] if len(sys.argv) > i + 1 else 'motionSequences.json')
     elif '--llm' in sys.argv:
         i = sys.argv.index('--llm')
         llm_dump(p, sys.argv[i + 1] if len(sys.argv) > i + 1 else 'program.md')
