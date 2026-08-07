@@ -4,3 +4,5 @@ __pycache__/
 /tmp/
 # snapshot graph lama yang dibikin `graphify update` tiap kali rebuild - riwayatnya udah ada di git
 graphify-out/20*/
+mdf ats new.smc2
+*.smc2

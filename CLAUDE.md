@@ -55,6 +55,52 @@ blok ke-3 walau ST1/ST2 kosong. Itu yang membuat nomor alarm tidak bergeser saat
 aktuator atau unit ditambah. Ukuran blok harus **seragam**; kalau satu station
 butuh lebih, semuanya dinaikkan.
 
+## Membaca project Sysmac (.smc2)
+
+Sysmac Studio **tidak punya export XML**, cuma import. Tapi `.smc2` itu container
+ZIP berisi XML, jadi isinya tetap bisa dibaca dari luar —
+`python scripts/read_smc2.py project.smc2`.
+
+**Hanya baca.** Format ini tidak didokumentasikan Omron. Jangan pernah menulis
+balik ke `.smc2`. Menulis program tetap lewat import XML yang resmi didukung.
+
+Peta format (hasil reverse engineering):
+
+```
+.smc2                     ZIP
+ +- <sol>/<sol>.manifest   nama solution
+ +- <sol>/<sol>.oem        POHON PROJECT  <- kuncinya di sini
+ +- <sol>/<guid>.xml       isi section
+```
+
+Pohon di `.oem` bersarang lewat `<ChildEntities>`:
+`Solution` → `Group[IecPous]` → `Group[IecPrograms]` → `Program` →
+**`PouBody`** (nama section, **dan id-nya = nama file `<id>.xml`**).
+
+**Jebakan:** di bawah `PouBody` ada `PouBodySourceHolder` yang juga punya id dan
+juga punya file `.xml` — tapi isinya `CxilVariable` (variabel bantu compiler),
+bukan ladder. Ketukar di sini hasilnya bukan error, melainkan **0 rung di semua
+section** — dan itu terlihat seperti "project kosong", bukan seperti bug.
+
+**Format ladder berubah antar versi Studio**, dan ini sudah terjadi:
+
+| Studio | Bentuk | Isi |
+|---|---|---|
+| ≤ 1.56 | `<LadderDiagram>` DataContract XML | `Contact`/`Coil` dengan `Variable`, `NormallyClosed`, `Negated`, `Set`, `Reset` |
+| ≥ 1.66 | deretan objek JSON per rung | `CLs` (LD/ST/F/HL), `Var`, `Not`, `X`/`Y` grid, `VLs`, `CMT` |
+
+Yang JSON justru lebih mudah: tata letaknya eksplisit lewat `X`/`Y`, tidak perlu
+menelusuri edge GUID. Komentar di format XML dipakai bersama gaya DataContract
+(`z:Id` sekali, `z:Ref` seterusnya) — harus diresolusi atau sebagian besar
+komentar terbaca kosong.
+
+Studio ≥ 1.66 juga menyimpan **tabel variabel global** sebagai teks berpenanda
+`[SLWD version=1.0]`, satu baris per variabel dengan nama, tipe, alamat IO, dan
+komentar — praktis IO list yang bisa ditarik langsung.
+
+`tests/smc2.test.js` menguji kedua format sekaligus. Kalau tidak ada file `.smc2`
+contoh, tesnya skip, bukan gagal.
+
 ## Peta file
 
 | File | Isi |
@@ -64,6 +110,7 @@ butuh lebih, semuanya dinaikkan.
 | `js/gen_all.js` | seluruh pembangkit program, ~1100 baris, inti proyek |
 | `scripts/build_html.py` | template + seluruh UI editor, meng-inline `js/*.js` |
 | `scripts/core.js` | runner pipeline headless (modul + CLI) |
+| `scripts/read_smc2.py` | pembaca project Sysmac `.smc2` (baca saja) |
 | `scripts/test.js` | uji pipeline end-to-end |
 | `tests/*.test.js` | harness per-area, jalan tanpa browser |
 

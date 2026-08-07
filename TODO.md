@@ -79,7 +79,27 @@ export–import (mis. lewat MCP).
 
 ---
 
-## 5. Panel warning bisa diklik
+## 5. Manfaatkan pembaca `.smc2`
+
+`scripts/read_smc2.py` sudah bisa membaca project Sysmac (dua versi format,
+lihat [CLAUDE.md](CLAUDE.md)). Yang belum: memakainya untuk sesuatu.
+
+Urut dari yang paling bernilai:
+
+1. **Audit standar program vendor.** Vendor kirim `.smc2`, tools laporkan
+   penamaan yang menyimpang, section yang hilang, alokasi alarm yang salah.
+   Ini menjawab langsung masalah vendor yang jadi alasan utama SS.
+2. **Verifikasi hasil generate.** Generate → import → baca balik → bandingkan.
+   Ketahuan kalau ada yang mengedit tangan dan menyimpang dari standar.
+3. **Tarik IO list dari mesin lama.** Studio ≥1.66 menyimpan tabel variabel
+   lengkap dengan alamat dan komentar — itu praktis IO list siap pakai untuk
+   mesin copy atau retrofit.
+
+Rekonstruksi logika rung (seri/paralel) belum dikerjakan. Untuk audit penamaan
+dan inventaris operand tidak diperlukan; baru perlu kalau mau membandingkan
+logika hasil generate dengan yang ada di mesin.
+
+## 6. Panel warning bisa diklik
 
 Warning sudah dikelompokkan per station dan membawa `code` + `device`. Langkah
 berikutnya yang murah: klik satu baris warning → gulirkan ke aktuator atau node
