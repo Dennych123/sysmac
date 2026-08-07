@@ -1,0 +1,470 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>Susmax - Pembaca Project Sysmac (.smc2)</title>
+<style>
+  :root{
+    --fg:#111827;--muted:#4b5563;--faint:#6b7280;
+    --line:#d6dbe3;--line-soft:#e6eaf0;--card:#fff;--bg:#f1f4f8;
+    --accent:#2563eb;--accent-dk:#1d4ed8;--accent-soft:#eff5ff;
+    --ok:#15803d;--warn:#b45309;--danger:#b91c1c;
+    --radius:8px;--shadow:0 1px 2px rgba(16,24,40,.06),0 1px 3px rgba(16,24,40,.08);
+  }
+  *{box-sizing:border-box}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
+       max-width:1680px;margin:0 auto;padding:24px 28px 64px;color:var(--fg);background:var(--bg);
+       font-size:14px;line-height:1.55;-webkit-font-smoothing:antialiased}
+  h1{font-size:22px;font-weight:650;margin:0 0 2px;letter-spacing:-.01em}
+  h2{font-size:15px;font-weight:650;margin:28px 0 8px;padding:0 0 0 10px;border-left:3px solid var(--accent)}
+  .hint{font-size:12.5px;color:var(--muted);margin:6px 0;max-width:110ch}
+  code{font-family:Consolas,monospace;font-size:.92em;background:var(--accent-soft);
+       border:1px solid #dbe6fb;border-radius:4px;padding:1px 4px}
+
+  #drop{border:2px dashed #b6c2d4;border-radius:10px;background:var(--card);padding:36px 20px;
+        text-align:center;cursor:pointer;transition:border-color .12s,background .12s;margin:14px 0}
+  #drop:hover,#drop.over{border-color:var(--accent);background:var(--accent-soft)}
+  #drop .big{font-size:16px;font-weight:600;margin-bottom:4px}
+  #drop .sub{font-size:12.5px;color:var(--muted)}
+  input[type=file]{display:none}
+
+  .bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:10px 0}
+  button{padding:7px 14px;font-size:13px;font-weight:500;cursor:pointer;background:var(--accent);
+         color:#fff;border:none;border-radius:6px;transition:background .12s}
+  button:hover{background:var(--accent-dk)}
+  button:disabled{background:#9aa6b8;cursor:default}
+  button.alt{background:#374151}
+  button.alt:hover{background:#1f2937}
+  button.tab{background:transparent;color:var(--muted);border:1px solid var(--line)}
+  button.tab:hover{background:#e8edf5;color:var(--fg)}
+  button.tab.active{background:var(--accent);border-color:var(--accent);color:#fff}
+  input[type=search]{font-size:13px;padding:7px 10px;border:1px solid var(--line);border-radius:6px;
+                     width:280px;font-family:Consolas,monospace}
+
+  .meta{display:flex;gap:22px;flex-wrap:wrap;background:var(--card);border:1px solid var(--line);
+        border-radius:8px;padding:12px 16px;box-shadow:var(--shadow);margin:12px 0}
+  .meta div{font-size:12.5px;color:var(--muted)}
+  .meta b{display:block;font-size:17px;color:var(--fg);font-weight:650;font-family:Consolas,monospace}
+
+  .panel{display:none}
+  .panel.on{display:block}
+  .scroll{max-height:620px;overflow:auto;border:1px solid var(--line);border-radius:8px;background:var(--card)}
+  table{border-collapse:separate;border-spacing:0;width:100%;font-size:12.5px}
+  th{position:sticky;top:0;z-index:1;background:#eef2f8;text-align:left;font-weight:600;font-size:12px;
+     color:var(--muted);padding:8px;border-bottom:1px solid var(--line);white-space:nowrap}
+  td{padding:5px 8px;border-bottom:1px solid var(--line-soft);vertical-align:top}
+  tr:hover td{background:#f8fafc}
+  td.mono,th.mono{font-family:Consolas,monospace}
+  td.num{text-align:right;color:var(--faint);font-family:Consolas,monospace;width:60px}
+  .prog{font-weight:650;background:#eef2ff !important}
+  .prog td{color:#3730a3}
+  .tag{display:inline-block;font-family:Consolas,monospace;font-size:11px;padding:1px 6px;
+       border-radius:4px;background:#f1f5f9;color:#475569;border:1px solid #e2e8f0}
+  .tag.ld{background:#eff6ff;color:#1d4ed8;border-color:#dbeafe}
+  .tag.st{background:#f0fdf4;color:#15803d;border-color:#dcfce7}
+  .tag.nc{background:#fef2f2;color:#b91c1c;border-color:#fecaca}
+  .err{color:var(--danger);font-size:13px;white-space:pre-wrap;margin:10px 0}
+  .note{background:#fffbeb;border:1px solid #fcd34d;border-left:4px solid #d97706;
+        border-radius:7px;padding:12px 14px;margin:14px 0;font-size:12.5px;color:#78350f}
+  .rung{border-bottom:1px solid var(--line-soft);padding:7px 10px}
+  .rung .c{font-size:12px;color:var(--warn);margin-bottom:3px}
+  .rung .e{font-family:Consolas,monospace;font-size:12px}
+  .sec-h{background:#f8fafc;font-weight:600;padding:6px 10px;border-bottom:1px solid var(--line);
+         position:sticky;top:0;font-size:12.5px}
+</style>
+</head>
+<body>
+
+<h1>Pembaca Project Sysmac (.smc2)</h1>
+<p class="hint">Sysmac Studio tidak punya export XML &mdash; hanya import. Tapi file <code>.smc2</code>
+itu container ZIP berisi XML, jadi isinya tetap bisa dibaca dari luar. Halaman ini membuka dan
+membedahnya <b>langsung di browser</b>: file tidak diunggah ke mana pun, semuanya diproses di
+komputermu.</p>
+
+<div id="drop">
+  <div class="big">Jatuhkan file .smc2 di sini</div>
+  <div class="sub">atau klik untuk memilih &mdash; file tidak dikirim ke mana pun</div>
+  <input type="file" id="file" accept=".smc2,.smc">
+</div>
+
+<div id="err" class="err"></div>
+
+<div id="out" style="display:none">
+  <div class="meta" id="meta"></div>
+
+  <div class="bar">
+    <button class="tab active" data-p="sum">Ringkasan</button>
+    <button class="tab" data-p="rung">Rung</button>
+    <button class="tab" data-p="op">Operand</button>
+    <button class="tab" data-p="var">Variabel</button>
+    <span style="flex:1"></span>
+    <input type="search" id="q" placeholder="cari nama / operand / komen...">
+    <button class="alt" id="dl">Download JSON</button>
+  </div>
+
+  <div class="panel on" id="p-sum"><div class="scroll"><table id="t-sum"></table></div></div>
+  <div class="panel" id="p-rung"><div class="scroll" id="t-rung"></div></div>
+  <div class="panel" id="p-op"><div class="scroll"><table id="t-op"></table></div></div>
+  <div class="panel" id="p-var"><div class="scroll"><table id="t-var"></table></div></div>
+</div>
+
+<div class="note">
+  <b>Baca saja.</b> Format di dalam <code>.smc2</code> tidak didokumentasikan Omron dan sudah terbukti
+  berubah antar versi Studio (1.56 memakai XML, 1.66 memakai JSON). Halaman ini sengaja hanya membaca
+  &mdash; jangan pernah menulis balik ke <code>.smc2</code>, karena project bisa rusak tanpa cara
+  memperbaikinya. Membuat program tetap lewat import XML yang resmi didukung.
+</div>
+
+<script>
+'use strict';
+
+// ============================================================ pembaca ZIP
+// Tanpa library apa pun: struktur ZIP dibaca manual, dekompresi pakai
+// DecompressionStream yang sudah ada di browser modern. Itu yang membuat
+// halaman ini tetap satu file dan tetap jalan offline.
+async function unzip(buf) {
+  const dv = new DataView(buf), u8 = new Uint8Array(buf);
+  // End of Central Directory: cari mundur dari ekor
+  let eo = -1;
+  for (let i = buf.byteLength - 22; i >= 0 && i > buf.byteLength - 65558; i--) {
+    if (dv.getUint32(i, true) === 0x06054b50) { eo = i; break; }
+  }
+  if (eo < 0) throw new Error('Bukan file ZIP yang valid (EOCD tidak ketemu).');
+  const count = dv.getUint16(eo + 10, true);
+  let p = dv.getUint32(eo + 16, true);
+
+  const entries = [];
+  for (let i = 0; i < count; i++) {
+    if (dv.getUint32(p, true) !== 0x02014b50) break;
+    const method = dv.getUint16(p + 10, true);
+    const csize = dv.getUint32(p + 20, true);
+    const usize = dv.getUint32(p + 24, true);
+    const nlen = dv.getUint16(p + 28, true);
+    const elen = dv.getUint16(p + 30, true);
+    const clen = dv.getUint16(p + 32, true);
+    const off = dv.getUint32(p + 42, true);
+    const name = new TextDecoder().decode(u8.subarray(p + 46, p + 46 + nlen));
+    entries.push({ name, method, csize, usize, off });
+    p += 46 + nlen + elen + clen;
+  }
+
+  const files = new Map();
+  for (const e of entries) {
+    if (e.name.endsWith('/')) continue;
+    // Local header: panjang nama & extra bisa beda dari central directory
+    const ln = dv.getUint16(e.off + 26, true), le = dv.getUint16(e.off + 28, true);
+    const start = e.off + 30 + ln + le;
+    const raw = u8.subarray(start, start + e.csize);
+    files.set(e.name, { method: e.method, raw });
+  }
+  return files;
+}
+
+async function inflate(f) {
+  if (f.method === 0) return f.raw;                       // stored
+  if (f.method !== 8) throw new Error('metode kompresi ' + f.method + ' tidak didukung');
+  const ds = new DecompressionStream('deflate-raw');
+  const blob = new Blob([f.raw]).stream().pipeThrough(ds);
+  return new Uint8Array(await new Response(blob).arrayBuffer());
+}
+
+const dec = new TextDecoder('utf-8');
+function text(bytes) {
+  let s = dec.decode(bytes);
+  return s.charCodeAt(0) === 0xFEFF ? s.slice(1) : s;     // buang BOM
+}
+
+// ======================================================== parser .smc2
+// Peta format (hasil reverse engineering, lihat CLAUDE.md):
+//   <sol>/<sol>.oem   pohon project, bersarang lewat <ChildEntities>
+//   Program -> PouBody   <- id PouBody = nama file <id>.xml ladder-nya
+// JEBAKAN: di bawah PouBody ada PouBodySourceHolder yang juga punya id dan
+// juga punya .xml, tapi isinya variabel bantu compiler. Salah ambil -> 0 rung
+// di semua section, dan itu kelihatan seperti project kosong, bukan seperti bug.
+function parseTree(oemText) {
+  const doc = new DOMParser().parseFromString(oemText, 'text/xml');
+  const out = [];
+  function walk(node, prog, sect) {
+    const t = node.getAttribute('type'), nm = node.getAttribute('name') || '', id = node.getAttribute('id') || '';
+    if (t === 'Program') prog = nm || prog;
+    else if (t === 'PouBody') { sect = nm || sect; out.push({ prog: prog || '(tanpa program)', sect: sect || '(tanpa nama)', id }); }
+    const kids = node.querySelector(':scope > ChildEntities');
+    if (kids) for (const ch of kids.children) if (ch.tagName === 'Entity') walk(ch, prog, sect);
+  }
+  for (const e of doc.documentElement.children) if (e.tagName === 'Entity') walk(e, null, null);
+  return out;
+}
+
+// --- ladder DataContract XML (Studio <= 1.56) ---
+function parseLadderXml(t) {
+  const doc = new DOMParser().parseFromString(t, 'text/xml');
+  const cmap = new Map();
+  doc.querySelectorAll('Comment').forEach(c => {
+    const id = c.getAttribute('z:Id') || c.getAttributeNS('http://schemas.microsoft.com/2003/10/Serialization/', 'Id');
+    if (id && c.textContent.trim()) cmap.set(id, c.textContent.trim());
+  });
+  const cmt = el => {
+    const c = el.querySelector(':scope > Comment');
+    if (!c) return '';
+    if (c.textContent.trim()) return c.textContent.trim();
+    const r = c.getAttribute('z:Ref') || c.getAttributeNS('http://schemas.microsoft.com/2003/10/Serialization/', 'Ref');
+    return r ? (cmap.get(r) || '') : '';
+  };
+  const flag = (el, tag) => {
+    const c = el.querySelector(':scope > ' + tag);
+    return !!(c && c.textContent.trim().toLowerCase() === 'true');
+  };
+  const type = el => el.getAttribute('i:type') ||
+    el.getAttributeNS('http://www.w3.org/2001/XMLSchema-instance', 'type');
+
+  const rungs = [];
+  doc.querySelectorAll('DiagramElement').forEach(r => {
+    if (type(r) !== 'Rung') return;
+    const holder = r.querySelector(':scope > Elements');
+    const els = [];
+    if (holder) for (const e of holder.children) {
+      const k = type(e), it = { kind: k };
+      const v = e.querySelector(':scope > Variable');
+      if (v && v.textContent) it.var = v.textContent.trim();
+      if (k === 'Contact') it.nc = flag(e, 'NormallyClosed');
+      if (k === 'Coil') { it.neg = flag(e, 'Negated'); it.set = flag(e, 'Set'); it.reset = flag(e, 'Reset'); }
+      els.push(it);
+    }
+    rungs.push({ comment: cmt(r), elements: els });
+  });
+  return rungs;
+}
+
+// --- ladder JSON (Studio >= 1.66): satu objek per rung, beruntun ---
+const KIND = { LD: 'Contact', ST: 'Coil', F: 'Function', HL: 'HLink', PF: 'PowerFlow' };
+function parseLadderJson(t) {
+  const rungs = [];
+  let i = 0;
+  while (i < t.length) {
+    while (i < t.length && /\s/.test(t[i])) i++;
+    if (t[i] !== '{') break;
+    // pindai kurung kurawal sambil menghormati string dan escape
+    let d = 0, j = i, ins = false, esc = false;
+    for (; j < t.length; j++) {
+      const c = t[j];
+      if (esc) { esc = false; continue; }
+      if (c === '\\') { esc = true; continue; }
+      if (c === '"') ins = !ins;
+      else if (!ins) { if (c === '{') d++; else if (c === '}' && --d === 0) { j++; break; } }
+    }
+    let o;
+    try { o = JSON.parse(t.slice(i, j)); } catch (e) { break; }
+    i = j;
+    const els = (o.CLs || []).map(e => {
+      const it = { kind: KIND[e.__type] || e.__type };
+      if (e.Var) it.var = e.Var;
+      if (e.Not) { if (e.__type === 'LD') it.nc = true; else it.neg = true; }
+      if (e.Name) it.func = e.Name;
+      return it;
+    });
+    rungs.push({ comment: o.CMT || '', elements: els });
+  }
+  return rungs;
+}
+
+// --- tabel variabel global (Studio >= 1.66), teks berpenanda [SLWD ...] ---
+function parseVars(t) {
+  const out = [];
+  for (const line of t.split('\n')) {
+    const s = line.trim();
+    if (!s.startsWith('++D=')) continue;
+    const rec = {};
+    for (const part of s.slice(2).split('\t')) {
+      const k = part.indexOf('=');
+      if (k > 0) rec[part.slice(0, k).trim()] = part.slice(k + 1).trim();
+    }
+    if (rec.N) out.push({ name: rec.N, type: rec.D || '', address: rec.AT || '', group: rec.G || '', comment: rec.Com || '' });
+  }
+  return out;
+}
+
+async function readProject(buf) {
+  const files = await unzip(buf);
+  const get = async n => text(await inflate(files.get(n)));
+
+  let oemName = null, manName = null, logName = null;
+  const byId = new Map();
+  for (const n of files.keys()) {
+    if (n.endsWith('.oem')) oemName = n;
+    else if (n.endsWith('.manifest')) manName = n;
+    else if (n.endsWith('.log')) logName = n;
+    if (n.endsWith('.xml')) byId.set(n.split('/').pop().slice(0, -4), n);
+  }
+  if (!oemName) throw new Error('Bukan project Sysmac: entri .oem tidak ketemu di dalam ZIP.');
+
+  const proj = { solution: '', studio: '', programs: [], variables: [] };
+  if (manName) { const m = (await get(manName)).match(/solutionName="([^"]+)"/); if (m) proj.solution = m[1]; }
+  if (logName) { const m = (await get(logName)).match(/version="([\d.]+)"/); if (m) proj.studio = m[1]; }
+
+  const seen = new Map();
+  for (const t of parseTree(await get(oemName))) {
+    let entry = seen.get(t.prog);
+    if (!entry) { entry = { name: t.prog, sections: [] }; seen.set(t.prog, entry); proj.programs.push(entry); }
+    const s = { name: t.sect, id: t.id, kind: null, rungs: [] };
+    const fn = byId.get(t.id);
+    if (fn) {
+      const body = await get(fn);
+      const head = body.replace(/^\s+/, '').slice(0, 400);
+      if (head.includes('<LadderDiagram')) { s.kind = 'ladder'; s.rungs = parseLadderXml(body); }
+      else if (head[0] === '{' && head.includes('"CLs"')) { s.kind = 'ladder'; s.rungs = parseLadderJson(body); }
+      else if (head.includes('<StructuredText')) {
+        s.kind = 'st';
+        const d = new DOMParser().parseFromString(body, 'text/xml').querySelector('StructuredText > Text');
+        s.st = d ? d.textContent : '';
+      }
+    }
+    entry.sections.push(s);
+  }
+
+  for (const [n, f] of files) {
+    if (n.endsWith('/')) continue;
+    const b = await inflate(f);
+    if (b.length > 6) {
+      const h = text(b.subarray(0, 8));
+      if (h.startsWith('[SLWD ')) proj.variables.push(...parseVars(text(b)));
+    }
+  }
+  return proj;
+}
+
+// ================================================================== tampilan
+let PROJ = null;
+const $ = s => document.querySelector(s);
+const esc = s => String(s == null ? '' : s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+
+function render() {
+  const p = PROJ;
+  let secs = 0, rungs = 0;
+  p.programs.forEach(pr => { secs += pr.sections.length; pr.sections.forEach(s => rungs += s.rungs.length); });
+  const withAddr = p.variables.filter(v => v.address).length;
+
+  $('#meta').innerHTML =
+    `<div>Solution<b>${esc(p.solution || '-')}</b></div>` +
+    `<div>Sysmac Studio<b>${esc(p.studio || '-')}</b></div>` +
+    `<div>Program<b>${p.programs.length}</b></div>` +
+    `<div>Section<b>${secs}</b></div>` +
+    `<div>Rung<b>${rungs}</b></div>` +
+    `<div>Variabel<b>${p.variables.length}</b></div>` +
+    `<div>Beralamat IO<b>${withAddr}</b></div>`;
+
+  $('#out').style.display = 'block';
+  draw();
+}
+
+function draw() {
+  const q = ($('#q').value || '').toLowerCase();
+  const hit = s => !q || String(s).toLowerCase().includes(q);
+  const p = PROJ;
+
+  // --- ringkasan ---
+  let h = '<tr><th>Program / Section</th><th class="num">Rung</th><th>Jenis</th></tr>';
+  p.programs.forEach(pr => {
+    const rows = pr.sections.filter(s => hit(s.name) || hit(pr.name));
+    if (!rows.length) return;
+    const tot = pr.sections.reduce((a, s) => a + s.rungs.length, 0);
+    h += `<tr class="prog"><td>${esc(pr.name)}</td><td class="num">${tot}</td><td>${pr.sections.length} section</td></tr>`;
+    rows.forEach(s => {
+      h += `<tr><td style="padding-left:26px">${esc(s.name)}</td><td class="num">${s.rungs.length || ''}</td>` +
+           `<td><span class="tag">${s.kind || 'kosong'}</span></td></tr>`;
+    });
+  });
+  $('#t-sum').innerHTML = h;
+
+  // --- rung ---
+  let r = '';
+  p.programs.forEach(pr => pr.sections.forEach(s => {
+    if (!s.rungs.length) return;
+    const list = s.rungs.filter(x => !q || hit(x.comment) || x.elements.some(e => hit(e.var)));
+    if (!list.length) return;
+    r += `<div class="sec-h">${esc(pr.name)} &rsaquo; ${esc(s.name)} &mdash; ${list.length} rung</div>`;
+    list.slice(0, 400).forEach((x, i) => {
+      const els = x.elements.map(e => {
+        if (!e.var) return `<span class="tag">${esc(e.kind)}</span>`;
+        const cls = e.kind === 'Coil' ? 'st' : (e.nc || e.neg ? 'nc' : 'ld');
+        const mark = e.nc ? '/' : (e.neg ? '/' : '');
+        return `<span class="tag ${cls}">${mark}${esc(e.var)}</span>`;
+      }).join(' ');
+      r += `<div class="rung">${x.comment ? `<div class="c">${esc(x.comment)}</div>` : ''}<div class="e">${els}</div></div>`;
+    });
+    if (list.length > 400) r += `<div class="rung"><i>... ${list.length - 400} rung lagi disembunyikan</i></div>`;
+  }));
+  $('#t-rung').innerHTML = r || '<div class="rung"><i>tidak ada rung yang cocok</i></div>';
+
+  // --- operand ---
+  const use = new Map(), cmt = new Map();
+  p.programs.forEach(pr => pr.sections.forEach(s => s.rungs.forEach(x => x.elements.forEach(e => {
+    if (!e.var) return;
+    use.set(e.var, (use.get(e.var) || 0) + 1);
+  }))));
+  p.variables.forEach(v => { if (v.comment) cmt.set(v.name, v.comment); });
+  const ops = [...use.entries()].filter(([v]) => hit(v) || hit(cmt.get(v) || '')).sort((a, b) => b[1] - a[1]);
+  let o = `<tr><th>Operand</th><th class="num">Dipakai</th><th>Komen dari tabel variabel</th></tr>`;
+  ops.slice(0, 3000).forEach(([v, c]) => {
+    o += `<tr><td class="mono">${esc(v)}</td><td class="num">${c}</td><td>${esc(cmt.get(v) || '')}</td></tr>`;
+  });
+  $('#t-op').innerHTML = o;
+
+  // --- variabel ---
+  const vs = p.variables.filter(v => hit(v.name) || hit(v.comment) || hit(v.address));
+  let vh = '<tr><th>Nama</th><th>Tipe</th><th>Alamat IO</th><th>Grup</th><th>Komen</th></tr>';
+  vs.slice(0, 4000).forEach(v => {
+    vh += `<tr><td class="mono">${esc(v.name)}</td><td class="mono">${esc(v.type)}</td>` +
+          `<td class="mono">${esc(v.address)}</td><td>${esc(v.group)}</td><td>${esc(v.comment)}</td></tr>`;
+  });
+  $('#t-var').innerHTML = vh;
+}
+
+// ---------------------------------------------------------------- kejadian
+async function load(file) {
+  $('#err').textContent = '';
+  $('#drop .big').textContent = 'Membaca ' + file.name + ' ...';
+  try {
+    PROJ = await readProject(await file.arrayBuffer());
+    $('#drop .big').textContent = file.name;
+    $('#drop .sub').textContent = 'klik untuk ganti file';
+    render();
+  } catch (e) {
+    $('#drop .big').textContent = 'Jatuhkan file .smc2 di sini';
+    $('#err').textContent = 'Gagal membaca: ' + e.message;
+    console.error(e);
+  }
+}
+
+$('#drop').addEventListener('click', () => $('#file').click());
+$('#file').addEventListener('change', e => { if (e.target.files[0]) load(e.target.files[0]); });
+['dragenter', 'dragover'].forEach(t => $('#drop').addEventListener(t, e => {
+  e.preventDefault(); $('#drop').classList.add('over');
+}));
+['dragleave', 'drop'].forEach(t => $('#drop').addEventListener(t, e => {
+  e.preventDefault(); $('#drop').classList.remove('over');
+}));
+$('#drop').addEventListener('drop', e => { if (e.dataTransfer.files[0]) load(e.dataTransfer.files[0]); });
+
+document.querySelectorAll('button.tab').forEach(b => b.addEventListener('click', () => {
+  document.querySelectorAll('button.tab').forEach(x => x.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(x => x.classList.remove('on'));
+  b.classList.add('active');
+  $('#p-' + b.dataset.p).classList.add('on');
+}));
+
+let t = null;
+$('#q').addEventListener('input', () => { clearTimeout(t); t = setTimeout(draw, 180); });
+
+$('#dl').addEventListener('click', () => {
+  const b = new Blob([JSON.stringify(PROJ, null, 2)], { type: 'application/json' });
+  const u = URL.createObjectURL(b), a = document.createElement('a');
+  a.href = u; a.download = (PROJ.solution || 'sysmac') + '.json';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(u);
+});
+
+if (!window.DecompressionStream) {
+  $('#err').textContent = 'Browser ini belum mendukung DecompressionStream. Pakai Chrome/Edge versi baru.';
+}
+</script>
+</body>
+</html>
