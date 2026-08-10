@@ -1,13 +1,22 @@
-﻿# project PLC - besar dan isinya program mesin pelanggan, jangan masuk repo
+# project PLC - besar dan isinya program mesin pelanggan, jangan masuk repo
 *.smc2
 *.smc
+# ...KECUALI project tiruan buat tes. Isinya karangan, bukan program mesin,
+# dan harus ikut di-commit supaya tes bisa GAGAL, bukan cuma skip.
+!tests/fixtures/*.smc2
 
-# KELUARAN alat ini - isinya juga program mesin, jangan pernah di-commit
+# KELUARAN alat ini - isinya juga program mesin, jangan pernah di-commit.
+# Nama default CLI maupun nama bebas yang dipakai di contoh README.
 program.md
+prog.md
 motion.json
+motionSequences.json
 graph.json
-*.out.json
 smc2.json
+*.out.json
+*.ulir.json
+*.ulad.html
+out/
 
 # bytecode
 __pycache__/

@@ -3,34 +3,12 @@
 // Ini bagian yang paling menentukan nilai alat ini: kalau seri/paralel disusun
 // salah, ekspresi yang keluar TETAP terlihat masuk akal - dan justru itu yang
 // berbahaya, karena engineer (atau LLM) akan mempercayainya.
-const fs = require('fs');
-const path = require('path');
+const { load } = require('./lib/viewer');
 
-const HTML = path.join(__dirname, '..', 'smc2-viewer.html');
 let fail = 0;
 const chk = (l, c, x) => { if (!c) fail++; console.log((c ? '  OK  ' : '>>BAD ') + l + (x ? '   ' + x : '')); };
 
-const src = fs.readFileSync(HTML, 'utf8');
-function extract(name) {
-  const sig = 'function ' + name + '(';
-  let i = src.indexOf(sig);
-  if (i < 0) throw new Error('gak ketemu: ' + name);
-  let d = 0, started = false, q = null, esc = false, line = false, block = false;
-  for (let j = src.indexOf('{', i); j < src.length; j++) {
-    const c = src[j], n = src[j + 1];
-    if (line) { if (c === '\n') line = false; continue; }
-    if (block) { if (c === '*' && n === '/') { block = false; j++; } continue; }
-    if (q) { if (esc) esc = false; else if (c === '\\') esc = true; else if (c === q) q = null; continue; }
-    if (c === '/' && n === '/') { line = true; j++; continue; }
-    if (c === '/' && n === '*') { block = true; j++; continue; }
-    if (c === '"' || c === "'" || c === '`') { q = c; continue; }
-    if (c === '{') { d++; started = true; }
-    else if (c === '}') { d--; if (started && d === 0) return src.slice(i, j + 1); }
-  }
-  throw new Error('brace gak nutup: ' + name);
-}
-const M = new Function(extract('elLabel') + '\n' + extract('rungExpr') +
-                       '\nreturn {rungExpr};')();
+const M = load(['elLabel', 'rungExpr']);
 
 const C = (v, o = {}) => Object.assign({ kind: 'Contact', var: v }, o);
 const O = (v, o = {}) => Object.assign({ kind: 'Coil', var: v }, o);

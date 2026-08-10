@@ -21,9 +21,12 @@ for (const f of files) {
 }
 
 console.log('');
+// fixture selalu jalan (project tiruan ikut di-commit). Suite ber-SKIP di atas
+// cuma yang butuh SKALA project sungguhan - ribuan rung, ribuan variabel.
 if (!fs.existsSync(path.join(__dirname, '..', 'sample.smc2'))) {
-  console.log('catatan: taruh sebuah project sebagai sample.smc2 di root repo');
-  console.log('         supaya tes benar-benar menguji parsing, bukan sekadar skip.');
+  console.log('catatan: bentuk parser sudah dijaga suite "fixture".');
+  console.log('         taruh sebuah project sebagai sample.smc2 di root repo kalau mau');
+  console.log('         menguji skalanya juga - suite ber-SKIP di atas yang butuh itu.');
 }
 console.log(failed ? failed + ' dari ' + files.length + ' suite GAGAL'
                    : 'Semua ' + files.length + ' suite lulus');
