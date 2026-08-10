@@ -498,7 +498,7 @@ function buildUnit(stKey, devs){
     // pasangannya balik idle bareng - gak perlu blok reset terpisah. Rung LB400_B baca LB400 dari
     // scan SEBELUMNYA (rung yang ngedefine LB400 jalan setelah ini) - disengaja, sama kayak Autorun.cxr.
     (function(){
-        var rA=new Rung(o++,"Start motion process: unit",stLabel+"auto motion start");
+        var rA=new Rung(o++,"Start motion process: "+stLabel+", auto motion start");
         var railA=rA.rail();
         var trigA=rA.ct("CYCLE_STOP",rA.ct("LB499",rA.ct("LB309",railA),true),true);
         var sealA=rA.ct("LB400_A",railA);
@@ -507,7 +507,7 @@ function buildUnit(stKey, devs){
         S10.push(rA.build());
     })();
     (function(){
-        var rB=new Rung(o++,"Start motion process: unit",stLabel+" motion completed");
+        var rB=new Rung(o++,"Start motion process: "+stLabel+", motion completed");
         var railB=rB.rail();
         var trigB=rB.ct("LB400",rB.ct("LB499",railB));
         var sealB=rB.ct("LB400_B",railB);

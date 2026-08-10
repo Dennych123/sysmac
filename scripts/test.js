@@ -177,7 +177,7 @@ console.log(noMfFull ? 'MF BLOCK OK: semua actuator ST1 kebagian slot (block din
 //            LB400_B ikut drop pas LB400_A drop. Kalau seal-nya nyambung setelah LB499 dan
 //            LB400_A ikut ke-bypass seal, LB400_B nyangkut nyala.
 const stubSt1 = stub.files.find(f=>f.name==='Prg010_ST1.xml');
-const objA = rungObjs(stubSt1.xml, 'Start motion process: unit seal auto motion start');
+const objA = rungObjs(stubSt1.xml, 'Start motion process: ST1, auto motion start');
 const fA = op => objA.filter(o=>o.op===op);
 const aSeal=fA('LB400_A')[0], aCoil=objA.find(o=>o.type==='Coil'&&o.op==='LB400_A');
 const aCyc=fA('CYCLE_STOP')[0], aAuto=fA('AUTO_RUN')[0], aDone=fA('LB400_B')[0];
@@ -185,7 +185,7 @@ const sealAOk = !!(aSeal && aCoil && aCyc && aAuto && aDone) && aSeal.type==='Co
     && aSeal.ins.join()==='1' && aCyc.neg && aDone.neg
     && aAuto.ins.length===2 && aAuto.ins.includes(aSeal.out) && aAuto.ins.includes(aCyc.out)
     && aDone.ins.join()===aAuto.out && aCoil.ins.join()===aDone.out;
-const objB = rungObjs(stubSt1.xml, 'Start motion process: unit seal motion completed');
+const objB = rungObjs(stubSt1.xml, 'Start motion process: ST1, motion completed');
 const fB = op => objB.filter(o=>o.op===op);
 const bSeal=fB('LB400_B')[0], bCoil=objB.find(o=>o.type==='Coil'&&o.op==='LB400_B');
 const b400=fB('LB400')[0], bGate=fB('LB400_A')[0];
