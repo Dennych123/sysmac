@@ -229,6 +229,7 @@ komputermu.</p>
 // berkas buat browser; `require` yang nyempil di tempat lain ikut terbawa ke
 // halaman dan bikin halamannya mati.
 
+
 // --- dekompresi ---
 // Browser punya DecompressionStream (async), Node punya zlib (sync). Dua-duanya
 // dibungkus jadi satu API async supaya pemanggilnya tidak perlu tahu bedanya.
@@ -396,6 +397,7 @@ function xmlChildText(node, tag) {
 // Dibaca manual (bukan pakai pustaka) supaya viewer tetap SATU berkas HTML yang
 // jalan offline dari file://, tanpa server dan tanpa unduhan apa pun.
 
+
 /**
  * ArrayBuffer/Uint8Array -> Map<nama, {method, raw}>.
  * Entri direktori (nama berakhiran '/') dibuang.
@@ -486,6 +488,7 @@ function setSymbols(vars) {
 // Studio mana pun. Karena itu HANYA BACA: jangan pernah menulis balik ke .smc2,
 // project bisa rusak tanpa cara memperbaikinya. Membuat program tetap lewat
 // jalur import XML yang resmi didukung.
+
 
 // ------------------------------------------------------------- pohon project
 // Pohon di .oem bersarang lewat <ChildEntities>:
@@ -581,7 +584,11 @@ function parseLadderXml(src) {
 //
 // Bentuk ini justru lebih mudah dibaca daripada yang lama: tata letaknya eksplisit
 // lewat X/Y, tidak perlu menelusuri edge GUID.
-const KIND_JSON = { LD: 'Contact', ST: 'Coil', F: 'Function', HL: 'HLink', PF: 'PowerFlow' };
+// FB = instance blok fungsi (TON, CTU, ...) - Var-nya nama instance, Name-nya tipe.
+// Bentuknya sama saja dengan F di layar (kotak berpin), jadi dipetakan sama; kalau
+// tidak, kotak TON tergambar sebagai KONTAK dan ikut terbaca sebagai syarat rung.
+const KIND_JSON = { LD: 'Contact', ST: 'Coil', F: 'Function', FB: 'Function',
+                    HL: 'HLink', PF: 'PowerFlow' };
 
 // Kotak fungsi membawa daftar PIN-nya sendiri lewat In/Out:
 //   {__type, Arg, Var, Type}
@@ -614,6 +621,14 @@ function parseLadderJson(t) {
       const it = { kind: KIND_JSON[e.__type] || e.__type || null };
       if (e.Var) it.var = e.Var;
       if (e.Not) { if (e.__type === 'LD') it.nc = true; else it.neg = true; }
+      // Coil Set/Reset dan kontak edge dibedakan lewat flag TERSENDIRI, bukan lewat
+      // __type - jadi tanpa membacanya, coil Set terbaca sebagai coil biasa dan
+      // kontak naik-turun sebagai kontak biasa. Dua-duanya salah tanpa tanda apa
+      // pun: rung-nya tetap tergambar wajar, cuma artinya lain.
+      if (e.S) it.set = true;
+      if (e.RS) it.reset = true;
+      if (e.Up) it.edge = 'rising';
+      else if (e.Dwn) it.edge = 'falling';
       if (e.Name) it.func = e.Name;
       if (e.In || e.Out) it.pins = { in: pinList(e.In), out: pinList(e.Out) };
       if (e.EC) it.comment = e.EC;             // komentar blok (English comment)
@@ -744,6 +759,7 @@ async function readProject(buf, unzipFn) {
 //   2. Gambarnya mengikuti tata letak Sysmac Studio - nama operand di atas
 //      simbol, komentar hijau di bawah - supaya rung yang sama bisa ditaruh
 //      berdampingan dengan layar Studio dan langsung dibandingkan.
+
 
 // =================================================== rekonstruksi logika rung
 // Format JSON (Studio >= 1.66) menyimpan posisi grid: X = kolom, Y = baris

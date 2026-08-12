@@ -79,9 +79,9 @@ export–import (mis. lewat MCP).
 
 ---
 
-## 5. Manfaatkan pembaca `.smc2` (repo **plc-reader**)
+## 5. Manfaatkan pembaca `.smc2` ([reader/](reader/))
 
-Pembacanya sudah jadi dan pindah ke repo tersendiri. Yang belum: memakainya.
+Pembacanya sudah jadi dan sekarang ada di dalam repo ini. Yang belum: memakainya.
 
 1. **Audit standar program vendor.** Vendor kirim `.smc2`, tools laporkan
    penamaan menyimpang, section hilang, alokasi alarm salah. Ini menjawab
@@ -90,8 +90,24 @@ Pembacanya sudah jadi dan pindah ke repo tersendiri. Yang belum: memakainya.
    Ketahuan kalau ada yang mengedit tangan dan menyimpang dari standar.
 3. **Tarik IO list dari mesin lama** untuk mesin copy atau retrofit.
 
-Rekonstruksi logika rung (seri/paralel) belum dikerjakan; belum diperlukan untuk
-audit penamaan, baru perlu kalau mau membandingkan logika.
+### 5a. Ekspor XML: blok fungsi (lanjutan `--xml`)
+
+`reader/cli.js --xml` sudah menulis rung kontak/coil jadi XML yang bisa di-import
+Studio, dan itu **~54% rung**. Sisanya rung berblok fungsi — `MOVE`, `TON`,
+pembanding (`=`, `<`, `<=`), FB motion — yang untuk sekarang jadi rung komentar.
+
+Elemen `F`/`FB` sudah membawa daftar pinnya sendiri (`In`/`Out`, `__type` `PF`
+untuk pin aliran daya dan `PRM` untuk parameter), dan `js/lib.js` sudah punya
+contoh bentuk XML-nya di `ton()`. Jadi bahannya lengkap; yang kurang **bukti**.
+
+Urutannya harus: ekspor SATU rung TON -> import ke project kosong di Studio ->
+lihat apakah bentuknya sama -> baru digeneralkan. Jangan dibalik. Instruksi yang
+bentuk XML-nya ditebak akan ter-import tanpa keluhan dan salah waktu jalan, dan
+itu jenis kesalahan yang tidak kelihatan sampai mesinnya bergerak.
+
+Yang juga masih ditolak dan butuh bukti yang sama: **coil Set/Reset** (atribut
+XML-nya belum diverifikasi) dan **kontak edge di titik gabungan** (`Rung.ct()`
+cuma menerima satu sambungan masuk).
 
 ## 6. Panel warning bisa diklik
 

@@ -96,9 +96,15 @@ if (fs.existsSync(ff)) {
     const all = [].concat(...variants.map(v => v.nodes));
     chk('ada langkah terpetakan', all.length > 0, all.length + ' langkah, ' +
         variants.length + ' varian');
-    chk('tiap langkah punya bentuk yang dipahami editor',
-        all.every(n => n.id && n.type === 'motion' && n.sol && Array.isArray(n.after) && n.join),
-        JSON.stringify(all[0] || {}).slice(0, 70));
+    // Node `condition` BUKAN cacat: langkah yang tidak berhasil dirantai sengaja
+    // dibiarkan menunjuk bit aslinya, dan di editor muncul sebagai blok syarat.
+    // Itu justru yang bikin urutannya kelihatan perlu dicek. Menuntut semua node
+    // bertipe `motion` berarti menuntut rantai yang selalu lengkap - padahal
+    // ketidaklengkapannya memang dinyatakan terus terang.
+    const shape = n => n.id && Array.isArray(n.after) && n.join &&
+      (n.type === 'motion' ? !!n.sol : n.type === 'condition' ? !!n.bit : false);
+    chk('tiap langkah punya bentuk yang dipahami editor', all.every(shape),
+        JSON.stringify(all.find(n => !shape(n)) || {}).slice(0, 70));
     // Node AKAR punya `after` kosong - itu bentuk yang sama dengan yang dipakai
     // generator (syarat varian di-AND-kan otomatis ke node akar). Node lain punya
     // tepat satu pendahulu.

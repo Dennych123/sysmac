@@ -55,16 +55,38 @@ blok ke-3 walau ST1/ST2 kosong. Itu yang membuat nomor alarm tidak bergeser saat
 aktuator atau unit ditambah. Ukuran blok harus **seragam**; kalau satu station
 butuh lebih, semuanya dinaikkan.
 
-## Membaca project Sysmac (.smc2)
+## Membaca project Sysmac (.smc2) — `reader/`
 
-Sudah dipindah ke repo tersendiri: **plc-reader**. Alat itu membaca `.smc2`
-(container ZIP berisi XML) tanpa Sysmac Studio — pohon program, rung, operand,
-cross-reference "bit ini ditulis di mana, dibaca di mana", dan tabel variabel —
-lalu bisa mengekspornya jadi graf.
+Ada di [reader/](reader/) (dulu repo terpisah `Universal_Ladder`/`plc-reader`,
+digabung balik supaya lingkarannya tertutup: **baca → sunting → import**).
+Punya suite sendiri, jalankan terpisah:
 
-Berguna untuk audit standar program vendor, menarik IO list dari mesin lama, dan
-memverifikasi hasil generate terhadap yang benar-benar ada di controller.
-Dokumentasi format hasil reverse engineering ada di README repo itu.
+```bash
+cd reader && node tests/run.js     # 5 suite; build dulu kalau src/ berubah
+cd reader && node build.js         # src/ + viewer/  ->  smc2-viewer.html
+```
+
+Membaca `.smc2` (container ZIP berisi XML) tanpa Sysmac Studio — pohon program,
+rung, operand, cross-reference, tabel variabel — dan bisa **mengekspor rung jadi
+XML yang bisa di-import balik** (`--xml`). Dokumentasi format hasil reverse
+engineering ada di [reader/README.md](reader/README.md).
+
+**Exporter memakai `js/lib.js` milik generator, bukan salinannya**
+(`reader/xml_out.js` memuatnya lewat `new Function`, persis cara `scripts/core.js`).
+Jangan pernah menyalin pembangun rung ke sisi reader: parser `.smc2` dulu ditulis
+dua kali dan diam-diam drift, dan drift di sisi TULIS menghasilkan berkas yang
+ter-import mulus tapi salah.
+
+**Yang tidak eksak, ditolak — bukan ditebak.** `reader/src/net.js` menyusun
+netlist dari koordinat + `VLs` (link vertikal), lalu memeriksa tiap simpul ada
+penyetirnya dan cuma coil yang menyentuh rel kanan. Rung yang tidak lolos, dan
+rung berblok fungsi, jadi **rung komentar** berisi alasan + logika aslinya —
+tempatnya tetap ada, jadi nomor rung tidak bergeser dan lubangnya kelihatan di
+layar Studio. Cakupan sekarang ~54% rung (sisanya blok fungsi, belum didukung).
+
+`rungExpr()` di `src/ladder.js` itu hal LAIN: dia menebak bentuk rangkaian dari
+koordinat saja dan menandai hasilnya `~`. Cukup untuk dibaca manusia, TIDAK boleh
+dipakai untuk menulis program.
 
 ## Peta file
 

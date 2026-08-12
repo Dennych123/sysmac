@@ -111,7 +111,11 @@ function parseLadderXml(src) {
 //
 // Bentuk ini justru lebih mudah dibaca daripada yang lama: tata letaknya eksplisit
 // lewat X/Y, tidak perlu menelusuri edge GUID.
-const KIND_JSON = { LD: 'Contact', ST: 'Coil', F: 'Function', HL: 'HLink', PF: 'PowerFlow' };
+// FB = instance blok fungsi (TON, CTU, ...) - Var-nya nama instance, Name-nya tipe.
+// Bentuknya sama saja dengan F di layar (kotak berpin), jadi dipetakan sama; kalau
+// tidak, kotak TON tergambar sebagai KONTAK dan ikut terbaca sebagai syarat rung.
+const KIND_JSON = { LD: 'Contact', ST: 'Coil', F: 'Function', FB: 'Function',
+                    HL: 'HLink', PF: 'PowerFlow' };
 
 // Kotak fungsi membawa daftar PIN-nya sendiri lewat In/Out:
 //   {__type, Arg, Var, Type}
@@ -144,6 +148,14 @@ function parseLadderJson(t) {
       const it = { kind: KIND_JSON[e.__type] || e.__type || null };
       if (e.Var) it.var = e.Var;
       if (e.Not) { if (e.__type === 'LD') it.nc = true; else it.neg = true; }
+      // Coil Set/Reset dan kontak edge dibedakan lewat flag TERSENDIRI, bukan lewat
+      // __type - jadi tanpa membacanya, coil Set terbaca sebagai coil biasa dan
+      // kontak naik-turun sebagai kontak biasa. Dua-duanya salah tanpa tanda apa
+      // pun: rung-nya tetap tergambar wajar, cuma artinya lain.
+      if (e.S) it.set = true;
+      if (e.RS) it.reset = true;
+      if (e.Up) it.edge = 'rising';
+      else if (e.Dwn) it.edge = 'falling';
       if (e.Name) it.func = e.Name;
       if (e.In || e.Out) it.pins = { in: pinList(e.In), out: pinList(e.Out) };
       if (e.EC) it.comment = e.EC;             // komentar blok (English comment)

@@ -39,7 +39,7 @@ const run = (...args) => {
 // ------------------------------------------------------------------------ CLI
 const sum = run();
 chk('CLI jalan tanpa error', sum.status === 0, 'exit ' + sum.status);
-chk('pohon project terbaca', /TOTAL\s*:\s*2 program, 4 section, 10 rung/.test(sum.out),
+chk('pohon project terbaca', /TOTAL\s*:\s*2 program, 4 section, 11 rung/.test(sum.out),
     (sum.out.match(/TOTAL.*/) || [''])[0]);
 // Kalau id PouBody ketuker dengan PouBodySourceHolder, yang kebaca file decoy
 // berisi CxilVariable - hasilnya 0 rung, dan itu kelihatan seperti project
@@ -151,7 +151,7 @@ const vlines = svg => (svg.match(/<line class="w"[^>]*>/g) || [])
   }
   const json = lad.get('1111.xml'), fbRungs = lad.get('4444.xml');
 
-  chk('ladder JSON terbaca', json && json.length === 6, json ? json.length + ' rung' : 'tidak ada');
+  chk('ladder JSON terbaca', json && json.length === 7, json ? json.length + ' rung' : 'tidak ada');
   chk('section ladder kedua terbaca', fbRungs && fbRungs.length === 2);
   chk('tabel variabel terbaca', vars.length === 10, vars.length + ' variabel');
   chk('alamat IO ikut kebaca', vars.filter(v => v.address).length === 5);

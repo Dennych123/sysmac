@@ -7,6 +7,11 @@ Sysmac Studio bisa meng-*import* XML tapi **tidak bisa meng-export**-nya. Jadi
 sekilas program yang sudah jadi seperti tidak bisa dibaca dari luar. Ternyata
 bisa: `.smc2` itu container ZIP berisi XML, dan isinya tetap terbaca.
 
+> Dulu repo tersendiri (`Universal_Ladder`), sekarang bagian dari repo
+> [Susmax program generator](../README.md) — supaya lingkarannya tertutup:
+> **baca program yang ada → sunting → import balik**. Pembangun XML-nya dipakai
+> BERSAMA generator (`js/lib.js`), bukan disalin.
+
 ## Untuk apa
 
 **Bertanya ke AI sebelum memodifikasi program orang lain.** Perintah `--llm`
@@ -71,6 +76,83 @@ tingkat — dan **selalu ditandai `~`**, supaya tidak ada yang mengira presisi
 penuh padahal bukan. Ini penting: ekspresi yang salah susun tetap terlihat masuk
 akal, dan itulah yang berbahaya kalau dipercaya mentah-mentah oleh engineer
 maupun LLM.
+
+## Ekspor balik: `.smc2` → XML yang bisa di-import
+
+```
+$ node cli.js project.smc2 --xml out/
+WROTE 10 berkas ke out/
+
+PROGRAM / SECTION                            RUNG  EKSAK  LUBANG
+P000_Main                                     321    260      61
+    Device_Input                               25     25       0
+    Timers                                      7      0       7
+...
+1410 dari 2276 rung diekspor UTUH (61.9%).
+```
+
+Ini yang menutup lingkarannya. Studio cuma punya import, jadi program yang sudah
+jadi selama ini satu arah saja. Sekarang rung-nya bisa dikeluarkan lagi dalam
+bentuk yang Studio terima — buat mesin copy, retrofit, atau menaruh program lama
+berdampingan dengan hasil generator.
+
+### Topologinya EKSAK, bukan tebakan
+
+Bagian yang membaca (`rungExpr`) menebak seri/paralel dari koordinat saja dan
+menandai hasilnya `~`. Tebakan itu cukup untuk dibaca manusia, tapi **tidak boleh
+dipakai untuk menulis program**: rangkaian yang salah susun tetap ter-import
+tanpa keluhan, dan mesinnya yang salah jalan.
+
+Untungnya tidak perlu menebak. Format JSON menyimpan link vertikalnya sendiri di
+`VLs`, dan itu topologi paralel yang sebenarnya:
+
+```
+{"Ix":9,"X":2}          palang di TEPI KIRI kolom 2, menyambung baris 0 & 1
+{"Ix":9,"X":2,"Y":1}    ruas berikutnya palang yang SAMA (Ix sama), baris 1 & 2
+```
+
+Jadi rung dimodelkan sebagai rangkaian listrik biasa (`src/net.js`): titik simpul
+di tiap batas kolom, elemen sebagai komponen antar titik, `HL` sebagai kawat
+lurus, `VL` sebagai palang tegak, rel kiri dan kanan masing-masing satu batang.
+Semuanya digabung union-find, lalu **diperiksa**: tiap masukan harus ada yang
+menyetir, cuma coil yang boleh menyentuh rel kanan, dan tidak boleh ada elemen
+yang terhubung singkat.
+
+Diuji pada **5 project sungguhan, 4192 rung** kontak/coil: semuanya lolos
+pemeriksaan itu, **nol penolakan topologi**. Lalu XML hasilnya dibaca BALIK dan
+ditelusuri dari tiap coil sampai rel kiri — 1547 coil, nol sambungan menggantung.
+
+### Yang belum diekspor, dan kenapa dibiarkan berlubang
+
+Cuma rung murni **kontak / coil / link** yang ditulis — sekitar **54%** rung pada
+project sungguhan. Sisanya memuat blok fungsi (`MOVE`, `TON`, pembanding, FB
+motion), ST sisipan, atau jump; bentuk XML tiap instruksi harus diverifikasi lewat
+import sungguhan dulu, dan menebaknya menghasilkan berkas yang ter-import mulus
+tapi jalannya lain.
+
+Rung yang dilewati **tidak dihapus diam-diam**. Tempatnya tetap ada sebagai rung
+berisi komentar yang menuliskan alasan dan logika aslinya:
+
+```
+[TIDAK DIEKSPOR: blok fungsi / ST sisipan / jump] ~GSB000 AND TON()  ->  PWR_ON
+```
+
+Jadi nomor rung tidak bergeser dan lubangnya kelihatan di layar Studio. Berkas
+yang rung-nya diam-diam hilang jauh lebih berbahaya: yang hilang tidak kelihatan,
+yang berlubang kelihatan.
+
+Yang juga ditolak, dengan alasan yang sama: **coil Set/Reset** dan **kontak edge
+di titik gabungan**.
+
+Variabel yang dipakai diambil dari tabel global project lengkap dengan tipe dan
+komentarnya. Operand yang menunjuk bagian struct/array tapi variabel dasarnya
+tidak ada di tabel **dibiarkan tanpa deklarasi** dan dilaporkan — Studio akan
+menolaknya waktu import, dan penolakan yang berisik jauh lebih baik daripada
+deklarasi tebakan yang lolos diam-diam dengan tipe salah.
+
+> **Sebelum dipakai:** import ke project KOSONG dulu, lalu bandingkan rung-nya
+> dengan viewer sebelah-menyebelah. Ini hasil rekonstruksi, bukan export resmi
+> Omron.
 
 ## Rekonstruksi flowchart urutan gerakan
 
@@ -176,6 +258,7 @@ node cli.js project.smc2 --xref LB800        # difilter, sekalian lokasinya
 node cli.js project.smc2 --llm prog.md       # SELURUH konteks buat LLM
 node cli.js project.smc2 --flowchart m.json  # urutan gerakan -> motionSequences
 node cli.js project.smc2 --graph g.json      # node + edge
+node cli.js project.smc2 --xml out/          # rung -> XML yang bisa DI-IMPORT
 node cli.js project.smc2 --json out.json     # dump mentah
 node cli.js project.smc2 --probe-fb          # bentuk mentah kotak fungsi/FB
 ```
@@ -223,7 +306,9 @@ berubah antar versi Studio. Karena itu:
 
 - **Jangan pernah menulis balik** ke `.smc2`. Project bisa rusak tanpa cara
   memperbaikinya.
-- Kalau perlu membuat program, pakai jalur import XML yang resmi didukung.
+- Kalau perlu membuat program, pakai jalur import XML yang resmi didukung —
+  itulah yang dilakukan `--xml`: dia **tidak menyentuh `.smc2` sama sekali**,
+  cuma membacanya dan menulis berkas XML terpisah.
 - Kalau formatnya berubah lagi, yang berhenti jalan cuma pembacaan ini — bukan
   program yang sudah ada.
 
@@ -325,14 +410,24 @@ src/          modul inti - dipakai CLI DAN viewer
   zip.js        pembaca ZIP tanpa library
   smc2.js       format .smc2: pohon project, ladder XML & JSON, tabel variabel
   symbols.js    tabel simbol: komentar, alamat, mana yang global
-  ladder.js     rekonstruksi logika rung + penggambar ladder SVG
+  ladder.js     rekonstruksi logika rung (PERKIRAAN, '~') + penggambar ladder SVG
+  net.js        netlist EKSAK dari koordinat + VLs - dasar ekspor XML
   motion.js     pengenalan langkah gerakan + perantaian
   graph.js      mesin flowchart (port dari generator)
   reports.js    keluaran CLI: ringkasan, xref, graf, konteks LLM, flowchart
 viewer/       cangkang HTML + kode UI
 cli.js        baris perintah
+xml_out.js    ekspor rung -> XML importable (Node saja, pinjam ../js/lib.js)
 build.js      src/ + viewer/ -> smc2-viewer.html
 ```
+
+`ladder.js` dan `net.js` sengaja dipisah, dan bedanya penting: `ladder.js`
+MENEBAK bentuk rangkaian buat DIBACA (ditandai `~` kalau disederhanakan),
+`net.js` menyusunnya EKSAK buat DITULIS dan menolak yang tidak yakin. Menggabung
+keduanya berarti tebakan ikut mengalir ke berkas yang di-import ke controller.
+
+`xml_out.js` sengaja di luar `src/` karena dia BUKAN modul isomorfik: dia
+membaca `../js/lib.js` dari disk, jadi cuma jalan di Node, bukan di viewer.
 
 `smc2-viewer.html` adalah **hasil build — jangan diedit langsung**. Edit
 `src/*.js` atau `viewer/*`, lalu:
@@ -346,10 +441,16 @@ node build.js
 Tujuannya satu lapisan universal: baca program merek apa pun, lihat di satu
 viewer, lalu konversi ke merek lain.
 
+- **Ekspor XML untuk blok fungsi** — sekarang `--xml` baru menulis rung
+  kontak/coil (~54%). `F`/`FB` sudah membawa daftar pinnya sendiri dan
+  `js/lib.js` sudah punya contoh bentuknya di `ton()`, jadi bahannya lengkap;
+  yang kurang BUKTI. Urutannya: ekspor satu rung TON → import ke project kosong
+  → bandingkan → baru digeneralkan. Jangan dibalik.
 - **ULIR** — lapisan universal antar merek: rung jadi POHON (seri/paralel),
-  bukan daftar datar. Dari situ rekonstruksi cabang bersarang jadi mungkin
-  (sekarang disederhanakan satu tingkat), dan mnemonic merek lain bisa
-  dikeluarkan dengan benar.
+  bukan daftar datar, supaya mnemonic merek lain bisa dikeluarkan dengan benar.
+  Bahan dasarnya sudah ada: `src/net.js` menyusun rangkaiannya secara EKSAK dari
+  `VLs`, tinggal dijadikan pohon — dan sekalian bisa dipakai membuang tanda `~`
+  dari `rungExpr` yang sampai sekarang masih menebak dari koordinat saja.
 - ~~Satu parser untuk CLI dan viewer~~ — **selesai**: keduanya memakai
   `src/*.js` yang sama.
 - Pembaca **CX-Programmer** (CXT/CXR), lalu Keyence dan Mitsubishi.

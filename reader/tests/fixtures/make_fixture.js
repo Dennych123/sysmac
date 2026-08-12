@@ -44,7 +44,65 @@ const DECOY = "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<ArrayOfCxilVariable>
 // ------------------------------------------------------- ladder JSON (>= 1.66)
 // Satu objek JSON per rung, beruntun tanpa pemisah. X = kolom, Y = baris.
 // Baris 0 = jalur utama; baris > 0 = cabang paralel.
-const LADDER_JSON = "{\"CMT\":\"Seri sederhana\",\"LRI\":0,\"RRI\":9,\"VLs\":[],\"CLs\":[\n{\"__type\":\"LD\",\"Var\":\"LB100\",\"X\":0,\"Y\":0},\n{\"__type\":\"LD\",\"Var\":\"LB101\",\"X\":1,\"Y\":0},\n{\"__type\":\"ST\",\"Var\":\"LB102\",\"X\":2,\"Y\":0}]}\n{\"CMT\":\"Cabang paralel\",\"LRI\":0,\"RRI\":9,\"VLs\":[{\"Ix\":1,\"X\":0}],\"CLs\":[\n{\"__type\":\"LD\",\"Var\":\"LB110\",\"X\":0,\"Y\":0},\n{\"__type\":\"LD\",\"Var\":\"LB112\",\"X\":1,\"Y\":0},\n{\"__type\":\"LD\",\"Var\":\"LB111\",\"X\":0,\"Y\":1},\n{\"__type\":\"ST\",\"Var\":\"LB113\",\"X\":2,\"Y\":0}]}\n{\"CMT\":\"MOTION 1 : Clamp Forward\",\"LRI\":0,\"RRI\":9,\"VLs\":[{\"Ix\":1,\"X\":1}],\"CLs\":[\n{\"__type\":\"LD\",\"Var\":\"LB200\",\"X\":0,\"Y\":0},\n{\"__type\":\"LD\",\"Var\":\"LB203\",\"Not\":true,\"X\":1,\"Y\":0},\n{\"__type\":\"ST\",\"Var\":\"LB202\",\"X\":3,\"Y\":0},\n{\"__type\":\"LD\",\"Var\":\"SOL_CLAMP_FWD\",\"X\":1,\"Y\":1},\n{\"__type\":\"LD\",\"Var\":\"LSC_CLAMP_FWD\",\"X\":2,\"Y\":1},\n{\"__type\":\"ST\",\"Var\":\"LB203\",\"X\":3,\"Y\":1},\n{\"__type\":\"LD\",\"Var\":\"LB203\",\"X\":1,\"Y\":2}]}\n{\"CMT\":\"Bit perantara - langkah 2 tidak menunggu confirm langsung\",\"LRI\":0,\"RRI\":9,\"VLs\":[],\"CLs\":[\n{\"__type\":\"LD\",\"Var\":\"LB203\",\"X\":0,\"Y\":0},\n{\"__type\":\"ST\",\"Var\":\"LB210\",\"X\":1,\"Y\":0}]}\n{\"CMT\":\"MOTION 2 : Lift Up\",\"LRI\":0,\"RRI\":9,\"VLs\":[{\"Ix\":1,\"X\":1}],\"CLs\":[\n{\"__type\":\"LD\",\"Var\":\"LB210\",\"X\":0,\"Y\":0},\n{\"__type\":\"LD\",\"Var\":\"LB213\",\"Not\":true,\"X\":1,\"Y\":0},\n{\"__type\":\"ST\",\"Var\":\"LB212\",\"X\":3,\"Y\":0},\n{\"__type\":\"LD\",\"Var\":\"SOL_LIFT_UP\",\"X\":1,\"Y\":1},\n{\"__type\":\"LD\",\"Var\":\"LSC_LIFT_UP\",\"X\":2,\"Y\":1},\n{\"__type\":\"ST\",\"Var\":\"LB213\",\"X\":3,\"Y\":1},\n{\"__type\":\"LD\",\"Var\":\"LB213\",\"X\":1,\"Y\":2}]}\n{\"CMT\":\"Mutex varian - dua coil saling mengunci, BUKAN langkah gerakan\",\"LRI\":0,\"RRI\":9,\"VLs\":[],\"CLs\":[\n{\"__type\":\"LD\",\"Var\":\"LB221\",\"Not\":true,\"X\":0,\"Y\":0},\n{\"__type\":\"ST\",\"Var\":\"LB220\",\"X\":1,\"Y\":0},\n{\"__type\":\"LD\",\"Var\":\"LB220\",\"Not\":true,\"X\":0,\"Y\":1},\n{\"__type\":\"ST\",\"Var\":\"LB221\",\"X\":1,\"Y\":1}]}\n";
+//
+// Dua hal yang HARUS setia pada berkas Sysmac sungguhan, kalau tidak fixture-nya
+// menguji bentuk yang tidak pernah ada:
+//
+//   HL   Studio mengisi kolom KOSONG di sebuah baris dengan elemen link mendatar.
+//        Tanpa itu jalur baris tersebut putus di tengah, bukan "nyambung saja".
+//   VLs  palang tegak di TEPI KIRI kolom X, satu ruas menyambung baris Y dan Y+1.
+//        Cabang 3 baris butuh DUA ruas ber-Ix sama, bukan satu.
+//
+// Dua-duanya baru terlihat perlu waktu rung dipakai sebagai RANGKAIAN (lihat
+// src/net.js) - waktu cuma digambar dan dibaca, kekurangannya tidak kentara.
+const LD = (Var, X, Y, more) => Object.assign({ __type: 'LD', Var, X, Y }, more || {});
+const ST_ = (Var, X, Y, more) => Object.assign({ __type: 'ST', Var, X, Y }, more || {});
+const HL = (X, Y) => ({ __type: 'HL', X, Y });
+const VL = (Ix, X, Y) => ({ Ix, X, Y });
+
+// Langkah gerakan Ndeso: cmd digerbang NC confirm, confirm menyeal DIRI SENDIRI
+// dan sealnya menyambung SETELAH prevBit - bukan ke rel kiri.
+//   x0y0 prev --- x1y0 /confirm - HL ------> coil cmd
+//                 x1y1 sol ------ x2y1 lsc -> coil confirm
+//                 x1y2 confirm -- HL -------^
+const motion = (cmt, prev, confirm, cmd, sol, lsc) => ({
+  CMT: cmt, LRI: 0, RRI: 9,
+  VLs: [VL(1, 1, 0), VL(1, 1, 1), VL(2, 3, 1)],
+  CLs: [LD(prev, 0, 0), LD(confirm, 1, 0, { Not: true }), HL(2, 0), ST_(cmd, 3, 0),
+        LD(sol, 1, 1), LD(lsc, 2, 1), ST_(confirm, 3, 1),
+        LD(confirm, 1, 2), HL(2, 2)],
+});
+
+const JSON_RUNGS = [
+  { CMT: 'Seri sederhana', LRI: 0, RRI: 9, VLs: [],
+    CLs: [LD('LB100', 0, 0), LD('LB101', 1, 0), ST_('LB102', 2, 0)] },
+
+  // (LB110 OR LB111) AND LB112 -> LB113. Palangnya di kolom 1, yaitu SESUDAH
+  // kedua kontak - di kolom 0 dia cuma menempel di rel kiri dan tidak menggabung
+  // apa pun, jadi LB111 malah menggantung.
+  { CMT: 'Cabang paralel', LRI: 0, RRI: 9, VLs: [VL(1, 1, 0)],
+    CLs: [LD('LB110', 0, 0), LD('LB112', 1, 0), LD('LB111', 0, 1), ST_('LB113', 2, 0)] },
+
+  motion('MOTION 1 : Clamp Forward', 'LB200', 'LB203', 'LB202', 'SOL_CLAMP_FWD', 'LSC_CLAMP_FWD'),
+
+  { CMT: 'Bit perantara - langkah 2 tidak menunggu confirm langsung', LRI: 0, RRI: 9, VLs: [],
+    CLs: [LD('LB203', 0, 0), ST_('LB210', 1, 0)] },
+
+  motion('MOTION 2 : Lift Up', 'LB210', 'LB213', 'LB212', 'SOL_LIFT_UP', 'LSC_LIFT_UP'),
+
+  { CMT: 'Mutex varian - dua coil saling mengunci, BUKAN langkah gerakan', LRI: 0, RRI: 9, VLs: [],
+    CLs: [LD('LB221', 0, 0, { Not: true }), ST_('LB220', 1, 0),
+          LD('LB220', 0, 1, { Not: true }), ST_('LB221', 1, 1)] },
+
+  // Coil Set/Reset dan kontak edge dibedakan lewat flag TERSENDIRI (S, RS, Up,
+  // Dwn), bukan lewat __type. Tanpa dibaca, coil Set terbaca sebagai coil biasa
+  // dan artinya berubah total - tanpa error, tanpa tanda apa pun.
+  { CMT: 'Set/Reset + kontak edge', LRI: 0, RRI: 9, VLs: [],
+    CLs: [LD('PB013_003', 0, 0, { Up: true }), ST_('LB120', 1, 0, { S: true }),
+          LD('LB102', 0, 1, { Dwn: true }), ST_('LB120', 1, 1, { RS: true })] },
+];
+
+const LADDER_JSON = JSON_RUNGS.map(r => JSON.stringify(r)).join('\n') + '\n';
 
 // Kotak fungsi. Bentuk pin-nya diambil dari project Sysmac SUNGGUHAN lewat
 // --probe-fb, bukan dikarang:

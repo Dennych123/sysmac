@@ -11,6 +11,7 @@
 //   node cli.js project.smc2 --llm prog.md    SELURUH konteks buat disuap ke LLM
 //   node cli.js project.smc2 --flowchart m.json   urutan gerakan -> motionSequences
 //   node cli.js project.smc2 --graph g.json   node + edge buat dipetakan
+//   node cli.js project.smc2 --xml out/       rung -> XML yang bisa DI-IMPORT Studio
 //   node cli.js project.smc2 --json out.json  dump mentah
 //   node cli.js project.smc2 --probe-fb       bentuk mentah kotak fungsi/FB
 //
@@ -67,6 +68,14 @@ const write = (out, s) => { fs.writeFileSync(out, s, 'utf8'); return out; };
     const md = R.llmDump(p);
     write(out, md);
     console.log('WROTE ' + out + '  (' + md.split('\n').length + ' baris)');
+  } else if ((i = flag('--xml')) >= 0) {
+    const dir = argAfter(i, 'xml-out');
+    const { files, report } = require('./xml_out.js').exportProject(p);
+    fs.mkdirSync(dir, { recursive: true });
+    files.forEach(f => fs.writeFileSync(path.join(dir, f.name), f.xml, 'utf8'));
+    console.log('WROTE ' + files.length + ' berkas ke ' + dir);
+    console.log('');
+    console.log(require('./xml_out.js').exportReport(report));
   } else if ((i = flag('--graph')) >= 0) {
     const out = argAfter(i, 'graph.json');
     const g = R.graphData(p);
