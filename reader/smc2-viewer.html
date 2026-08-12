@@ -1,0 +1,1785 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>Susmax - Pembaca Project Sysmac (.smc2)</title>
+<style>
+  :root{
+    --fg:#111827;--muted:#4b5563;--faint:#6b7280;
+    --line:#d6dbe3;--line-soft:#e6eaf0;--card:#fff;--bg:#f1f4f8;
+    --accent:#2563eb;--accent-dk:#1d4ed8;--accent-soft:#eff5ff;
+    --ok:#15803d;--warn:#b45309;--danger:#b91c1c;
+    --radius:8px;--shadow:0 1px 2px rgba(16,24,40,.06),0 1px 3px rgba(16,24,40,.08);
+  }
+  *{box-sizing:border-box}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
+       max-width:1680px;margin:0 auto;padding:24px 28px 64px;color:var(--fg);background:var(--bg);
+       font-size:14px;line-height:1.55;-webkit-font-smoothing:antialiased}
+  h1{font-size:22px;font-weight:650;margin:0 0 2px;letter-spacing:-.01em}
+  h2{font-size:15px;font-weight:650;margin:28px 0 8px;padding:0 0 0 10px;border-left:3px solid var(--accent)}
+  .hint{font-size:12.5px;color:var(--muted);margin:6px 0;max-width:110ch}
+  code{font-family:Consolas,monospace;font-size:.92em;background:var(--accent-soft);
+       border:1px solid #dbe6fb;border-radius:4px;padding:1px 4px}
+
+  #drop{border:2px dashed #b6c2d4;border-radius:10px;background:var(--card);padding:36px 20px;
+        text-align:center;cursor:pointer;transition:border-color .12s,background .12s;margin:14px 0}
+  #drop:hover,#drop.over{border-color:var(--accent);background:var(--accent-soft)}
+  #drop .big{font-size:16px;font-weight:600;margin-bottom:4px}
+  #drop .sub{font-size:12.5px;color:var(--muted)}
+  input[type=file]{display:none}
+
+  .bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:10px 0}
+  button{padding:7px 14px;font-size:13px;font-weight:500;cursor:pointer;background:var(--accent);
+         color:#fff;border:none;border-radius:6px;transition:background .12s}
+  button:hover{background:var(--accent-dk)}
+  button:disabled{background:#9aa6b8;cursor:default}
+  button.alt{background:#374151}
+  button.alt:hover{background:#1f2937}
+  button.tab{background:transparent;color:var(--muted);border:1px solid var(--line)}
+  button.tab:hover{background:#e8edf5;color:var(--fg)}
+  button.tab.active{background:var(--accent);border-color:var(--accent);color:#fff}
+  input[type=search]{font-size:13px;padding:7px 10px;border:1px solid var(--line);border-radius:6px;
+                     width:280px;font-family:Consolas,monospace}
+
+  .meta{display:flex;gap:22px;flex-wrap:wrap;background:var(--card);border:1px solid var(--line);
+        border-radius:8px;padding:12px 16px;box-shadow:var(--shadow);margin:12px 0}
+  .meta div{font-size:12.5px;color:var(--muted)}
+  .meta b{display:block;font-size:17px;color:var(--fg);font-weight:650;font-family:Consolas,monospace}
+
+  .panel{display:none}
+  .panel.on{display:block}
+  .scroll{max-height:620px;overflow:auto;border:1px solid var(--line);border-radius:8px;background:var(--card)}
+  table{border-collapse:separate;border-spacing:0;width:100%;font-size:12.5px}
+  th{position:sticky;top:0;z-index:1;background:#eef2f8;text-align:left;font-weight:600;font-size:12px;
+     color:var(--muted);padding:8px;border-bottom:1px solid var(--line);white-space:nowrap}
+  td{padding:5px 8px;border-bottom:1px solid var(--line-soft);vertical-align:top}
+  tr:hover td{background:#f8fafc}
+  td.mono,th.mono{font-family:Consolas,monospace}
+  td.num{text-align:right;color:var(--faint);font-family:Consolas,monospace;width:60px}
+  .prog{font-weight:650;background:#eef2ff !important}
+  .prog td{color:#3730a3}
+  .tag{display:inline-block;font-family:Consolas,monospace;font-size:11px;padding:1px 6px;
+       border-radius:4px;background:#f1f5f9;color:#475569;border:1px solid #e2e8f0}
+  .tag.ld{background:#eff6ff;color:#1d4ed8;border-color:#dbeafe}
+  .tag.st{background:#f0fdf4;color:#15803d;border-color:#dcfce7}
+  .tag.nc{background:#fef2f2;color:#b91c1c;border-color:#fecaca}
+  .err{color:var(--danger);font-size:13px;white-space:pre-wrap;margin:10px 0}
+  .note{background:#fffbeb;border:1px solid #fcd34d;border-left:4px solid #d97706;
+        border-radius:7px;padding:12px 14px;margin:14px 0;font-size:12.5px;color:#78350f}
+  /* Satu rung = kolom nomor di kiri + isinya, sama seperti tampilan Studio.
+     Nomornya kolom sendiri (bukan mengambang di kanan) supaya rung panjang tetap
+     ketahuan nomornya waktu digulung ke samping. */
+  /* Rung menyambung tanpa jeda, seperti di Studio: garis pemisahnya setipis
+     mungkin dan tidak ada padding di antaranya. Kolom nomor menempel terus di
+     kiri (sticky) supaya rung lebar tetap ketahuan nomornya waktu digulung. */
+  .rung{display:flex;align-items:stretch;border-bottom:1px solid #e8eef5;background:#fff}
+  .rung .n{flex:none;width:34px;background:#f4f7fa;border-right:1px solid #e8eef5;
+           font-family:Consolas,monospace;font-size:11px;color:#64748b;text-align:center;
+           padding-top:5px;position:sticky;left:0;z-index:1}
+  /* Penanda rung yang susunan cabangnya cuma pendekatan. Kecil, tapi ada -
+     ekspresi yang salah susun tetap terlihat masuk akal, dan itu bahayanya. */
+  .rung .n .ap{display:block;color:var(--warn);font-size:12px;line-height:1}
+  .rung .b{flex:1;min-width:0;padding:0}
+  .rung .c{font-size:12px;color:#3f3000;background:#fbf8cc;padding:2px 8px;white-space:pre-wrap}
+  .rung .e{font-family:Consolas,monospace;font-size:12px}
+  /* Ekspresi boolean hasil rekonstruksi. Ditaruh tipis di bawah ladder: dia
+     bukan yang dilihat di Studio, tapi tanda `~` di sini yang memberitahu kalau
+     susunan cabangnya cuma pendekatan - itu tidak boleh disembunyikan. */
+  .expr{font-family:Consolas,monospace;font-size:11px;color:#64748b;background:#fafcfe;
+        border-top:1px solid #eef2f7;padding:2px 8px;margin:0;
+        white-space:pre-wrap;word-break:break-word}
+  .expr .out{color:var(--ok);font-weight:600}
+  .expr .ap{color:var(--warn)}
+  .gloss{font-size:11.5px;color:var(--muted);margin-top:4px}
+  .gloss b{font-family:Consolas,monospace;color:var(--fg);font-weight:600}
+
+  /* Ladder digambar dari koordinat grid yang tersimpan di dalam file project.
+     SVG, bukan karakter kotak: glyph seperti "-| |-" lebarnya beda-beda per font,
+     jadi kabelnya tidak pernah nyambung dan cabangnya tidak bisa digambar sama
+     sekali. Dua kontak paralel yang terlihat seperti dua kontak seri itu bukan
+     tampilan jelek - itu salah baca. */
+  .lad{display:block;background:#fff;padding:2px 0 6px;margin:0;overflow-x:auto;max-width:100%}
+  .lad svg{display:block}
+  .lad .w{stroke:#111;stroke-width:1;fill:none}
+  .lad .rail{stroke:#111;stroke-width:1;fill:none}
+  .lad .sy{stroke:#111;stroke-width:1.6;stroke-linecap:butt;fill:none}
+  .lad .sy.ncc{stroke:#111}
+  .lad .sy.co{stroke:#111}
+  /* Nama operand di atas, komentar hijau di bawah - persis susunan Studio.
+     Operand global diwarnai beda (datanya dari kolom G= tabel SLWD). */
+  .lad .nm{font:11px Consolas,monospace;fill:#111;text-anchor:middle}
+  .lad .nm.og{fill:#c026a3}
+  .lad .cmt{font:10.5px "Segoe UI",Arial,sans-serif;fill:#0f7a2e;text-anchor:middle}
+  .lad .fb{fill:#fff;stroke:#111;stroke-width:1}
+  .lad .fbsep{stroke:#111;stroke-width:1}
+  .lad .fn{font:11px Consolas,monospace;font-weight:600;fill:#111;text-anchor:middle}
+  .lad .pin{font:10px Consolas,monospace;fill:#111;text-anchor:start}
+  .lad .pin.r{text-anchor:end}
+  .lad .opd{font:10.5px Consolas,monospace;fill:#c026a3;text-anchor:start}
+  .lad .opd.r{text-anchor:end}
+  .lad .ed{font:11px Consolas,monospace;font-weight:700;fill:#111;text-anchor:middle}
+  .lad .cm{font:11px Consolas,monospace;font-weight:700;fill:#111;text-anchor:middle}
+  .sec-h{background:#f8fafc;font-weight:600;padding:6px 10px;border-bottom:1px solid var(--line);
+         position:sticky;top:0;font-size:12.5px}
+
+  /* Flowchart urutan gerakan. Kelas .g* diport dari editor Susmax generator
+     (github.com/Dennych123/sysmac) - warna dan geometrinya sengaja SAMA supaya
+     urutan yang dibaca dari mesin dan urutan yang ditulis di editor bisa
+     ditumpuk dan dibandingkan langsung. Di sini semuanya baca saja: tidak ada
+     handle seret, tidak ada tombol hapus. */
+  .fc{padding:12px 14px;border-bottom:1px solid var(--line-soft)}
+  svg.graph-canvas{border:1px solid var(--line);border-radius:6px;background:#fbfbfc;
+                   display:block;max-width:100%;margin:6px 0}
+  .gnode-rect{fill:var(--accent);stroke:var(--accent-dk);stroke-width:1}
+  .gnode-rect.condition{fill:#7c3aed;stroke:#5b21b6;stroke-dasharray:4,2}
+  .gnode-rect.decision{fill:#0f766e;stroke:#0b544e}
+  .gnode-rect.setmem{fill:#b45309;stroke:#8a4008}
+  .gnode-rect.resetmem{fill:#7c2d12;stroke:#5c210d}
+  .gnode-rect.alarm{fill:#b91c1c;stroke:#8f1717}
+  .gnode-rect.anchor{fill:#37424f;stroke:#232a33}
+  .gnode-text{fill:#fff;font-size:10.5px;font-family:Consolas,monospace}
+  .gedge-line{stroke:#8a93a0;stroke-width:2}
+  .gedge-line.anchor{stroke:#9aa3ad;stroke-dasharray:3,2}
+  /* Penutup lingkaran: menandai siklus BERIKUTNYA, bukan langkah berikutnya. */
+  .gedge-line.loop{stroke:#c026a3;stroke-dasharray:6,3;stroke-width:1.5}
+  .gjoin-badge rect{fill:#333}
+  .gjoin-badge text{fill:#fff;font-size:8px;text-anchor:middle;font-family:Consolas,monospace}
+  .fc-tab{border-collapse:collapse;font-size:11.5px;margin-top:8px}
+  .fc-tab th,.fc-tab td{border:1px solid var(--line-soft);padding:3px 8px;text-align:left;
+                        font-family:Consolas,monospace;vertical-align:top}
+  .fc-tab th{background:#f8fafc;font-weight:600}
+  .fc-tab td i{display:block;font-family:inherit;font-style:normal;color:var(--faint);font-size:10.5px}
+  .fc-tab td b{color:var(--warn)}
+  .fc-head{font-size:12.5px;color:var(--fg);font-weight:600;margin-bottom:2px}
+  .fc-head i{font-weight:400;color:var(--muted);font-style:normal}
+  .fc-head code{font-size:11.5px}
+  .fc-note{font-size:12px;color:var(--muted);margin-top:4px}
+  .fc-warn{font-size:12px;color:var(--warn);background:#fffbeb;border:1px solid #fcd34d;
+           border-radius:6px;padding:8px 10px;margin:8px 0}
+  .fc-skip{font-size:11.5px;color:var(--faint);margin-top:6px}
+</style>
+</head>
+<body>
+
+<h1>Pembaca Project Sysmac (.smc2)</h1>
+<p class="hint">Sysmac Studio tidak punya export XML &mdash; hanya import. Tapi file <code>.smc2</code>
+itu container ZIP berisi XML, jadi isinya tetap bisa dibaca dari luar. Halaman ini membuka dan
+membedahnya <b>langsung di browser</b>: file tidak diunggah ke mana pun, semuanya diproses di
+komputermu.</p>
+
+<div id="drop">
+  <div class="big">Jatuhkan file .smc2 di sini</div>
+  <div class="sub">atau klik untuk memilih &mdash; file tidak dikirim ke mana pun</div>
+  <input type="file" id="file" accept=".smc2,.smc">
+</div>
+
+<div id="err" class="err"></div>
+
+<div id="out" style="display:none">
+  <div class="meta" id="meta"></div>
+
+  <div class="bar">
+    <button class="tab active" data-p="sum">Ringkasan</button>
+    <button class="tab" data-p="rung">Rung</button>
+    <button class="tab" data-p="flow">Flowchart</button>
+    <button class="tab" data-p="op">Operand</button>
+    <button class="tab" data-p="var">Variabel</button>
+    <span style="flex:1"></span>
+    <input type="search" id="q" placeholder="cari nama / operand / komen...">
+    <button class="alt" id="dl">Download JSON</button>
+  </div>
+
+  <div class="panel on" id="p-sum"><div class="scroll"><table id="t-sum"></table></div></div>
+  <div class="panel" id="p-rung"><div class="scroll" id="t-rung"></div></div>
+  <div class="panel" id="p-flow"><div class="scroll" id="t-flow"></div></div>
+  <div class="panel" id="p-op"><div class="scroll"><table id="t-op"></table></div></div>
+  <div class="panel" id="p-var"><div class="scroll"><table id="t-var"></table></div></div>
+</div>
+
+<div class="note">
+  <b>Baca saja.</b> Format di dalam <code>.smc2</code> tidak didokumentasikan Omron dan sudah terbukti
+  berubah antar versi Studio (1.56 memakai XML, 1.66 memakai JSON). Halaman ini sengaja hanya membaca
+  &mdash; jangan pernah menulis balik ke <code>.smc2</code>, karena project bisa rusak tanpa cara
+  memperbaikinya. Membuat program tetap lewat import XML yang resmi didukung.
+</div>
+
+<script>
+'use strict';
+
+// ------------------------------------------------------------------ src/env.js
+// Lapisan tipis yang bikin modul yang sama jalan di BROWSER dan di NODE.
+//
+// Kenapa perlu: sebelumnya parser .smc2 ditulis DUA KALI - sekali Python buat CLI,
+// sekali JavaScript buat viewer. Keduanya lalu drift, dan drift-nya diam: viewer
+// berhenti menyalin koordinat X/Y, jadi ladder tidak pernah tergambar sama sekali
+// dan semua rung ditandai perkiraan - tanpa satu pun error. Satu sumber, satu
+// kebenaran; beda lingkungan cuma ditambal di berkas ini.
+//
+// Aturan bentuk berkas src/*.js (dipakai semua modul):
+//   * cuma deklarasi `function` dan `const` tingkat atas - TANPA import/export
+//   * kebutuhan dari modul lain diambil lewat blok `if (typeof require ...)`
+//     memakai `var` (hoisted, jadi tetap terlihat di seluruh berkas)
+//   * ditutup blok `module.exports` yang dijaga `typeof module`
+// Di browser berkas-berkas ini DIGABUNG jadi satu <script> oleh build.js, jadi
+// semuanya satu lingkup. Di Node tiap berkas di-`require` biasa.
+// Konsekuensinya: nama tingkat atas harus UNIK antar berkas.
+
+// Impor khusus Node dikumpulkan DI SINI, di dalam satu blok berpenjaga - bukan
+// disebar di dalam badan fungsi. build.js membuang blok ini waktu menggabung
+// berkas buat browser; `require` yang nyempil di tempat lain ikut terbawa ke
+// halaman dan bikin halamannya mati.
+
+// --- dekompresi ---
+// Browser punya DecompressionStream (async), Node punya zlib (sync). Dua-duanya
+// dibungkus jadi satu API async supaya pemanggilnya tidak perlu tahu bedanya.
+async function inflateRaw(bytes) {
+  if (typeof DecompressionStream !== 'undefined') {
+    const ds = new DecompressionStream('deflate-raw');
+    const w = ds.writable.getWriter();
+    w.write(bytes); w.close();
+    const parts = [];
+    const rd = ds.readable.getReader();
+    for (;;) {
+      const { value, done } = await rd.read();
+      if (done) break;
+      parts.push(value);
+    }
+    let n = 0;
+    parts.forEach(p => { n += p.length; });
+    const out = new Uint8Array(n);
+    let at = 0;
+    parts.forEach(p => { out.set(p, at); at += p.length; });
+    return out;
+  }
+  return new Uint8Array(_zlib.inflateRawSync(Buffer.from(bytes)));
+}
+
+const _dec = new TextDecoder('utf-8');
+/** Byte -> teks UTF-8, BOM dibuang. */
+function text(bytes) {
+  const s = _dec.decode(bytes);
+  return s.charCodeAt(0) === 0xFEFF ? s.slice(1) : s;
+}
+
+/** Lolos-kan teks buat ditempel ke HTML. */
+const esc = s => String(s == null ? '' : s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+
+;
+
+// ------------------------------------------------------------------ src/xml.js
+// Pembaca XML kecil - cukup buat bentuk yang dipakai .smc2, tidak lebih.
+//
+// Kenapa tidak pakai DOMParser: DOMParser cuma ada di browser. Selama jalur XML
+// (Studio <= 1.56) bergantung padanya, jalur itu TIDAK BISA diuji di Node sama
+// sekali - dan memang selama ini nol tes. Satu pembaca sendiri bikin jalur lama
+// dan jalur baru sama-sama teruji, di dua lingkungan, dengan hasil yang sama.
+//
+// Yang didukung: elemen, atribut (kutip tunggal/ganda), tag menutup-sendiri,
+// teks, komentar, CDATA, dan deklarasi <?...?>. Namespace TIDAK diurai - nama
+// atribut disimpan apa adanya ("i:type", "z:Id"), persis seperti tertulis di
+// berkas. Itu memang yang dibutuhkan di sini, dan bikin perilakunya gampang
+// ditebak. Yang TIDAK didukung: DTD, entity buatan sendiri, xml:space.
+
+const XML_ENT = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'" };
+
+function xmlUnesc(s) {
+  if (s.indexOf('&') < 0) return s;
+  return s.replace(/&(#x?[0-9a-fA-F]+|[a-zA-Z]+);/g, (m, e) => {
+    if (e[0] === '#') {
+      const n = e[1] === 'x' || e[1] === 'X'
+        ? parseInt(e.slice(2), 16) : parseInt(e.slice(1), 10);
+      return Number.isFinite(n) ? String.fromCodePoint(n) : m;
+    }
+    return XML_ENT[e] !== undefined ? XML_ENT[e] : m;
+  });
+}
+
+/** Simpul XML: {tag, attrs, kids, text}. `text` = gabungan teks langsung anaknya. */
+function XmlNode(tag) { return { tag, attrs: {}, kids: [], text: '' }; }
+
+/**
+ * Urai teks XML jadi satu simpul akar.
+ * Melempar Error kalau tag tidak menutup - lebih baik berhenti daripada
+ * mengembalikan pohon separuh yang nanti kebaca sebagai "project kosong".
+ */
+function xmlParse(src) {
+  // Normalisasi akhir baris WAJIB menurut spesifikasi XML: "\r\n" dan "\r"
+  // tunggal jadi "\n". Tanpa ini isi ST dan komentar multi-baris kebaca dengan
+  // "\r" nyangkut - kelihatan sama di layar, tapi beda begitu dibandingkan,
+  // di-diff, atau dijadikan kunci.
+  src = src.replace(/\r\n?/g, '\n');
+  const root = XmlNode('#root');
+  const stack = [root];
+  let i = 0;
+  const n = src.length;
+
+  while (i < n) {
+    const lt = src.indexOf('<', i);
+    if (lt < 0) break;
+    if (lt > i) {
+      const t = src.slice(i, lt);
+      if (t.trim()) stack[stack.length - 1].text += xmlUnesc(t);
+    }
+
+    if (src.startsWith('<!--', lt)) { i = src.indexOf('-->', lt); i = i < 0 ? n : i + 3; continue; }
+    if (src.startsWith('<![CDATA[', lt)) {
+      const end = src.indexOf(']]>', lt);
+      stack[stack.length - 1].text += src.slice(lt + 9, end < 0 ? n : end);
+      i = end < 0 ? n : end + 3;
+      continue;
+    }
+    if (src.startsWith('<?', lt)) { i = src.indexOf('?>', lt); i = i < 0 ? n : i + 2; continue; }
+    if (src.startsWith('<!', lt)) { i = src.indexOf('>', lt); i = i < 0 ? n : i + 1; continue; }
+
+    if (src[lt + 1] === '/') {                       // tag penutup
+      const gt = src.indexOf('>', lt);
+      if (stack.length > 1) stack.pop();
+      i = gt < 0 ? n : gt + 1;
+      continue;
+    }
+
+    // tag pembuka: cari '>' yang TIDAK di dalam nilai atribut berkutip
+    let j = lt + 1, q = null;
+    for (; j < n; j++) {
+      const c = src[j];
+      if (q) { if (c === q) q = null; continue; }
+      if (c === '"' || c === "'") { q = c; continue; }
+      if (c === '>') break;
+    }
+    if (j >= n) throw new Error('XML: tag tidak ditutup di posisi ' + lt);
+
+    let body = src.slice(lt + 1, j);
+    const selfClose = body.endsWith('/');
+    if (selfClose) body = body.slice(0, -1);
+
+    const sp = body.search(/[\s]/);
+    const tag = (sp < 0 ? body : body.slice(0, sp)).trim();
+    const node = XmlNode(tag);
+    if (sp >= 0) {
+      const re = /([^\s=]+)\s*=\s*("([^"]*)"|'([^']*)')/g;
+      let m;
+      while ((m = re.exec(body))) {
+        node.attrs[m[1]] = xmlUnesc(m[3] !== undefined ? m[3] : m[4]);
+      }
+    }
+    stack[stack.length - 1].kids.push(node);
+    if (!selfClose) stack.push(node);
+    i = j + 1;
+  }
+  return root.kids.length === 1 ? root.kids[0] : root;
+}
+
+/** Anak LANGSUNG pertama bertag `tag` (null kalau tidak ada). */
+function xmlChild(node, tag) {
+  for (const k of node.kids) if (k.tag === tag) return k;
+  return null;
+}
+
+/** Semua keturunan bertag `tag`, termasuk simpulnya sendiri. */
+function xmlFindAll(node, tag, out) {
+  out = out || [];
+  if (node.tag === tag) out.push(node);
+  for (const k of node.kids) xmlFindAll(k, tag, out);
+  return out;
+}
+
+/** Teks anak langsung bertag `tag`, sudah di-trim ('' kalau tidak ada). */
+function xmlChildText(node, tag) {
+  const c = xmlChild(node, tag);
+  return c ? c.text.trim() : '';
+}
+
+// ------------------------------------------------------------------ src/zip.js
+// Pembaca ZIP tanpa library. `.smc2` itu container ZIP biasa, jadi isinya bisa
+// dibuka dari luar tanpa Sysmac Studio - itu premis seluruh alat ini.
+//
+// Dibaca manual (bukan pakai pustaka) supaya viewer tetap SATU berkas HTML yang
+// jalan offline dari file://, tanpa server dan tanpa unduhan apa pun.
+
+/**
+ * ArrayBuffer/Uint8Array -> Map<nama, {method, raw}>.
+ * Entri direktori (nama berakhiran '/') dibuang.
+ */
+function unzip(buf) {
+  if (buf instanceof Uint8Array) {
+    buf = buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength);
+  }
+  const dv = new DataView(buf), u8 = new Uint8Array(buf);
+
+  // End of Central Directory dicari MUNDUR dari ekor: komentar ZIP panjangnya
+  // bebas (maks 65535), jadi posisinya tidak tetap.
+  let eo = -1;
+  for (let i = buf.byteLength - 22; i >= 0 && i > buf.byteLength - 65558; i--) {
+    if (dv.getUint32(i, true) === 0x06054b50) { eo = i; break; }
+  }
+  if (eo < 0) throw new Error('Bukan file ZIP yang valid (EOCD tidak ketemu).');
+
+  const count = dv.getUint16(eo + 10, true);
+  let p = dv.getUint32(eo + 16, true);
+
+  const files = new Map();
+  for (let i = 0; i < count; i++) {
+    if (dv.getUint32(p, true) !== 0x02014b50) break;
+    const method = dv.getUint16(p + 10, true);
+    const csize = dv.getUint32(p + 20, true);
+    const nlen = dv.getUint16(p + 28, true);
+    const elen = dv.getUint16(p + 30, true);
+    const clen = dv.getUint16(p + 32, true);
+    const off = dv.getUint32(p + 42, true);
+    const name = new TextDecoder().decode(u8.subarray(p + 46, p + 46 + nlen));
+    p += 46 + nlen + elen + clen;
+    if (name.endsWith('/')) continue;
+    // Header lokal dibaca ulang: panjang nama & extra di sana BISA beda dengan
+    // yang di central directory, jadi offset datanya harus dihitung dari sana.
+    const ln = dv.getUint16(off + 26, true), le = dv.getUint16(off + 28, true);
+    const start = off + 30 + ln + le;
+    files.set(name, { method, raw: u8.subarray(start, start + csize) });
+  }
+  return files;
+}
+
+/** Entri ZIP -> byte isinya. */
+async function inflate(f) {
+  if (f.method === 0) return f.raw;                    // stored
+  if (f.method !== 8) throw new Error('metode kompresi ' + f.method + ' tidak didukung');
+  return inflateRaw(f.raw);
+}
+
+;
+
+// ------------------------------------------------------------------ src/symbols.js
+// Tabel simbol project: arti tiap operand, alamat fisiknya, dan mana yang global.
+//
+// Dipisah jadi modul sendiri karena penggambar ladder DAN penggambar flowchart
+// sama-sama butuh: ladder menulis komentar hijau di bawah tiap simbol, flowchart
+// memakai komentar IO sebagai label kotaknya. Dulu ini variabel global di dalam
+// viewer, jadi tidak bisa dipakai CLI sama sekali.
+const VCMT = new Map();     // nama -> komentar
+const VADDR = new Map();    // nama -> alamat fisik (AT=...)
+const VGLOB = new Set();    // nama yang G=-nya VAR_GLOBAL
+
+/** Isi ulang tabel dari daftar variabel hasil parse. Selalu mengosongkan dulu. */
+function setSymbols(vars) {
+  VCMT.clear(); VADDR.clear(); VGLOB.clear();
+  (vars || []).forEach(v => {
+    if (v.comment) VCMT.set(v.name, v.comment);
+    if (v.address) VADDR.set(v.name, v.address);
+    // Studio mewarnai operand global beda dari yang lokal. Datanya ada di kolom
+    // G= tabel SLWD, jadi ikut dipakai daripada mengarang aturan warna sendiri.
+    if ((v.group || '').indexOf('GLOBAL') >= 0) VGLOB.add(v.name);
+  });
+}
+
+;
+
+// ------------------------------------------------------------------ src/smc2.js
+// Pembaca format project Sysmac Studio (.smc2). Hasil reverse engineering,
+// diverifikasi pada Studio 1.56 dan 1.66.
+//
+//   .smc2                     ZIP
+//    +- <sol>/<sol>.manifest  nama solution
+//    +- <sol>/<sol>.log       versi Sysmac Studio
+//    +- <sol>/<sol>.oem       POHON PROJECT  <- kuncinya
+//    +- <sol>/<guid>.xml      isi tiap section
+//
+// PERINGATAN - format ini TIDAK didokumentasikan Omron dan bisa berubah di versi
+// Studio mana pun. Karena itu HANYA BACA: jangan pernah menulis balik ke .smc2,
+// project bisa rusak tanpa cara memperbaikinya. Membuat program tetap lewat
+// jalur import XML yang resmi didukung.
+
+// ------------------------------------------------------------- pohon project
+// Pohon di .oem bersarang lewat <ChildEntities>:
+//   Entity[Program]            name = NAMA PROGRAM
+//     Entity[PouBody]          name = NAMA SECTION, id = nama file <id>.xml
+//
+// JEBAKAN: yang jadi nama file ladder itu id milik PouBody SENDIRI. Di bawahnya
+// ada Entity[PouBodySourceHolder] yang JUGA punya id dan JUGA punya berkas .xml -
+// tapi isinya CxilVariable (variabel bantu hasil compile), bukan ladder. Salah
+// ambil tidak menghasilkan error apa pun, cuma 0 rung di semua section - dan itu
+// terlihat seperti "project-nya kosong", bukan seperti salah alamat.
+function parseTree(oemText) {
+  const root = xmlParse(oemText);
+  const out = [];
+  function walk(node, prog, sect) {
+    const t = node.attrs.type, nm = node.attrs.name || '', id = node.attrs.id || '';
+    if (t === 'Program') prog = nm || prog;
+    else if (t === 'PouBody') {
+      sect = nm || sect;
+      out.push({ prog: prog || '(tanpa program)', sect: sect || '(tanpa nama)', id });
+    }
+    const kids = xmlChild(node, 'ChildEntities');
+    if (kids) for (const ch of kids.kids) if (ch.tag === 'Entity') walk(ch, prog, sect);
+  }
+  for (const e of root.kids) if (e.tag === 'Entity') walk(e, null, null);
+  return out;
+}
+
+// --------------------------------------------- ladder DataContract (Studio <= 1.56)
+// Komentar dipakai bersama gaya DataContract: kemunculan PERTAMA membawa teks
+// dengan z:Id, kemunculan berikutnya cuma z:Ref ke id itu. Harus diresolusi,
+// kalau tidak sebagian besar komentar terbaca kosong - tanpa error apa pun.
+function parseLadderXml(src) {
+  const root = xmlParse(src);
+
+  const cmap = new Map();
+  for (const c of xmlFindAll(root, 'Comment')) {
+    const id = c.attrs['z:Id'];
+    if (id && c.text.trim()) cmap.set(id, c.text.trim());
+  }
+  const cmt = el => {
+    const c = xmlChild(el, 'Comment');
+    if (!c) return '';
+    if (c.text.trim()) return c.text.trim();
+    const r = c.attrs['z:Ref'];
+    return r ? (cmap.get(r) || '') : '';
+  };
+  const flag = (el, tag) => xmlChildText(el, tag).toLowerCase() === 'true';
+
+  const rungs = [];
+  for (const r of xmlFindAll(root, 'DiagramElement')) {
+    if (r.attrs['i:type'] !== 'Rung') continue;
+    const holder = xmlChild(r, 'Elements');
+    const els = [];
+    if (holder) {
+      for (const e of holder.kids) {
+        // Sebagian DiagramElement memang TIDAK punya i:type (rujukan balik gaya
+        // DataContract). Ditulis null eksplisit, bukan undefined - undefined
+        // hilang diam-diam waktu di-JSON-kan, dan elemennya jadi "{}" kosong
+        // yang tidak bisa dibedakan dari elemen rusak.
+        const k = e.attrs['i:type'] || null;
+        const it = { kind: k };
+        const v = xmlChildText(e, 'Variable');
+        if (v) it.var = v;
+        if (k === 'Contact') it.nc = flag(e, 'NormallyClosed');
+        if (k === 'Coil') {
+          it.neg = flag(e, 'Negated');
+          it.set = flag(e, 'Set');
+          it.reset = flag(e, 'Reset');
+        }
+        if (flag(e, 'PositiveTransitionSensing')) it.edge = 'rising';
+        else if (flag(e, 'NegativeTransitionSensing')) it.edge = 'falling';
+        const c = cmt(e);
+        if (c) it.comment = c;
+        els.push(it);
+      }
+    }
+    rungs.push({ comment: cmt(r), elements: els });
+  }
+  return rungs;
+}
+
+// ------------------------------------------------ ladder JSON (Studio >= 1.66)
+// Mulai 1.66 ladder TIDAK lagi disimpan sebagai <LadderDiagram> DataContract XML,
+// melainkan sebagai deretan objek JSON - satu objek per rung:
+//
+//   {"CLs":[...], "LRI":7, "RRI":8, "VLs":[{"Ix":9,"X":1}], "CMT":"komen rung"}
+//
+//   CLs  daftar elemen: __type LD kontak / ST coil / F fungsi / HL link mendatar
+//        Var operand, Not true = NC (kontak) atau negated (coil)
+//        X kolom, Y baris (baris 0 = jalur utama)
+//   VLs  link vertikal = titik cabang paralel
+//
+// Bentuk ini justru lebih mudah dibaca daripada yang lama: tata letaknya eksplisit
+// lewat X/Y, tidak perlu menelusuri edge GUID.
+const KIND_JSON = { LD: 'Contact', ST: 'Coil', F: 'Function', HL: 'HLink', PF: 'PowerFlow' };
+
+// Kotak fungsi membawa daftar PIN-nya sendiri lewat In/Out:
+//   {__type, Arg, Var, Type}
+//   __type PF  = pin aliran daya (EN/ENO) - nyambung ke kabel rung, tanpa operand
+//   __type PRM = parameter biasa, operandnya di Var
+const pinList = l => (l || []).map(p => ({
+  name: p.Arg || '', operand: p.Var || '', flow: p.__type === 'PF', type: p.Type || '',
+}));
+
+function parseLadderJson(t) {
+  const rungs = [];
+  let i = 0;
+  while (i < t.length) {
+    while (i < t.length && /\s/.test(t[i])) i++;
+    if (t[i] !== '{') break;
+    // Pindai kurung kurawal sambil MENGHORMATI string dan escape - komentar rung
+    // bisa memuat '{' dan '}', dan penghitung naif berhenti di tempat yang salah.
+    let d = 0, j = i, ins = false, esc2 = false;
+    for (; j < t.length; j++) {
+      const c = t[j];
+      if (esc2) { esc2 = false; continue; }
+      if (c === '\\') { esc2 = true; continue; }
+      if (c === '"') ins = !ins;
+      else if (!ins) { if (c === '{') d++; else if (c === '}' && --d === 0) { j++; break; } }
+    }
+    let o;
+    try { o = JSON.parse(t.slice(i, j)); } catch (e) { break; }
+    i = j;
+    const els = (o.CLs || []).map(e => {
+      const it = { kind: KIND_JSON[e.__type] || e.__type || null };
+      if (e.Var) it.var = e.Var;
+      if (e.Not) { if (e.__type === 'LD') it.nc = true; else it.neg = true; }
+      if (e.Name) it.func = e.Name;
+      if (e.In || e.Out) it.pins = { in: pinList(e.In), out: pinList(e.Out) };
+      if (e.EC) it.comment = e.EC;             // komentar blok (English comment)
+      // X/Y = kolom/baris. Tanpa ini ladder tidak bisa digambar sama sekali dan
+      // SEMUA rung ikut ditandai perkiraan - padahal koordinatnya ada di berkas.
+      if ('X' in e) it.x = e.X;
+      if ('Y' in e) it.y = e.Y;
+      return it;
+    });
+    rungs.push({ comment: o.CMT || '', elements: els, vlinks: o.VLs || [] });
+  }
+  return rungs;
+}
+
+// ------------------------------------------------------------- Structured Text
+/**
+ * Ambil badan program ST dari isi berkas section.
+ *
+ * Nama elemen pembungkusnya BEDA antar versi Studio: ada yang `<StructuredText>`,
+ * ada yang `<StructuredTextModel>`. Mencocokkan salah satu saja bikin badan
+ * program-nya terbaca KOSONG - tanpa error, tanpa tanda apa pun; di ringkasan
+ * cuma tertulis "ST 0 char" dan itu tampak seperti section yang memang kosong.
+ *
+ * Pembungkusnya tetap harus dicari: mengambil `<Text>` pertama di mana pun bikin
+ * blok deklarasi variabel yang kepungut, jadi isinya "ARRAY[1..N] OF INT" bukan
+ * programnya.
+ */
+function readStText(src) {
+  let holder = null;
+  (function walk(n) {
+    if (holder || !n) return;
+    if (typeof n.tag === 'string' && n.tag.indexOf('StructuredText') === 0) { holder = n; return; }
+    n.kids.forEach(walk);
+  })(xmlParse(src));
+  if (!holder) return '';
+  // Badan program itu <Text> anak LANGSUNG pembungkusnya. Blok deklarasi variabel
+  // juga punya <Text> dan sering ditulis lebih dulu - pencarian keturunan biasa
+  // memungutnya duluan, jadi isinya "ARRAY[1..N] OF INT" bukan programnya.
+  const d = xmlChild(holder, 'Text') || xmlFindAll(holder, 'Text')[0];
+  return d ? d.text : '';
+}
+
+// ------------------------------------------ tabel variabel global (SLWD)
+// Berkas teks berpenanda "[SLWD version=1.0]", satu variabel per baris:
+//   ++D=BOOL <TAB> N=CH0000_00 <TAB> AT=IOBus://... <TAB> G=VAR_GLOBAL <TAB> Com=PB EMERGENCY STOP
+// Ini praktis IO list-nya: nama, tipe, alamat fisik, grup, dan komentar sekaligus.
+function parseVars(t) {
+  const out = [];
+  for (const line of t.split('\n')) {
+    const s = line.trim();
+    if (!s.startsWith('++D=')) continue;
+    const rec = {};
+    for (const part of s.slice(2).split('\t')) {
+      const k = part.indexOf('=');
+      if (k > 0) rec[part.slice(0, k).trim()] = part.slice(k + 1).trim();
+    }
+    if (rec.N) {
+      out.push({ name: rec.N, type: rec.D || '', address: rec.AT || '',
+                 group: rec.G || '', comment: rec.Com || '' });
+    }
+  }
+  return out;
+}
+
+// ------------------------------------------------------------------- utama
+async function readProject(buf, unzipFn) {
+  const files = unzipFn(buf);
+  const get = async n => text(await inflate(files.get(n)));
+
+  let oemName = null, manName = null, logName = null;
+  const byId = new Map();
+  for (const n of files.keys()) {
+    if (n.endsWith('.oem')) oemName = n;
+    else if (n.endsWith('.manifest')) manName = n;
+    else if (n.endsWith('.log')) logName = n;
+    if (n.endsWith('.xml')) byId.set(n.split('/').pop().slice(0, -4), n);
+  }
+  if (!oemName) throw new Error('Bukan project Sysmac: entri .oem tidak ketemu di dalam ZIP.');
+
+  const proj = { solution: '', studio: '', file: '', programs: [], variables: [] };
+  if (manName) {
+    const m = (await get(manName)).match(/solutionName="([^"]+)"/);
+    // Nama solution boleh memuat & dan < - di XML itu ditulis &amp; / &lt;.
+    // Tanpa di-decode, nama project tampil "HDI Line 2 Air Gap &amp; Off Gap".
+    if (m) proj.solution = xmlUnesc(m[1]);
+  }
+  if (logName) {
+    // Deklarasi <?xml version="1.0"?> juga punya atribut `version` dan letaknya
+    // paling depan - regex polos selalu kena itu duluan, jadi versi Studio-nya
+    // SELALU terbaca "1.0". Deklarasinya dibuang dulu.
+    const m = (await get(logName)).replace(/<\?[\s\S]*?\?>/g, '').match(/version="([\d.]+)"/);
+    if (m) proj.studio = m[1];
+  }
+
+  const seen = new Map();
+  for (const t of parseTree(await get(oemName))) {
+    let entry = seen.get(t.prog);
+    if (!entry) { entry = { name: t.prog, sections: [] }; seen.set(t.prog, entry); proj.programs.push(entry); }
+    const s = { name: t.sect, id: t.id, kind: null, rungs: [], st: null };
+    const fn = byId.get(t.id);
+    if (fn) {
+      const body = await get(fn);
+      const head = body.replace(/^\s+/, '').slice(0, 400);
+      // Bentuk ladder beda antar versi Studio - dua-duanya didukung.
+      if (head.includes('<LadderDiagram')) { s.kind = 'ladder'; s.rungs = parseLadderXml(body); }
+      else if (head[0] === '{' && head.includes('"CLs"')) { s.kind = 'ladder'; s.rungs = parseLadderJson(body); }
+      else if (head.includes('<StructuredText')) { s.kind = 'st'; s.st = readStText(body); }
+    }
+    entry.sections.push(s);
+  }
+
+  for (const [n, f] of files) {
+    const b = await inflate(f);
+    if (b.length > 6 && text(b.subarray(0, 8)).startsWith('[SLWD ')) {
+      proj.variables.push(...parseVars(text(b)));
+    }
+  }
+  return proj;
+}
+
+// ------------------------------------------------------------------ src/ladder.js
+// Rekonstruksi logika rung + penggambar ladder SVG.
+//
+// Dua hal yang dijaga di sini:
+//   1. Ekspresi boolean-nya JUJUR - cabang bersarang yang disederhanakan SELALU
+//      ditandai, karena ekspresi yang salah susun tetap terlihat masuk akal, dan
+//      itulah yang berbahaya kalau dipercaya mentah-mentah engineer maupun LLM.
+//   2. Gambarnya mengikuti tata letak Sysmac Studio - nama operand di atas
+//      simbol, komentar hijau di bawah - supaya rung yang sama bisa ditaruh
+//      berdampingan dengan layar Studio dan langsung dibandingkan.
+
+// =================================================== rekonstruksi logika rung
+// Format JSON (Studio >= 1.66) menyimpan posisi grid: X = kolom, Y = baris
+// (0 = jalur utama). Dari situ seri/paralel bisa disusun ulang tanpa menelusuri
+// sambungan: satu baris kolom menaik = seri (AND); baris >0 yang menutupi
+// rentang kolom yang sama = cabang paralel (OR).
+// Cabang bersarang disederhanakan jadi satu tingkat dan ditandai '~'.
+function elLabel(e) {
+  if (e.func) return e.func + '()';
+  return (e.nc || e.neg ? '/' : '') + e.var;
+}
+function rungExpr(rung) {
+  const els = rung.elements.filter(e => e.var || e.func);
+  const outs = els.filter(e => e.kind === 'Coil').map(elLabel);
+  const ins = els.filter(e => e.kind !== 'Coil');
+  if (!ins.length) return { expr: '', outs, approx: false };
+
+  const hasXY = ins.some(e => 'x' in e || 'y' in e);
+  if (!hasXY) return { expr: ins.map(elLabel).join(' AND '), outs, approx: ins.length > 1 };
+
+  const grid = new Map();
+  let maxc = 0;
+  ins.forEach(e => {
+    const y = e.y || 0, x = e.x || 0;
+    if (!grid.has(y)) grid.set(y, new Map());
+    grid.get(y).set(x, e);
+    if (x > maxc) maxc = x;
+  });
+
+  const branches = [];
+  [...grid.keys()].filter(y => y).sort((a, b) => a - b).forEach(y => {
+    const cols = [...grid.get(y).keys()].sort((a, b) => a - b);
+    let run = [cols[0]];
+    for (let i = 1; i < cols.length; i++) {
+      if (cols[i] === run[run.length - 1] + 1) run.push(cols[i]);
+      else { branches.push([run[0], run[run.length - 1], y]); run = [cols[i]]; }
+    }
+    branches.push([run[0], run[run.length - 1], y]);
+  });
+
+  const main = grid.get(0) || new Map();
+  const parts = [];
+  let c = 0, approx = false;
+  while (c <= maxc) {
+    const here = branches.filter(b => b[0] === c);
+    if (here.length) {
+      const end = Math.max(...here.map(b => b[1]));
+      const alts = [];
+      const m = [];
+      for (let i = c; i <= end; i++) if (main.has(i)) m.push(elLabel(main.get(i)));
+      if (m.length) alts.push(m.join(' AND '));
+      here.forEach(([b0, b1, y]) => {
+        const seg = [];
+        for (let i = b0; i <= b1; i++) if (grid.get(y).has(i)) seg.push(elLabel(grid.get(y).get(i)));
+        if (seg.length) alts.push(seg.join(' AND '));
+      });
+      if (here.length > 1 || branches.some(b => b[0] > c && b[0] <= end)) approx = true;
+      parts.push('(' + alts.join(' OR ') + ')');
+      c = end + 1;
+    } else {
+      if (main.has(c)) parts.push(elLabel(main.get(c)));
+      c++;
+    }
+  }
+  return { expr: parts.join(' AND '), outs, approx };
+}
+
+// Gambar ladder sebagai SVG dari grid yang sama. Bukan replika Sysmac Studio,
+// tapi harus JUJUR soal bentuk rangkaian - dan itu berarti kabelnya benar-benar
+// digambar: garis mendatar antar elemen, dan LINK VERTIKAL di titik cabang.
+// Tanpa link vertikal, empat kontak paralel tampak seperti empat kontak lepas
+// yang tidak nyambung ke mana pun. Itu bukan sekadar jelek - itu salah baca.
+// Tata letaknya mengikuti Sysmac Studio: NAMA operand di ATAS simbol, KOMENTAR
+// (hijau) di BAWAHnya. Bukan sekadar selera - itu yang bikin rung kebaca tanpa
+// menghafal nama bit, dan itu juga yang dilihat orang di layar Studio, jadi dua
+// gambar untuk rung yang sama bisa dibandingkan langsung.
+const LAD = { CW: 150, RH: 86, PAD: 12, HG: 8, AR: 12,
+              NW: 23, CmtW: 21,          // batas karakter per baris nama / komentar
+              FBW: 104, HDR: 18, PINH: 16 };
+
+/** Potong nama jadi maksimal 2 baris, patah di titik/kurung kalau bisa. */
+function ladWrap(s, n) {
+  s = String(s || '');
+  if (s.length <= n) return [s];
+  // Nama PLC panjang biasanya berstruktur (PLC_ERR_STA.PLC_ERR_BOOL[7]) -
+  // patah di pemisahnya jauh lebih kebaca daripada dipotong di tengah kata.
+  // Titik dan kurung memisahkan BAGIAN nama, garis bawah cuma memisahkan kata,
+  // jadi titik/kurung didahulukan biar patahannya jatuh di batas yang berarti.
+  let cut = -1;
+  for (const seps of ['.[', '_']) {
+    for (let i = 0; i < s.length; i++) {
+      if (seps.includes(s[i]) && i <= n && i > n / 3) cut = i;
+    }
+    if (cut >= 0) break;
+  }
+  if (cut < 0) cut = n;
+  const a = s.slice(0, cut), b = s.slice(cut);
+  return [a, b.length > n ? b.slice(0, n - 1) + '…' : b];
+}
+
+function ladderHtml(rung) {
+  const els = (rung.elements || []).filter(e => e.var || e.func);
+  const ins = els.filter(e => e.kind !== 'Coil');
+  const outs = els.filter(e => e.kind === 'Coil');
+  if (!ins.length && !outs.length) return '';
+
+  // Studio <= 1.56 tidak menyimpan koordinat sama sekali. Tata letaknya tidak
+  // bisa dipulihkan, jadi digambar seri menurut urutan dokumen - ekspresi di
+  // atasnya sudah ditandai `~`, jadi tidak ada yang mengira ini presisi.
+  const hasXY = els.some(e => 'x' in e || 'y' in e);
+
+  const at = new Map();
+  let maxc = 0, maxr = 0;
+  ins.forEach((e, i) => {
+    const x = hasXY ? (e.x || 0) : i, y = hasXY ? (e.y || 0) : 0;
+    at.set(y + ':' + x, e);
+    if (x > maxc) maxc = x;
+    if (y > maxr) maxr = y;
+  });
+  if (maxc > 13) return '';   // rung raksasa: ekspresinya saja lebih terbaca
+
+  // Lebar BAKU 6 kontak + 1 coil, seperti Studio. Rung pendek tetap memakai
+  // pitch kolom yang sama, jadi rung berurutan lurus segaris dan coil-nya
+  // sekolom - itu yang bikin satu section kebaca sebagai satu aliran, bukan
+  // sebagai kotak-kotak yang lebarnya beda-beda. Rung yang memang lebih panjang
+  // dari 6 kolom tetap dibiarkan memanjang.
+  maxc = Math.max(maxc, 5);
+
+  // Coil ditaruh di barisnya sendiri. Rung langkah gerakan punya DUA coil di
+  // baris berbeda - kalau ditumpuk jadi satu sel, urutannya hilang.
+  const crow = outs.map((o, i) => (hasXY ? (o.y || 0) : i));
+  crow.forEach(y => { if (y > maxr) maxr = y; });
+
+  const { CW, RH, PAD, HG, AR, NW, CmtW, FBW, HDR, PINH } = LAD;
+  const railL = PAD + 4;
+  const colX = c => railL + 12 + c * CW;
+  const coilC = maxc + 1;
+  const railR = colX(coilC) + CW;
+  const W = railR + PAD + 4, H = PAD * 2 + (maxr + 1) * RH;
+  const rowY = r => PAD + 34 + r * RH;
+  const cx = c => colX(c) + CW / 2;
+
+  const o = [];
+  const line = (x1, y1, x2, y2, cls) =>
+    o.push(`<line class="${cls || 'w'}" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"/>`);
+
+  // NAMA di atas simbol. Kalau butuh dua baris, baris TERAKHIR yang menempel ke
+  // simbol - biar jarak nama-ke-simbol selalu sama berapa pun panjang namanya.
+  function nameAbove(x, y, t, cls) {
+    const ln = ladWrap(t, NW);
+    ln.forEach((s, i) => o.push(
+      `<text class="nm ${cls || ''}" x="${x}" y="${y - 18 - (ln.length - 1 - i) * 11}">${esc(s)}</text>`));
+  }
+  // KOMENTAR di bawah simbol, hijau, dipatah per KATA (komentar itu kalimat,
+  // bukan nama - dipatah di tengah kata jadi tidak kebaca).
+  function cmtBelow(x, y, v) {
+    const t = VCMT.get(v);
+    if (!t) return;
+    const words = String(t).split(/\s+/), ln = [];
+    let cur = '';
+    for (const w of words) {
+      if (!cur) cur = w;
+      else if ((cur + ' ' + w).length <= CmtW) cur += ' ' + w;
+      else { ln.push(cur); cur = w; if (ln.length === 2) break; }
+    }
+    if (ln.length < 3 && cur) ln.push(cur);
+    ln.slice(0, 3).forEach((s, i) => o.push(
+      `<text class="cmt" x="${x}" y="${y + 22 + i * 11}">${esc(s)}</text>`));
+  }
+  const opClass = v => VGLOB.has(v) ? 'og' : '';
+
+  // --- rel kiri & kanan, setinggi seluruh rung ---
+  line(railL, rowY(0) - 14, railL, rowY(maxr) + 14, 'rail');
+  line(railR, rowY(0) - 14, railR, rowY(maxr) + 14, 'rail');
+
+  // --- simbol ---
+  const gap = [];                       // [baris, x0, x1] potongan kabel yang TIDAK digambar
+  function contact(e, c, r) {
+    const X = cx(c), Y = rowY(r), nc = !!e.nc, k = nc ? 'sy ncc' : 'sy';
+    line(X - HG, Y - 11, X - HG, Y + 11, k);
+    line(X + HG, Y - 11, X + HG, Y + 11, k);
+    if (nc) line(X - HG - 3, Y + 10, X + HG + 3, Y - 10, k);
+    if (e.edge) o.push(`<text class="ed" x="${X}" y="${Y + 4}">${e.edge === 'rising' ? '↑' : '↓'}</text>`);
+    nameAbove(X, Y, e.var, opClass(e.var));
+    cmtBelow(X, Y, e.var);
+    gap.push([r, X - HG, X + HG]);
+  }
+
+  // Blok fungsi digambar seperti di Studio: kotak dengan NAMA instruksi di kepala
+  // dan PIN bernama di kiri (masukan) dan kanan (keluaran). Operand yang nempel
+  // ke tiap pin ditulis di sebelah pin-nya. Kalau file-nya tidak membawa daftar
+  // pin, kotaknya tetap digambar dengan nama saja - lebih jujur daripada menebak
+  // pin apa yang dipunya instruksi itu.
+  function fbox(e, c, r) {
+    const X = cx(c), Y = rowY(r);
+    const nm = String(e.func || e.var || '?');
+    const pins = e.pins || {}, pin = { in: pins.in || [], out: pins.out || [] };
+    const rows = Math.max(pin.in.length, pin.out.length, 0);
+    const wNeed = Math.max(FBW, nm.length * 7 + 20,
+      ...Array.from({ length: rows }, (_, i) =>
+        ((pin.in[i] && pin.in[i].name || '').length + (pin.out[i] && pin.out[i].name || '').length) * 6.2 + 26));
+    const w = Math.min(CW - 8, wNeed);
+    const top = Y - HDR - PINH / 2, h = HDR + Math.max(rows, 1) * PINH + 4;
+    o.push(`<rect class="fb" x="${X - w / 2}" y="${top}" width="${w}" height="${h}"/>`);
+    o.push(`<line class="fbsep" x1="${X - w / 2}" y1="${top + HDR}" x2="${X + w / 2}" y2="${top + HDR}"/>`);
+    o.push(`<text class="fn" x="${X}" y="${top + 13}">${esc(nm)}</text>`);
+    for (let i = 0; i < rows; i++) {
+      const py = top + HDR + PINH / 2 + i * PINH + 4;
+      const pi = pin.in[i], po = pin.out[i];
+      if (pi) {
+        o.push(`<text class="pin" x="${X - w / 2 + 5}" y="${py}">${esc(pi.name)}</text>`);
+        line(X - w / 2 - 12, py - 4, X - w / 2, py - 4);
+        if (pi.operand) o.push(`<text class="opd r" x="${X - w / 2 - 15}" y="${py}">${esc(pi.operand)}</text>`);
+      }
+      if (po) {
+        o.push(`<text class="pin r" x="${X + w / 2 - 5}" y="${py}">${esc(po.name)}</text>`);
+        line(X + w / 2, py - 4, X + w / 2 + 12, py - 4);
+        if (po.operand) o.push(`<text class="opd" x="${X + w / 2 + 15}" y="${py}">${esc(po.operand)}</text>`);
+      }
+    }
+    gap.push([r, X - w / 2, X + w / 2]);
+  }
+
+  // Coil = LINGKARAN PENUH, seperti di Studio. Dulu digambar dua busur "( )" -
+  // itu gaya cetak mnemonic, bukan yang dilihat di layar Studio.
+  function coil(c, r) {
+    const X = cx(coilC), Y = rowY(r);
+    const m = c.set ? 'S' : c.reset ? 'R' : c.neg ? '/' : '';
+    o.push(`<circle class="sy co" cx="${X}" cy="${Y}" r="${AR}"/>`);
+    if (m) o.push(`<text class="cm" x="${X}" y="${Y + 4}">${m}</text>`);
+    nameAbove(X, Y, c.var, opClass(c.var));
+    cmtBelow(X, Y, c.var);
+    gap.push([r, X - AR, X + AR]);
+  }
+
+  for (let r = 0; r <= maxr; r++) {
+    for (let c = 0; c <= maxc; c++) {
+      const e = at.get(r + ':' + c);
+      if (e) (e.kind === 'Function' ? fbox : contact)(e, c, r);
+    }
+  }
+  outs.forEach((c, i) => coil(c, crow[i]));
+
+  // --- kabel mendatar, dipotong di tempat simbolnya berdiri ---
+  const wire = (r, x1, x2) => {
+    const g = gap.filter(t => t[0] === r).map(t => [t[1], t[2]]).sort((a, b) => a[0] - b[0]);
+    let x = x1;
+    for (const [a, b] of g) {
+      if (b <= x1 || a >= x2) continue;
+      if (a > x) line(x, rowY(r), a, rowY(r));
+      x = Math.max(x, b);
+    }
+    if (x < x2) line(x, rowY(r), x2, rowY(r));
+  };
+
+  wire(0, railL, railR);
+
+  // Cabang yang MULAI di kolom sama itu satu grup alternatif (OR) - dan grup itu
+  // menutup di kolom yang sama, yaitu ujung cabang terpanjang di grupnya. Tanpa
+  // ini kontak seal satu-kolom menutup kekurangan satu kolom dari cabang di
+  // atasnya, dan gambarnya jadi tidak nyambung. Aturannya PERSIS sama dengan
+  // yang dipakai rungExpr waktu menyusun ekspresi, jadi gambar dan ekspresi
+  // tidak pernah bercerita beda.
+  const allRuns = [];
+  for (let r = 1; r <= maxr; r++) {
+    const cols = [];
+    for (let c = 0; c <= maxc; c++) if (at.has(r + ':' + c)) cols.push(c);
+    const runs = [];
+    for (const c of cols) {
+      const last = runs[runs.length - 1];
+      if (last && c === last[1] + 1) last[1] = c; else runs.push([c, c]);
+    }
+    runs.forEach(([c0, c1], i) => allRuns.push({ r, c0, c1, last: i === runs.length - 1 }));
+  }
+  const groupEnd = new Map();
+  allRuns.forEach(b => groupEnd.set(b.c0, Math.max(groupEnd.get(b.c0) ?? b.c1, b.c1)));
+
+  for (let r = 1; r <= maxr; r++) {
+    const runs = allRuns.filter(b => b.r === r);
+    const hasCoil = crow.includes(r);
+    runs.forEach(b => {
+      const end = b.last ? groupEnd.get(b.c0) : b.c1;
+      const x0 = colX(b.c0), x1 = colX(end) + CW;
+      wire(r, x0, x1);
+      line(x0, rowY(0), x0, rowY(r));                 // titik cabang masuk
+      // Kalau baris ini berakhir di coil sendiri, dia TIDAK balik ke jalur
+      // utama - jadi jangan digambar seolah balik.
+      if (!(hasCoil && b.last)) line(x1, rowY(0), x1, rowY(r));
+    });
+    if (hasCoil) {
+      const from = runs.length ? colX(groupEnd.get(runs[runs.length - 1].c0)) + CW : railL;
+      if (!runs.length) line(railL, rowY(0), railL, rowY(r));
+      wire(r, from, railR);
+    }
+  }
+
+  return `<div class="lad"><svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" ` +
+         `xmlns="http://www.w3.org/2000/svg">${o.join('')}</svg></div>`;
+}
+
+// ------------------------------------------------------------------ src/motion.js
+// Pengenalan langkah gerakan dari pola rung, dan perantaiannya.
+//
+// Yang TIDAK dilakukan di sini: menebak. Rung yang tidak cocok pola dibiarkan
+// tak terpetakan dengan alasannya, dan langkah yang rantainya tidak tertelusuri
+// dibiarkan menunjuk bit aslinya. Flowchart yang memuat urutan palsu lebih
+// berbahaya daripada flowchart yang kurang lengkap: yang kurang lengkap
+// kelihatan, yang palsu tidak.
+
+// ============================================ rekonstruksi urutan gerakan
+// Pola satu langkah gerakan punya bentuk rung yang khas:
+//
+//   x0y0 prevBit -- x1y0 /confirm ----------> Coil cmd
+//                   x1y1 sol - x2y1 lsc ----> Coil confirm
+//                   x1y2 confirm (seal)
+//
+// Pembeda dari rung berkoil-dua yang LAIN - terutama mutex pemilih varian, yang
+// juga punya dua coil dan sama-sama menyeal diri - adalah hanya SATU coil yang
+// di-gate kontak NC. Pada mutex keduanya saling mengunci, dan itu memang bukan
+// langkah gerakan. Ditolak, bukan dipaksa masuk.
+const MOTION_SECT = /auto.*runn|autorunn|motion/i;
+const COND_SECT = /condition/i;
+
+/**
+ * Kontak yang benar-benar mengumpani SATU coil di rung berkoil banyak.
+ *
+ * Rung pemilih varian punya beberapa coil bertumpuk (LB401..LB404), masing-masing
+ * dengan barisan kontaknya sendiri. Tanpa dipisah per coil, seluruh kontak rung
+ * terbaca sebagai umpan setiap coil - dan LB401 kelihatan digerbang LB300 SEKALIGUS
+ * LB301, LB302, LB303. Batasnya: dari baris coil ini sampai tepat sebelum coil
+ * berikutnya.
+ */
+function coilBand(rung, coil) {
+  const coils = rung.elements.filter(e => e.kind === 'Coil' && e.var)
+                             .map(e => e.y || 0).sort((a, b) => a - b);
+  const y0 = coil.y || 0;
+  const next = coils.find(y => y > y0);
+  const yEnd = next === undefined ? Infinity : next - 1;
+  return rung.elements.filter(e => e.kind === 'Contact' && e.var &&
+                                   (e.y || 0) >= y0 && (e.y || 0) <= yEnd);
+}
+
+/**
+ * Bit syarat pemilih varian, diambil dari section Condition.
+ *
+ * Bit yang justru digerbang bit syarat LAIN dibuang - itu gerbang gabungan
+ * (LB309 = LB300 OR LB301 OR ...), bukan pemilih varian. Kalau ikut terpakai,
+ * semua varian jatuh ke syarat yang sama.
+ */
+function conditionBits(prog) {
+  const raw = new Set(), rungOf = new Map();
+  for (const s of prog.sections) {
+    if (!COND_SECT.test(s.name)) continue;
+    for (const r of s.rungs) {
+      for (const e of r.elements) {
+        if (e.kind === 'Coil' && e.var) { raw.add(e.var); rungOf.set(e.var, [r, e]); }
+      }
+    }
+  }
+  const out = new Set();
+  raw.forEach(bit => {
+    const [r, coil] = rungOf.get(bit);
+    if (!coilBand(r, coil).some(c => raw.has(c.var))) out.add(bit);
+  });
+  return out;
+}
+
+/**
+ * Peta bit-gerbang-varian -> bit syarat yang menyalakannya.
+ *
+ * Ini inti pemisahan varian. Urutan gerak dipilih lewat rung mutex: LB401 nyala
+ * kalau LB300 nyala, LB402 dari LB301, dan seterusnya. Jadi "varian mana" dijawab
+ * dengan menelusuri SIAPA yang menyalakan bit awal langkah itu - bukan dengan
+ * menebak dari urutan nomor LB, dan bukan dengan menelusuri rantai sampai mentok
+ * (penelusuran bebas malah nyasar lewat plumbing LB499/LB570 dan mendarat di
+ * langkah acak).
+ */
+function variantGates(prog) {
+  const cond = conditionBits(prog);
+  const gates = new Map();
+  for (const s of prog.sections) {
+    for (const r of s.rungs) {
+      for (const e of r.elements) {
+        if (e.kind !== 'Coil' || !e.var || gates.has(e.var)) continue;
+        const hit = [...new Set(coilBand(r, e).map(c => c.var))].filter(v => cond.has(v));
+        if (hit.length === 1) gates.set(e.var, hit[0]);
+      }
+    }
+  }
+  return { gates, cond };
+}
+
+function findMotionSteps(section) {
+  const steps = [], unmapped = [];
+  section.rungs.forEach((r, idx) => {
+    const coils = r.elements.filter(e => e.kind === 'Coil' && e.var);
+    const cts = r.elements.filter(e => e.kind === 'Contact' && e.var);
+    if (coils.length !== 2) { unmapped.push('bukan 2 coil'); return; }
+    const ncs = new Set(cts.filter(c => c.nc).map(c => c.var));
+    const cand = coils.filter(c => ncs.has(c.var));
+    if (cand.length !== 1) {
+      unmapped.push(cand.length === 2 ? 'dua coil saling mengunci (mutex), bukan langkah gerakan'
+                                      : 'tidak ada coil yang di-gate kontak NC');
+      return;
+    }
+    const confirm = cand[0], cmd = coils.find(c => c !== confirm);
+    const p0 = cts.find(c => (c.y || 0) === 0 && (c.x || 0) === 0);
+    if (!p0) { unmapped.push('tidak ada kontak di kolom 0 baris 0 (prevBit)'); return; }
+    const row = confirm.y || 0;
+    const band = cts.filter(c => (c.y || 0) === row &&
+                                 c.var !== p0.var && c.var !== cmd.var && c.var !== confirm.var)
+                    .sort((a, b) => (a.x || 0) - (b.x || 0));
+    if (band.length < 2) { unmapped.push('tidak ketemu pasangan solenoid+sensor di baris confirm'); return; }
+    steps.push({ rung: idx + 1, prev: p0.var, sol: band[0].var, lsc: band[1].var,
+                 cmd: cmd.var, confirm: confirm.var, comment: r.comment || '' });
+  });
+  return { steps, unmapped };
+}
+
+// Rantai antar langkah sering TIDAK langsung: confirm sebuah langkah kerap tidak
+// jadi prevBit langkah berikutnya, melainkan lewat rung perantara. Jadi prevBit
+// ditelusuri mundur lewat rung yang menulisnya. Yang tetap tidak ketemu dibiarkan
+// menunjuk bit aslinya - bukan disembunyikan, supaya kelihatan perlu dicek.
+function chainSteps(section, steps, gates) {
+  gates = gates || new Map();
+  const byConfirm = new Map();
+  steps.forEach((st, i) => byConfirm.set(st.confirm, i));
+  const writers = new Map();
+  section.rungs.forEach(r => {
+    const ins = r.elements.filter(e => e.kind === 'Contact' && e.var).map(e => e.var);
+    r.elements.filter(e => e.kind === 'Coil' && e.var).forEach(c => {
+      if (!writers.has(c.var)) writers.set(c.var, []);
+      writers.get(c.var).push(ins);
+    });
+  });
+  function trace(bit, depth, seen) {
+    if (byConfirm.has(bit)) return { idx: byConfirm.get(bit), ok: true };
+    // BERHENTI di bit gerbang varian. Bit ini memang awal sebuah urutan - bukan
+    // sesuatu yang menunggu langkah lain. Diteruskan, penelusuran malah menyusup
+    // ke plumbing global (LB401 -> LB400 -> LB400_A -> LB499 -> LB570 -> LB415)
+    // dan mendarat di langkah acak: semua langkah lalu terlihat berantai, satu
+    // section jadi satu urutan panjang, dan variannya hilang.
+    if (gates.has(bit)) return { bit, ok: false };
+    if (depth <= 0 || seen.has(bit)) return { bit, ok: false };
+    seen.add(bit);
+    for (const ins of (writers.get(bit) || [])) {
+      for (const src of ins) {
+        if (src === bit) continue;
+        const g = trace(src, depth - 1, seen);
+        if (g.ok) return g;
+      }
+    }
+    return { bit, ok: false };
+  }
+  const chain = steps.map(st => {
+    const g = trace(st.prev, 6, new Set());
+    return Object.assign({}, st, g.ok ? { afterIdx: g.idx } : { afterBit: st.prev });
+  });
+
+  // Urutan gerak itu MELINGKAR: langkah terakhir memicu langkah pertama lagi di
+  // siklus berikutnya. Kalau semua sambungan diperlakukan sama, tidak ada langkah
+  // yang jadi awal - grafnya jadi lingkaran tanpa ujung, START terpaksa ditarik ke
+  // SEMUA langkah dan END dari semuanya. Gambarnya lalu tidak menceritakan urutan
+  // apa pun.
+  //
+  // Pembedanya ada di datanya sendiri: dependensi normal menunjuk langkah yang
+  // ditulis LEBIH AWAL di section (n2 di rung 7 menunggu n1 di rung 6). Yang
+  // menunjuk rung LEBIH AKHIR berarti menunggu langkah dari siklus SEBELUMNYA -
+  // itu penutup lingkaran, bukan urutan di dalam satu siklus.
+  //
+  // Sambungan itu ditandai `loop`, bukan dibuang: informasinya tetap ada (viewer
+  // menggambarnya putus-putus), tapi tidak lagi ikut menentukan mana awal urutan.
+  chain.forEach(st => {
+    if ('afterIdx' in st && chain[st.afterIdx].rung > st.rung) st.loop = true;
+  });
+
+  // Aturan rung saja belum cukup. Masih tersisa bentuk yang tidak tertangkap -
+  // paling sering langkah yang penelusurannya berujung ke DIRINYA SENDIRI (kontak
+  // seal-nya sendiri yang ketemu duluan). Rung-nya tidak "lebih akhir", jadi tidak
+  // ikut tertandai, dan lingkarannya tetap utuh.
+  //
+  // Sisa lingkaran dipatahkan di anggota ber-rung PALING AWAL: dalam konvensi
+  // penulisan Denso langkah gerak ditulis berurutan (LB410 ke atas), jadi yang
+  // rung-nya paling awal memang awal urutannya.
+  for (;;) {
+    const cyc = findChainCycle(chain);
+    if (!cyc) break;
+    let at = cyc[0];
+    cyc.forEach(i => { if (chain[i].rung < chain[at].rung) at = i; });
+    chain[at].loop = true;
+  }
+  return chain;
+}
+
+/**
+ * Cari satu lingkaran pada rantai, abaikan sambungan yang sudah ditandai `loop`.
+ * Tiap langkah punya paling banyak SATU sambungan keluar, jadi cukup ditelusuri
+ * lurus sampai bertemu simpul yang sedang dilalui.
+ */
+function findChainCycle(chain) {
+  const state = new Array(chain.length).fill(0);   // 0 belum, 1 sedang, 2 selesai
+  for (let s = 0; s < chain.length; s++) {
+    if (state[s]) continue;
+    const path = [];
+    let i = s;
+    while (i !== undefined && state[i] === 0) {
+      state[i] = 1;
+      path.push(i);
+      const st = chain[i];
+      i = ('afterIdx' in st && !st.loop) ? st.afterIdx : undefined;
+    }
+    const hit = i !== undefined && state[i] === 1;
+    path.forEach(j => { state[j] = 2; });
+    if (hit) return path.slice(path.indexOf(i));
+  }
+  return null;
+}
+
+// ------------------------------------------------------------------ src/graph.js
+// Mesin flowchart - diport dari Susmax program generator
+// (github.com/Dennych123/sysmac, scripts/build_html.py).
+//
+// Geometri, pemilihan sisi sambungan panah, aturan START/END, dan tata letak
+// grid 4 kolom dari urutan topologis sengaja SAMA PERSIS dengan editor di sana.
+// Alasannya bukan kosmetik: urutan yang DIBACA dari mesin dan urutan yang
+// DITULIS di editor jadi bisa ditumpuk dan dibandingkan langsung.
+//
+// Yang diport cuma bagian murni + penggambarnya. Editornya TIDAK - alat ini baca
+// saja. Untuk mengubah urutan, ekspor --flowchart lalu impor ke generator.
+
+
+// ====================================== mesin flowchart (port dari Susmax generator)
+// Diambil dari https://github.com/Dennych123/sysmac (scripts/build_html.py) supaya
+// urutan gerak yang DIBACA dari mesin tampil dalam bentuk yang sama persis dengan
+// urutan gerak yang DITULIS di editor generator. Kalau bentuknya beda, dua gambar
+// untuk mesin yang sama jadi tidak bisa dibandingkan - padahal itu justru gunanya.
+//
+// Yang diport CUMA bagian murni + gambarnya. Editornya TIDAK: pembaca ini alat baca,
+// tidak ada state yang boleh diubah dari sini. Node tetap bisa dipindah/disambung di
+// generator - hasil `--flowchart` diimpor ke sana.
+const NODE_W = 110, NODE_H = 32, ANCHOR_R = 15, ANCHOR_TOP_MARGIN = 55;
+const ALARM_CAT_LABEL = { emergency: 'Emergency stop', autostop: 'Auto stop',
+                          cyclestop: 'Cycle stop', faultstop: 'Fault stop', warning: 'Warning' };
+
+// Cabang decision dirujuk "idNode#Y" / "idNode#N". Pemisahnya '#', BUKAN '.', karena
+// alamat bit PLC sendiri pakai titik (mis. "0001.06").
+function refBase(ref) { const s = String(ref), i = s.indexOf('#'); return i < 0 ? s : s.slice(0, i); }
+
+// Label aktuator pakai KOMENTAR IO-nya, bukan nama simbol: "STOPPER-1 UP pos" langsung
+// kebayang bendanya, "CR_ST2_STP1_UP_POS" harus diterjemahkan dulu di kepala. Prefix
+// "ST<n>" dibuang karena kotaknya memang sudah milik station itu.
+function deviceLabel(sym) {
+  const k = VCMT.get(sym);
+  if (!k) return sym;
+  return String(k).replace(/^ST\s*\d+\s*/i, '').replace(/\s+/g, ' ').trim() || sym;
+}
+
+function nodeLabel(n) {
+  const t = n.type || 'motion', c = (n.comment || '').trim(), tail = c ? ' - ' + c : '';
+  if (t === 'condition') return n.bit + (c ? ' *' : '');
+  if (t === 'motion')    return deviceLabel(n.sol);
+  if (t === 'decision')  return '? ' + (n.cond || '(bit?)') + tail;
+  if (t === 'setmem')    return 'SET ' + (n.bit || '(bit?)') + tail;
+  if (t === 'resetmem')  return 'RST ' + (n.bit || '(bit?)') + tail;
+  if (t === 'alarm')     return 'ALARM ' + (ALARM_CAT_LABEL[n.category] || n.category || 'faultstop') + tail;
+  return t;
+}
+
+// Lebar ikut panjang label - label TIDAK dipotong. Dulu dipangkas 15 char jadi
+// "SOL_ST1_STP4_.." dan dua stopper berbeda kelihatan sama persis. Angka 6.1 terikat
+// ke font-size .gnode-text (10.5px Consolas) - ubah satu, ubah dua-duanya.
+function nodeW(n) { return Math.max(NODE_W, Math.ceil(nodeLabel(n).length * 6.1) + 18); }
+function nodeCenter(n) { return { x: n.x + nodeW(n) / 2, y: n.y + NODE_H / 2 }; }
+
+// Titik sambung kabel = SISI node yang paling searah ke lawan bicaranya, bukan selalu
+// kanan->kiri. Bandingkan kemiringan garis pusat-ke-pusat dengan diagonal node.
+function sideAnchor(n, towardX, towardY) {
+  const w = nodeW(n), cx = n.x + w / 2, cy = n.y + NODE_H / 2;
+  const dx = towardX - cx, dy = towardY - cy;
+  if (Math.abs(dx) * NODE_H >= Math.abs(dy) * w) return { x: dx >= 0 ? n.x + w : n.x, y: cy };
+  return { x: cx, y: dy >= 0 ? n.y + NODE_H : n.y };
+}
+
+// Titik masuk (root) dan titik akhir (leaf). refBase() WAJIB: rujukan cabang "d1#Y"
+// tanpa dikupas port-nya tidak match id node manapun, jadi node yang SUDAH menunggu
+// hasil judgement terbaca sebagai root dan ikut ditarik START - gambarnya lalu bohong.
+// Yang dikecualikan cuma "condition": itu penanda bit rujukan, bukan langkah.
+function graphEnds(nodes) {
+  const ids = {}; nodes.forEach(n => { ids[n.id] = true; });
+  const isStep = n => (n.type || 'motion') !== 'condition';
+  const referenced = {};
+  nodes.forEach(n => (n.after || []).forEach(r => { const b = refBase(r); if (ids[b]) referenced[b] = true; }));
+  const roots = nodes.filter(n => isStep(n) && !(n.after || []).some(r => ids[refBase(r)]));
+  const leaves = nodes.filter(n => isStep(n) && !referenced[n.id]);
+  return { roots, leaves,
+           targets: roots.length ? roots : nodes.filter(isStep),
+           sources: leaves.length ? leaves : nodes.filter(isStep) };
+}
+
+// Posisi murni dari urutan TOPOLOGIS (DFS postorder - dependency selalu digambar
+// sebelum yang gantung ke dia), lalu grid tetap 4 kolom. Bukan urutan array mentah:
+// kalau JSON-nya acak, panahnya nyilang-nyilang dan langkahnya tidak kebaca.
+function layoutVariantNodes(nodes) {
+  const byId = {}; nodes.forEach(n => { byId[n.id] = n; });
+  const seen = {}, order = [];
+  function visit(n) {
+    if (seen[n.id]) return;
+    seen[n.id] = true;
+    (n.after || []).forEach(r => { const t = byId[refBase(r)]; if (t) visit(t); });
+    order.push(n);
+  }
+  nodes.forEach(visit);
+  order.forEach((n, i) => {
+    n.x = 20 + (i % 4) * 175;
+    n.y = ANCHOR_TOP_MARGIN + 20 + Math.floor(i / 4) * 90;
+  });
+  return nodes;
+}
+
+// Hasil chainSteps -> ARRAY varian motionSequences, sama persis dengan yang dibaca
+// editor generator: satu section boleh punya beberapa urutan yang dipilih lewat bit
+// syarat masing-masing (pemilihan TIPE). Satu bentuk data untuk dibaca, digambar,
+// dan diekspor - bukan tiga bentuk yang mirip-mirip.
+//
+// Varian dipisah lewat KOMPONEN TERHUBUNG: semua langkah yang saling terkait
+// lewat `afterIdx` masuk satu varian, dan gerbangnya diambil dari bit yang
+// ditunggu anggota paling awal yang memang menunggu bit.
+//
+// Kenapa bukan "telusuri mundur sampai akar": urutan gerak MESIN SUNGGUHAN itu
+// MELINGKAR - langkah terakhir memicu langkah pertama lagi. Penelusuran mundur
+// tidak punya akar di situ; dia berhenti di tempat berbeda tergantung mulai dari
+// mana, jadi langkah-langkah dari satu lingkaran yang sama bisa jatuh ke varian
+// berbeda. Akibatnya rujukan `after` menunjuk node di varian lain: versi Python
+// mati dengan KeyError, dan versi JS diam-diam menulis "nundefined". Komponen
+// terhubung tidak punya masalah itu - siklus tetap satu komponen.
+function splitVariants(chain, gates) {
+  gates = gates || new Map();
+  const par = chain.map((_, i) => i);
+  const find = i => { while (par[i] !== i) { par[i] = par[par[i]]; i = par[i]; } return i; };
+  const union = (a, b) => { a = find(a); b = find(b); if (a !== b) par[b] = a; };
+  chain.forEach((st, i) => { if ('afterIdx' in st) union(i, st.afterIdx); });
+
+  const by = new Map();          // akar komponen -> daftar langkah
+  const gate = new Map();        // akar komponen -> bit gerbang
+  chain.forEach((st, i) => {
+    const k = find(i);
+    if (!by.has(k)) by.set(k, []);
+    by.get(k).push(st);
+    if (!gate.has(k) && 'afterBit' in st) gate.set(k, st.afterBit);
+  });
+
+  // Satu varian bisa punya BEBERAPA rantai paralel yang berangkat dari gerbang
+  // yang sama (mis. dua stopper yang jalan bareng). Komponennya terpisah, tapi
+  // variannya satu - jadi digabung menurut gerbangnya, bukan ditimpa. Versi lama
+  // memakai Map ber-key gerbang tanpa menggabung, jadi komponen kedua MENIMPA
+  // yang pertama dan langkah-langkahnya hilang diam-diam.
+  const out = new Map();
+  by.forEach((steps, k) => {
+    // Gerbang diterjemahkan ke bit SYARAT-nya (LB401 -> LB300), supaya varian
+    // memakai nama yang sama dengan yang dipakai editor generator.
+    const g = gate.get(k);
+    const key = (g && gates.get(g)) || g || '(tanpa syarat)';
+    if (!out.has(key)) out.set(key, []);
+    out.get(key).push(...steps);
+  });
+  // Urutkan lagi menurut nomor rung: penggabungan komponen mengacak urutannya.
+  out.forEach(steps => steps.sort((a, b) => a.rung - b.rung));
+  return out;
+}
+
+// Kembalikan [{gate, steps, variant}]. `variant` bentuknya PERSIS motionSequences
+// (siap diekspor ke editor generator); `steps` dibiarkan terpisah, bukan ditempel
+// ke dalam variant - kalau ditempel, dia ikut terbawa waktu diekspor dan JSON-nya
+// tidak lagi sama bentuk dengan yang dibaca generator.
+function stepsToVariants(chain, sectName, gates) {
+  gates = gates || new Map();          // project tanpa section Condition: tidak ada gerbang
+  const groups = splitVariants(chain, gates);
+  const out = [];
+  groups.forEach((steps, gate) => {
+    // Nomor node dihitung ulang PER VARIAN - rujukan `after` harus menunjuk id di
+    // varian yang sama, kalau tidak node-nya tidak ketemu dan panahnya hilang.
+    const pos = new Map();
+    steps.forEach((st, i) => pos.set(chain.indexOf(st), 'n' + (i + 1)));
+    const nodes = steps.map((st, i) => {
+      const n = { id: 'n' + (i + 1), type: 'motion', sol: st.sol, join: 'AND',
+                  comment: st.comment || '' };
+      if (st.loop) {
+        // Penutup lingkaran: langkah ini AWAL urutan, dan sambungannya ke langkah
+        // terakhir cuma menandai bahwa siklusnya berulang. `after` dikosongkan -
+        // itu bentuk "node akar" yang sama dengan yang dipakai generator.
+        n.after = [];
+        n.loopAfter = pos.get(st.afterIdx) || '';
+      } else if ('afterBit' in st && gates.has(st.afterBit)) {
+        // Langkah ini menunggu bit GERBANG variannya sendiri - berarti dia akar
+        // urutan, bukan langkah yang menunggu sesuatu di dalam varian. Syaratnya
+        // sudah tercatat di `condition`, jadi `after` dikosongkan; kalau tidak,
+        // gerbangnya digambar ulang sebagai kotak syarat dan tiap varian
+        // kelihatan menunggu bit yang sebetulnya adalah dirinya sendiri.
+        n.after = [];
+      } else {
+        n.after = ['afterIdx' in st ? (pos.get(st.afterIdx) || st.prev) : st.afterBit];
+      }
+      return n;
+    });
+    // Rujukan yang bukan id node = bit di luar rantai. Dibikinkan node "condition"
+    // supaya tetap kegambar - disembunyikan justru bikin urutannya kelihatan utuh
+    // padahal ada mata rantai yang tidak tertelusuri.
+    const ids = new Set(nodes.map(n => n.id));
+    const extra = [];
+    nodes.forEach(n => n.after.forEach(r => {
+      const b = refBase(r);
+      if (ids.has(b) || extra.some(e => e.id === b)) return;
+      extra.push({ id: b, type: 'condition', bit: b, after: [], comment: VCMT.get(b) || '' });
+    }));
+    // Nama varian diambil dari komentar rung langkahnya sendiri: generator menulis
+    // "[Buffering type 1] Motion 3: ..." di tiap rung, jadi namanya ada di sana
+    // apa adanya. Tabel variabel TIDAK bisa dipakai untuk ini - `LB300` itu nama
+    // LOKAL, dan tiap program punya LB300 sendiri dengan arti berbeda; di tabel
+    // yang datar semuanya bertumpuk dan yang terbaca punya program lain.
+    const tag = steps.map(s => (s.comment || '').match(/^\s*\[([^\]]+)\]/))
+                     .filter(Boolean).map(m => m[1].trim())[0] || '';
+    const label = tag || VCMT.get(gate) || '';
+    out.push({ gate, steps, variant: {
+      condition: gate === '(tanpa syarat)' ? '' : gate,
+      comment: label || sectName || '',
+      conditionComments: label && gate !== '(tanpa syarat)' ? { [gate]: label } : {},
+      nodes: layoutVariantNodes(extra.concat(nodes)) } });
+  });
+  return out;
+}
+
+// Gambar varian jadi SVG. Versi BACA SAJA: tanpa drag, tanpa handle, tanpa tombol
+// hapus. Geometri, warna, dan aturan START/END-nya sama dengan editor generator.
+function graphSvg(variant, key) {
+  const nodes = variant.nodes;
+  if (!nodes.length) return '';
+  let maxY = 40, maxX = 0;
+  nodes.forEach(n => {
+    if (n.y + NODE_H > maxY) maxY = n.y + NODE_H;
+    if (n.x + nodeW(n) > maxX) maxX = n.x + nodeW(n);
+  });
+
+  const ends = graphEnds(nodes);
+  const avgX = (list, fb) => list.length
+    ? list.reduce((s, n) => s + nodeCenter(n).x, 0) / list.length : fb;
+  const startA = { x: avgX(ends.targets, 20 + NODE_W / 2) - ANCHOR_R, y: 18 - ANCHOR_R };
+  const endA = { x: avgX(ends.sources, 20 + NODE_W / 2) - ANCHOR_R, y: maxY + 22 };
+
+  const W = Math.max(620, Math.max(maxX, startA.x + ANCHOR_R * 2, endA.x + ANCHOR_R * 2) + 40);
+  const H = Math.max(160, Math.max(maxY, endA.y + ANCHOR_R * 2) + 30);
+  const mk = 'ar-' + key;
+  const o = [`<defs><marker id="${mk}" markerWidth="8" markerHeight="8" refX="7" refY="4" ` +
+             `orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#666"/></marker></defs>`];
+  const edge = (x1, y1, x2, y2, cls) =>
+    o.push(`<line class="gedge-line${cls || ''}" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" ` +
+           `marker-end="url(#${mk})"/>`);
+
+  // START/END: murni visual, tidak pernah jadi rung. Sambungannya dihitung dari graph
+  // sekarang - START ke tiap root, END dari tiap leaf.
+  const sC = { x: startA.x + ANCHOR_R, y: startA.y + ANCHOR_R };
+  const eC = { x: endA.x + ANCHOR_R, y: endA.y + ANCHOR_R };
+  ends.targets.forEach(n => { const p = sideAnchor(n, sC.x, sC.y); edge(sC.x, sC.y + ANCHOR_R, p.x, p.y, ' anchor'); });
+  ends.sources.forEach(n => { const p = sideAnchor(n, eC.x, eC.y); edge(p.x, p.y, eC.x, eC.y - ANCHOR_R, ' anchor'); });
+  [[sC, 'START'], [eC, 'END']].forEach(([c, t]) => {
+    o.push(`<circle class="gnode-rect anchor" cx="${c.x}" cy="${c.y}" r="${ANCHOR_R}"/>` +
+           `<text class="gnode-text" x="${c.x}" y="${c.y + 3}" text-anchor="middle">${t}</text>`);
+  });
+
+  const byId = new Map(nodes.map(n => [n.id, n]));
+  nodes.forEach(n => {
+    if ((n.type || 'motion') === 'condition') return;
+    (n.after || []).forEach(ref => {
+      const from = byId.get(refBase(ref));
+      if (!from) return;
+      const p1 = sideAnchor(from, nodeCenter(n).x, nodeCenter(n).y);
+      const p2 = sideAnchor(n, nodeCenter(from).x, nodeCenter(from).y);
+      edge(p1.x, p1.y, p2.x, p2.y, '');
+    });
+    // Sambungan penutup lingkaran digambar putus-putus: siklusnya memang berulang,
+    // tapi itu bukan langkah berikutnya di dalam satu siklus. Disembunyikan sama
+    // sekali berarti membuang fakta bahwa urutannya memang melingkar.
+    const lf = n.loopAfter && byId.get(refBase(n.loopAfter));
+    if (lf) {
+      const p1 = sideAnchor(lf, nodeCenter(n).x, nodeCenter(n).y);
+      const p2 = sideAnchor(n, nodeCenter(lf).x, nodeCenter(lf).y);
+      edge(p1.x, p1.y, p2.x, p2.y, ' loop');
+    }
+  });
+
+  nodes.forEach(n => {
+    const t = n.type || 'motion', w = nodeW(n);
+    const tip = t === 'motion' ? n.sol + (VCMT.get(n.sol) ? ' — ' + VCMT.get(n.sol) : '')
+              : t === 'condition' ? 'Syarat: ' + n.bit + (n.comment ? ' — ' + n.comment : '')
+              : (n.comment || '');
+    o.push(`<g class="gnode" transform="translate(${n.x},${n.y})">` +
+           (tip ? `<title>${esc(tip)}</title>` : '') +
+           `<rect class="gnode-rect${t === 'motion' ? '' : ' ' + t}" width="${w}" height="${NODE_H}" rx="6"/>` +
+           `<text class="gnode-text" x="6" y="${NODE_H / 2 + 3}">${esc(nodeLabel(n))}</text>` +
+           // Badge AND/OR cuma muncul kalau memang ada 2+ dependency yang harus digabung.
+           (t !== 'condition' && (n.after || []).length >= 2
+             ? `<g class="gjoin-badge" transform="translate(${w / 2 - 16},${NODE_H + 4})">` +
+               `<rect width="32" height="14" rx="3"/><text x="16" y="10">${n.join === 'OR' ? 'OR' : 'AND'}</text></g>`
+             : '') + '</g>');
+  });
+
+  return `<svg class="graph-canvas" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" ` +
+         `xmlns="http://www.w3.org/2000/svg">${o.join('')}</svg>`;
+}
+// ================================================================== tampilan
+// Cuma UI. Semua parsing dan penggambaran ada di src/*.js, yang di-inline ke
+// berkas ini oleh build.js dan di-require apa adanya oleh cli.js - satu sumber,
+// dipakai browser maupun baris perintah.
+//   node build.js        -> smc2-viewer.html
+// Jangan mengedit smc2-viewer.html langsung: itu hasil build.
+let PROJ = null;
+const $ = s => document.querySelector(s);
+
+function render() {
+  const p = PROJ;
+  setSymbols(p.variables);
+  let secs = 0, rungs = 0;
+  p.programs.forEach(pr => { secs += pr.sections.length; pr.sections.forEach(s => rungs += s.rungs.length); });
+  const withAddr = p.variables.filter(v => v.address).length;
+
+  $('#meta').innerHTML =
+    `<div>Solution<b>${esc(p.solution || '-')}</b></div>` +
+    `<div>Sysmac Studio<b>${esc(p.studio || '-')}</b></div>` +
+    `<div>Program<b>${p.programs.length}</b></div>` +
+    `<div>Section<b>${secs}</b></div>` +
+    `<div>Rung<b>${rungs}</b></div>` +
+    `<div>Variabel<b>${p.variables.length}</b></div>` +
+    `<div>Beralamat IO<b>${withAddr}</b></div>`;
+
+  $('#out').style.display = 'block';
+  draw();
+}
+
+function draw() {
+  const q = ($('#q').value || '').toLowerCase();
+  const hit = s => !q || String(s).toLowerCase().includes(q);
+  const p = PROJ;
+
+  // --- ringkasan ---
+  let h = '<tr><th>Program / Section</th><th class="num">Rung</th><th>Jenis</th></tr>';
+  p.programs.forEach(pr => {
+    const rows = pr.sections.filter(s => hit(s.name) || hit(pr.name));
+    if (!rows.length) return;
+    const tot = pr.sections.reduce((a, s) => a + s.rungs.length, 0);
+    h += `<tr class="prog"><td>${esc(pr.name)}</td><td class="num">${tot}</td><td>${pr.sections.length} section</td></tr>`;
+    rows.forEach(s => {
+      h += `<tr><td style="padding-left:26px">${esc(s.name)}</td><td class="num">${s.rungs.length || ''}</td>` +
+           `<td><span class="tag">${s.kind || 'kosong'}</span></td></tr>`;
+    });
+  });
+  $('#t-sum').innerHTML = h;
+
+  // --- rung ---
+  let r = '';
+  p.programs.forEach(pr => pr.sections.forEach(s => {
+    if (!s.rungs.length) return;
+    const list = s.rungs.filter(x => !q || hit(x.comment) || x.elements.some(e => hit(e.var)));
+    if (!list.length) return;
+    r += `<div class="sec-h">${esc(pr.name)} &rsaquo; ${esc(s.name)} &mdash; ${list.length} rung</div>`;
+    list.slice(0, 200).forEach((x, i) => {
+      // Ekspresi boolean TIDAK lagi dicetak sebagai baris sendiri - barisnya
+      // memutus aliran antar rung, dan yang dicari orang di tab ini bentuk
+      // ladder-nya. Tapi tanda `~` (susunan cabang cuma pendekatan) TIDAK boleh
+      // hilang: dia pindah jadi penanda kecil di kolom nomor, dan ekspresi
+      // lengkapnya jadi tooltip. Terlihat kalau dicari, tidak mengganggu kalau
+      // tidak - yang penting bukan disembunyikan.
+      const { expr, outs, approx } = rungExpr(x);
+      const tip = (expr || 'TRUE') + (outs.length ? '  →  ' + outs.join(', ') : '') +
+                  (approx ? '\n\n~ susunan cabangnya disederhanakan satu tingkat, jadi ini pendekatan.' : '');
+      // Tidak ada lagi daftar alamat per rung. Komentarnya sudah tergambar hijau
+      // di bawah tiap simbol; barisnya cuma memutus aliran antar rung. Alamat
+      // fisiknya tetap ada di tab Variabel dan di tooltip.
+      r += `<div class="rung" title="${esc(tip)}">` +
+           `<div class="n">${i + 1}${approx ? '<b class="ap">~</b>' : ''}</div><div class="b">` +
+           (x.comment ? `<div class="c">${esc(x.comment)}</div>` : '') +
+           ladderHtml(x) + '</div></div>';
+    });
+    if (list.length > 200) r += `<div class="rung"><i>... ${list.length - 200} rung lagi disembunyikan (pakai pencarian untuk menyaring)</i></div>`;
+  }));
+  $('#t-rung').innerHTML = r || '<div class="rung"><i>tidak ada rung yang cocok</i></div>';
+
+  // --- flowchart urutan gerakan ---
+  let f = '';
+  let anySect = false;
+  p.programs.forEach(pr => pr.sections.forEach(s => {
+    if (!MOTION_SECT.test(s.name) || !s.rungs.length) return;
+    if (/output/i.test(s.name)) return;          // itu keluaran, bukan urutan
+    anySect = true;
+    const { steps, unmapped } = findMotionSteps(s);
+    // Varian dihitung dari rantai LENGKAP - `afterIdx` itu index ke dalamnya,
+    // jadi menyaringnya dulu bikin rujukan antar node meleset. Pencariannya
+    // menyaring VARIAN mana yang ditampilkan, bukan langkah mana yang dihitung.
+    // Gerbang varian dicari per PROGRAM - bit syaratnya ditulis di section
+    // Condition, bukan di AutoRunning.
+    const { gates } = variantGates(pr);
+    const chain = chainSteps(s, steps, gates);
+    const vars = stepsToVariants(chain, s.name, gates);
+    const shown = vars.filter(v => !q || hit(s.name) || hit(pr.name) || hit(v.gate) ||
+      v.steps.some(st => hit(st.sol) || hit(st.lsc) || hit(st.comment) || hit(VCMT.get(st.sol) || '')));
+    if (!shown.length) return;
+
+    f += `<div class="sec-h">${esc(pr.name)} &rsaquo; ${esc(s.name)} &mdash; ` +
+         `${steps.length} langkah dari ${s.rungs.length} rung` +
+         (vars.length > 1 ? ` &mdash; ${vars.length} varian urutan` : '') + '</div>';
+
+    // Satu graph PER VARIAN, digambar mesin flowchart yang sama dengan editor
+    // generator. Satu section boleh punya beberapa urutan yang dipilih lewat bit
+    // syaratnya masing-masing (pemilihan TIPE) - digabung jadi satu graph, dua
+    // urutan yang tidak pernah jalan bersamaan malah terlihat seperti satu alur.
+    shown.forEach((v, vi) => {
+      const key = (pr.name + '-' + s.name + '-' + vi).replace(/\W+/g, '_');
+      f += '<div class="fc">' +
+        `<div class="fc-head">Varian ${vi + 1} dari ${vars.length}` +
+        (v.variant.condition
+          ? ` &mdash; syarat <code>${esc(v.variant.condition)}</code>` +
+            (VCMT.get(v.variant.condition) ? ' <i>' + esc(VCMT.get(v.variant.condition)) + '</i>' : '')
+          : ' &mdash; <i>tanpa bit syarat (akar rantainya tidak tertelusuri)</i>') +
+        `  &middot;  ${v.steps.length} langkah</div>` +
+        graphSvg(v.variant, key) +
+        '<div class="fc-note">Kotak biru = langkah gerakan (solenoid). Kotak ungu putus-putus = ' +
+        'bit syarat di luar rantai. Panah = "menunggu selesainya". START/END murni penanda, ' +
+        'bukan bagian program.</div>' +
+        '<table class="fc-tab"><tr><th>#</th><th>rung</th><th>solenoid</th><th>sensor</th>' +
+        '<th>perintah</th><th>selesai</th><th>menunggu</th></tr>' +
+        v.steps.map((st, i) => `<tr><td>n${i + 1}</td><td>${st.rung}</td>` +
+          `<td>${esc(st.sol)}<i>${esc(VCMT.get(st.sol) || '')}</i></td>` +
+          `<td>${esc(st.lsc)}<i>${esc(VCMT.get(st.lsc) || '')}</i></td>` +
+          `<td>${esc(st.cmd)}</td><td>${esc(st.confirm)}</td>` +
+          // Langkah yang berantai selalu menunggu langkah di VARIAN YANG SAMA -
+          // itu memang definisi variannya (seakar), jadi index lokalnya pasti ada.
+          `<td>${'afterIdx' in st ? 'n' + (v.steps.indexOf(chain[st.afterIdx]) + 1)
+                                  : esc(st.afterBit) + ' <b>(di luar rantai)</b>'}</td></tr>`).join('') +
+        '</table></div>';
+    });
+
+    if (unmapped.length) {
+      const why = {};
+      unmapped.forEach(u => { why[u] = (why[u] || 0) + 1; });
+      f += '<div class="fc-skip">' + s.rungs.length + ' rung, ' + steps.length +
+           ' dikenali sebagai langkah. Sisanya bukan langkah gerakan: ' +
+           Object.entries(why).map(([k, v]) => v + '&times; ' + esc(k)).join(', ') + '</div>';
+    }
+  }));
+  if (anySect) {
+    const nc = [];
+    p.programs.forEach(pr => pr.sections.forEach(s => {
+      if (!MOTION_SECT.test(s.name) || /output/i.test(s.name) || !s.rungs.length) return;
+      const { steps } = findMotionSteps(s);
+      const ch = chainSteps(s, steps, variantGates(pr).gates);
+      nc.push([steps.length, ch.filter(x => 'afterIdx' in x).length]);
+    }));
+    const tot = nc.reduce((a, b) => a + b[0], 0), chd = nc.reduce((a, b) => a + b[1], 0);
+    if (tot && chd < tot) {
+      f = `<div class="fc-warn"><b>${chd} dari ${tot} langkah berhasil dirantai.</b> Sisanya berangkat ` +
+          `dari bit syarat (kotak ungu) karena rantainya lewat rung perantara yang tidak tertelusuri. ` +
+          `Urutannya perlu dicek manual &mdash; yang ditampilkan di sini adalah apa yang benar-benar ` +
+          `terbaca dari program, bukan urutan yang dikarang.</div>` + f;
+    }
+  }
+  $('#t-flow').innerHTML = f ||
+    '<div class="fc"><i>tidak ada section AutoRunning dengan pola langkah gerakan yang dikenali</i></div>';
+
+  // --- operand ---
+  const use = new Map(), cmt = new Map();
+  p.programs.forEach(pr => pr.sections.forEach(s => s.rungs.forEach(x => x.elements.forEach(e => {
+    if (!e.var) return;
+    use.set(e.var, (use.get(e.var) || 0) + 1);
+  }))));
+  p.variables.forEach(v => { if (v.comment) cmt.set(v.name, v.comment); });
+  const ops = [...use.entries()].filter(([v]) => hit(v) || hit(cmt.get(v) || '')).sort((a, b) => b[1] - a[1]);
+  let o = `<tr><th>Operand</th><th class="num">Dipakai</th><th>Komen dari tabel variabel</th></tr>`;
+  ops.slice(0, 3000).forEach(([v, c]) => {
+    o += `<tr><td class="mono">${esc(v)}</td><td class="num">${c}</td><td>${esc(cmt.get(v) || '')}</td></tr>`;
+  });
+  $('#t-op').innerHTML = o;
+
+  // --- variabel ---
+  const vs = p.variables.filter(v => hit(v.name) || hit(v.comment) || hit(v.address));
+  let vh = '<tr><th>Nama</th><th>Tipe</th><th>Alamat IO</th><th>Grup</th><th>Komen</th></tr>';
+  vs.slice(0, 4000).forEach(v => {
+    vh += `<tr><td class="mono">${esc(v.name)}</td><td class="mono">${esc(v.type)}</td>` +
+          `<td class="mono">${esc(v.address)}</td><td>${esc(v.group)}</td><td>${esc(v.comment)}</td></tr>`;
+  });
+  $('#t-var').innerHTML = vh;
+}
+
+// ---------------------------------------------------------------- kejadian
+async function load(file) {
+  $('#err').textContent = '';
+  $('#drop .big').textContent = 'Membaca ' + file.name + ' ...';
+  try {
+    PROJ = await readProject(await file.arrayBuffer(), unzip);
+    $('#drop .big').textContent = file.name;
+    $('#drop .sub').textContent = 'klik untuk ganti file';
+    render();
+  } catch (e) {
+    $('#drop .big').textContent = 'Jatuhkan file .smc2 di sini';
+    $('#err').textContent = 'Gagal membaca: ' + e.message;
+    console.error(e);
+  }
+}
+
+$('#drop').addEventListener('click', () => $('#file').click());
+$('#file').addEventListener('change', e => { if (e.target.files[0]) load(e.target.files[0]); });
+['dragenter', 'dragover'].forEach(t => $('#drop').addEventListener(t, e => {
+  e.preventDefault(); $('#drop').classList.add('over');
+}));
+['dragleave', 'drop'].forEach(t => $('#drop').addEventListener(t, e => {
+  e.preventDefault(); $('#drop').classList.remove('over');
+}));
+$('#drop').addEventListener('drop', e => { if (e.dataTransfer.files[0]) load(e.dataTransfer.files[0]); });
+
+document.querySelectorAll('button.tab').forEach(b => b.addEventListener('click', () => {
+  document.querySelectorAll('button.tab').forEach(x => x.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(x => x.classList.remove('on'));
+  b.classList.add('active');
+  $('#p-' + b.dataset.p).classList.add('on');
+}));
+
+let t = null;
+$('#q').addEventListener('input', () => { clearTimeout(t); t = setTimeout(draw, 180); });
+
+$('#dl').addEventListener('click', () => {
+  const b = new Blob([JSON.stringify(PROJ, null, 2)], { type: 'application/json' });
+  const u = URL.createObjectURL(b), a = document.createElement('a');
+  a.href = u; a.download = (PROJ.solution || 'sysmac') + '.json';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(u);
+});
+
+if (!window.DecompressionStream) {
+  $('#err').textContent = 'Browser ini belum mendukung DecompressionStream. Pakai Chrome/Edge versi baru.';
+}
+</script>
+</body>
+</html>

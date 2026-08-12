@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>Susmax - Pembaca Project Sysmac (.smc2)</title>
+<style>
+  :root{
+    --fg:#111827;--muted:#4b5563;--faint:#6b7280;
+    --line:#d6dbe3;--line-soft:#e6eaf0;--card:#fff;--bg:#f1f4f8;
+    --accent:#2563eb;--accent-dk:#1d4ed8;--accent-soft:#eff5ff;
+    --ok:#15803d;--warn:#b45309;--danger:#b91c1c;
+    --radius:8px;--shadow:0 1px 2px rgba(16,24,40,.06),0 1px 3px rgba(16,24,40,.08);
+  }
+  *{box-sizing:border-box}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
+       max-width:1680px;margin:0 auto;padding:24px 28px 64px;color:var(--fg);background:var(--bg);
+       font-size:14px;line-height:1.55;-webkit-font-smoothing:antialiased}
+  h1{font-size:22px;font-weight:650;margin:0 0 2px;letter-spacing:-.01em}
+  h2{font-size:15px;font-weight:650;margin:28px 0 8px;padding:0 0 0 10px;border-left:3px solid var(--accent)}
+  .hint{font-size:12.5px;color:var(--muted);margin:6px 0;max-width:110ch}
+  code{font-family:Consolas,monospace;font-size:.92em;background:var(--accent-soft);
+       border:1px solid #dbe6fb;border-radius:4px;padding:1px 4px}
+
+  #drop{border:2px dashed #b6c2d4;border-radius:10px;background:var(--card);padding:36px 20px;
+        text-align:center;cursor:pointer;transition:border-color .12s,background .12s;margin:14px 0}
+  #drop:hover,#drop.over{border-color:var(--accent);background:var(--accent-soft)}
+  #drop .big{font-size:16px;font-weight:600;margin-bottom:4px}
+  #drop .sub{font-size:12.5px;color:var(--muted)}
+  input[type=file]{display:none}
+
+  .bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:10px 0}
+  button{padding:7px 14px;font-size:13px;font-weight:500;cursor:pointer;background:var(--accent);
+         color:#fff;border:none;border-radius:6px;transition:background .12s}
+  button:hover{background:var(--accent-dk)}
+  button:disabled{background:#9aa6b8;cursor:default}
+  button.alt{background:#374151}
+  button.alt:hover{background:#1f2937}
+  button.tab{background:transparent;color:var(--muted);border:1px solid var(--line)}
+  button.tab:hover{background:#e8edf5;color:var(--fg)}
+  button.tab.active{background:var(--accent);border-color:var(--accent);color:#fff}
+  input[type=search]{font-size:13px;padding:7px 10px;border:1px solid var(--line);border-radius:6px;
+                     width:280px;font-family:Consolas,monospace}
+
+  .meta{display:flex;gap:22px;flex-wrap:wrap;background:var(--card);border:1px solid var(--line);
+        border-radius:8px;padding:12px 16px;box-shadow:var(--shadow);margin:12px 0}
+  .meta div{font-size:12.5px;color:var(--muted)}
+  .meta b{display:block;font-size:17px;color:var(--fg);font-weight:650;font-family:Consolas,monospace}
+
+  .panel{display:none}
+  .panel.on{display:block}
+  .scroll{max-height:620px;overflow:auto;border:1px solid var(--line);border-radius:8px;background:var(--card)}
+  table{border-collapse:separate;border-spacing:0;width:100%;font-size:12.5px}
+  th{position:sticky;top:0;z-index:1;background:#eef2f8;text-align:left;font-weight:600;font-size:12px;
+     color:var(--muted);padding:8px;border-bottom:1px solid var(--line);white-space:nowrap}
+  td{padding:5px 8px;border-bottom:1px solid var(--line-soft);vertical-align:top}
+  tr:hover td{background:#f8fafc}
+  td.mono,th.mono{font-family:Consolas,monospace}
+  td.num{text-align:right;color:var(--faint);font-family:Consolas,monospace;width:60px}
+  .prog{font-weight:650;background:#eef2ff !important}
+  .prog td{color:#3730a3}
+  .tag{display:inline-block;font-family:Consolas,monospace;font-size:11px;padding:1px 6px;
+       border-radius:4px;background:#f1f5f9;color:#475569;border:1px solid #e2e8f0}
+  .tag.ld{background:#eff6ff;color:#1d4ed8;border-color:#dbeafe}
+  .tag.st{background:#f0fdf4;color:#15803d;border-color:#dcfce7}
+  .tag.nc{background:#fef2f2;color:#b91c1c;border-color:#fecaca}
+  .err{color:var(--danger);font-size:13px;white-space:pre-wrap;margin:10px 0}
+  .note{background:#fffbeb;border:1px solid #fcd34d;border-left:4px solid #d97706;
+        border-radius:7px;padding:12px 14px;margin:14px 0;font-size:12.5px;color:#78350f}
+  /* Satu rung = kolom nomor di kiri + isinya, sama seperti tampilan Studio.
+     Nomornya kolom sendiri (bukan mengambang di kanan) supaya rung panjang tetap
+     ketahuan nomornya waktu digulung ke samping. */
+  /* Rung menyambung tanpa jeda, seperti di Studio: garis pemisahnya setipis
+     mungkin dan tidak ada padding di antaranya. Kolom nomor menempel terus di
+     kiri (sticky) supaya rung lebar tetap ketahuan nomornya waktu digulung. */
+  .rung{display:flex;align-items:stretch;border-bottom:1px solid #e8eef5;background:#fff}
+  .rung .n{flex:none;width:34px;background:#f4f7fa;border-right:1px solid #e8eef5;
+           font-family:Consolas,monospace;font-size:11px;color:#64748b;text-align:center;
+           padding-top:5px;position:sticky;left:0;z-index:1}
+  /* Penanda rung yang susunan cabangnya cuma pendekatan. Kecil, tapi ada -
+     ekspresi yang salah susun tetap terlihat masuk akal, dan itu bahayanya. */
+  .rung .n .ap{display:block;color:var(--warn);font-size:12px;line-height:1}
+  .rung .b{flex:1;min-width:0;padding:0}
+  .rung .c{font-size:12px;color:#3f3000;background:#fbf8cc;padding:2px 8px;white-space:pre-wrap}
+  .rung .e{font-family:Consolas,monospace;font-size:12px}
+  /* Ekspresi boolean hasil rekonstruksi. Ditaruh tipis di bawah ladder: dia
+     bukan yang dilihat di Studio, tapi tanda `~` di sini yang memberitahu kalau
+     susunan cabangnya cuma pendekatan - itu tidak boleh disembunyikan. */
+  .expr{font-family:Consolas,monospace;font-size:11px;color:#64748b;background:#fafcfe;
+        border-top:1px solid #eef2f7;padding:2px 8px;margin:0;
+        white-space:pre-wrap;word-break:break-word}
+  .expr .out{color:var(--ok);font-weight:600}
+  .expr .ap{color:var(--warn)}
+  .gloss{font-size:11.5px;color:var(--muted);margin-top:4px}
+  .gloss b{font-family:Consolas,monospace;color:var(--fg);font-weight:600}
+
+  /* Ladder digambar dari koordinat grid yang tersimpan di dalam file project.
+     SVG, bukan karakter kotak: glyph seperti "-| |-" lebarnya beda-beda per font,
+     jadi kabelnya tidak pernah nyambung dan cabangnya tidak bisa digambar sama
+     sekali. Dua kontak paralel yang terlihat seperti dua kontak seri itu bukan
+     tampilan jelek - itu salah baca. */
+  .lad{display:block;background:#fff;padding:2px 0 6px;margin:0;overflow-x:auto;max-width:100%}
+  .lad svg{display:block}
+  .lad .w{stroke:#111;stroke-width:1;fill:none}
+  .lad .rail{stroke:#111;stroke-width:1;fill:none}
+  .lad .sy{stroke:#111;stroke-width:1.6;stroke-linecap:butt;fill:none}
+  .lad .sy.ncc{stroke:#111}
+  .lad .sy.co{stroke:#111}
+  /* Nama operand di atas, komentar hijau di bawah - persis susunan Studio.
+     Operand global diwarnai beda (datanya dari kolom G= tabel SLWD). */
+  .lad .nm{font:11px Consolas,monospace;fill:#111;text-anchor:middle}
+  .lad .nm.og{fill:#c026a3}
+  .lad .cmt{font:10.5px "Segoe UI",Arial,sans-serif;fill:#0f7a2e;text-anchor:middle}
+  .lad .fb{fill:#fff;stroke:#111;stroke-width:1}
+  .lad .fbsep{stroke:#111;stroke-width:1}
+  .lad .fn{font:11px Consolas,monospace;font-weight:600;fill:#111;text-anchor:middle}
+  .lad .pin{font:10px Consolas,monospace;fill:#111;text-anchor:start}
+  .lad .pin.r{text-anchor:end}
+  .lad .opd{font:10.5px Consolas,monospace;fill:#c026a3;text-anchor:start}
+  .lad .opd.r{text-anchor:end}
+  .lad .ed{font:11px Consolas,monospace;font-weight:700;fill:#111;text-anchor:middle}
+  .lad .cm{font:11px Consolas,monospace;font-weight:700;fill:#111;text-anchor:middle}
+  .sec-h{background:#f8fafc;font-weight:600;padding:6px 10px;border-bottom:1px solid var(--line);
+         position:sticky;top:0;font-size:12.5px}
+
+  /* Flowchart urutan gerakan. Kelas .g* diport dari editor Susmax generator
+     (github.com/Dennych123/sysmac) - warna dan geometrinya sengaja SAMA supaya
+     urutan yang dibaca dari mesin dan urutan yang ditulis di editor bisa
+     ditumpuk dan dibandingkan langsung. Di sini semuanya baca saja: tidak ada
+     handle seret, tidak ada tombol hapus. */
+  .fc{padding:12px 14px;border-bottom:1px solid var(--line-soft)}
+  svg.graph-canvas{border:1px solid var(--line);border-radius:6px;background:#fbfbfc;
+                   display:block;max-width:100%;margin:6px 0}
+  .gnode-rect{fill:var(--accent);stroke:var(--accent-dk);stroke-width:1}
+  .gnode-rect.condition{fill:#7c3aed;stroke:#5b21b6;stroke-dasharray:4,2}
+  .gnode-rect.decision{fill:#0f766e;stroke:#0b544e}
+  .gnode-rect.setmem{fill:#b45309;stroke:#8a4008}
+  .gnode-rect.resetmem{fill:#7c2d12;stroke:#5c210d}
+  .gnode-rect.alarm{fill:#b91c1c;stroke:#8f1717}
+  .gnode-rect.anchor{fill:#37424f;stroke:#232a33}
+  .gnode-text{fill:#fff;font-size:10.5px;font-family:Consolas,monospace}
+  .gedge-line{stroke:#8a93a0;stroke-width:2}
+  .gedge-line.anchor{stroke:#9aa3ad;stroke-dasharray:3,2}
+  /* Penutup lingkaran: menandai siklus BERIKUTNYA, bukan langkah berikutnya. */
+  .gedge-line.loop{stroke:#c026a3;stroke-dasharray:6,3;stroke-width:1.5}
+  .gjoin-badge rect{fill:#333}
+  .gjoin-badge text{fill:#fff;font-size:8px;text-anchor:middle;font-family:Consolas,monospace}
+  .fc-tab{border-collapse:collapse;font-size:11.5px;margin-top:8px}
+  .fc-tab th,.fc-tab td{border:1px solid var(--line-soft);padding:3px 8px;text-align:left;
+                        font-family:Consolas,monospace;vertical-align:top}
+  .fc-tab th{background:#f8fafc;font-weight:600}
+  .fc-tab td i{display:block;font-family:inherit;font-style:normal;color:var(--faint);font-size:10.5px}
+  .fc-tab td b{color:var(--warn)}
+  .fc-head{font-size:12.5px;color:var(--fg);font-weight:600;margin-bottom:2px}
+  .fc-head i{font-weight:400;color:var(--muted);font-style:normal}
+  .fc-head code{font-size:11.5px}
+  .fc-note{font-size:12px;color:var(--muted);margin-top:4px}
+  .fc-warn{font-size:12px;color:var(--warn);background:#fffbeb;border:1px solid #fcd34d;
+           border-radius:6px;padding:8px 10px;margin:8px 0}
+  .fc-skip{font-size:11.5px;color:var(--faint);margin-top:6px}
+</style>
+</head>
+<body>
+
+<h1>Pembaca Project Sysmac (.smc2)</h1>
+<p class="hint">Sysmac Studio tidak punya export XML &mdash; hanya import. Tapi file <code>.smc2</code>
+itu container ZIP berisi XML, jadi isinya tetap bisa dibaca dari luar. Halaman ini membuka dan
+membedahnya <b>langsung di browser</b>: file tidak diunggah ke mana pun, semuanya diproses di
+komputermu.</p>
+
+<div id="drop">
+  <div class="big">Jatuhkan file .smc2 di sini</div>
+  <div class="sub">atau klik untuk memilih &mdash; file tidak dikirim ke mana pun</div>
+  <input type="file" id="file" accept=".smc2,.smc">
+</div>
+
+<div id="err" class="err"></div>
+
+<div id="out" style="display:none">
+  <div class="meta" id="meta"></div>
+
+  <div class="bar">
+    <button class="tab active" data-p="sum">Ringkasan</button>
+    <button class="tab" data-p="rung">Rung</button>
+    <button class="tab" data-p="flow">Flowchart</button>
+    <button class="tab" data-p="op">Operand</button>
+    <button class="tab" data-p="var">Variabel</button>
+    <span style="flex:1"></span>
+    <input type="search" id="q" placeholder="cari nama / operand / komen...">
+    <button class="alt" id="dl">Download JSON</button>
+  </div>
+
+  <div class="panel on" id="p-sum"><div class="scroll"><table id="t-sum"></table></div></div>
+  <div class="panel" id="p-rung"><div class="scroll" id="t-rung"></div></div>
+  <div class="panel" id="p-flow"><div class="scroll" id="t-flow"></div></div>
+  <div class="panel" id="p-op"><div class="scroll"><table id="t-op"></table></div></div>
+  <div class="panel" id="p-var"><div class="scroll"><table id="t-var"></table></div></div>
+</div>
+
+<div class="note">
+  <b>Baca saja.</b> Format di dalam <code>.smc2</code> tidak didokumentasikan Omron dan sudah terbukti
+  berubah antar versi Studio (1.56 memakai XML, 1.66 memakai JSON). Halaman ini sengaja hanya membaca
+  &mdash; jangan pernah menulis balik ke <code>.smc2</code>, karena project bisa rusak tanpa cara
+  memperbaikinya. Membuat program tetap lewat import XML yang resmi didukung.
+</div>
+
+<script>
+/*__SRC__*/
+/*__UI__*/
+</script>
+</body>
+</html>
