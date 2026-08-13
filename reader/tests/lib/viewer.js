@@ -13,7 +13,8 @@ const path = require('path');
 const ROOT = path.join(__dirname, '..', '..');
 const HTML = path.join(ROOT, 'smc2-viewer.html');
 
-const MODULES = ['env', 'xml', 'zip', 'symbols', 'smc2', 'ladder', 'motion', 'graph'];
+const MODULES = ['env', 'xml', 'zip', 'symbols', 'smc2', 'ladder', 'motion', 'graph',
+                 'net', 'xmlout', 'reports'];
 
 const ALL = {};
 for (const m of MODULES) Object.assign(ALL, require(path.join(ROOT, 'src', m + '.js')));

@@ -71,11 +71,21 @@ rung, operand, cross-reference, tabel variabel — dan bisa **mengekspor rung ja
 XML yang bisa di-import balik** (`--xml`). Dokumentasi format hasil reverse
 engineering ada di [reader/README.md](reader/README.md).
 
-**Exporter memakai `js/lib.js` milik generator, bukan salinannya**
-(`reader/xml_out.js` memuatnya lewat `new Function`, persis cara `scripts/core.js`).
-Jangan pernah menyalin pembangun rung ke sisi reader: parser `.smc2` dulu ditulis
-dua kali dan diam-diam drift, dan drift di sisi TULIS menghasilkan berkas yang
-ter-import mulus tapi salah.
+**Exporter memakai `js/lib.js` milik generator, bukan salinannya.** Di Node
+lewat `new Function` (`reader/xml_out.js`, persis cara `scripts/core.js`); di
+browser di-inline oleh `reader/build.js` sebagai namespace `SGLIB`. Jangan pernah
+menyalin pembangun rung ke sisi reader: parser `.smc2` dulu ditulis dua kali dan
+diam-diam drift, dan drift di sisi TULIS menghasilkan berkas yang ter-import
+mulus tapi salah.
+
+Konsekuensinya: **`js/lib.js` berubah → `cd reader && node build.js` juga.**
+Kalau tidak, viewer mengekspor pakai bentuk XML yang lama sementara CLI pakai
+yang baru. `reader/tests/build.test.js` menangkap ini (dia build ulang lalu
+membandingkan), tapi cuma kalau suite reader ikut dijalankan.
+
+`SGLIB` dibungkus IIFE, bukan ditempel polos — `lib.js` punya `function esc`
+sendiri dan `reader/src/env.js` punya `const esc`; keduanya di satu lingkup bikin
+seluruh halaman mati dengan "Identifier 'esc' has already been declared".
 
 **Yang tidak eksak, ditolak — bukan ditebak.** `reader/src/net.js` menyusun
 netlist dari koordinat + `VLs` (link vertikal), lalu memeriksa tiap simpul ada

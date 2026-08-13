@@ -25,8 +25,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const { unzip, inflate } = require('./src/zip.js');
-const { text } = require('./src/env.js');
+const { unzip } = require('./src/zip.js');
 const { readProject } = require('./src/smc2.js');
 const { setSymbols } = require('./src/symbols.js');
 const R = require('./src/reports.js');
@@ -45,7 +44,7 @@ const argAfter = (i, dflt) => (argv[i + 1] && !argv[i + 1].startsWith('-') ? arg
 const write = (out, s) => { fs.writeFileSync(out, s, 'utf8'); return out; };
 
 (async () => {
-  if (flag('--probe-fb') >= 0) { await probeFb(file); return; }
+  if (flag('--probe-fb') >= 0) { console.log(await R.probeFb(fs.readFileSync(file), unzip)); return; }
 
   const p = await readProject(fs.readFileSync(file), unzip);
   p.file = file;
@@ -89,76 +88,3 @@ const write = (out, s) => { fs.writeFileSync(out, s, 'utf8'); return out; };
     console.log(R.summarise(p));
   }
 })().catch(e => { console.error('GAGAL: ' + e.message); process.exit(1); });
-
-// Tunjukkan bentuk MENTAH elemen fungsi/FB, langsung dari project sungguhan.
-// Kotak fungsi di Studio (TON, MOVE, MD_FLT_Reset400, ...) punya PIN bernama
-// beserta operand yang menempel di tiap pin. Kalau suatu saat ada bentuk yang
-// belum dikenali, dibaca dulu dari project sungguhan - bukan ditebak.
-// Keluarannya aman ditempel ke chat: cuma nama field, nama instruksi, dan
-// beberapa contoh objek - bukan seluruh program.
-async function probeFb(file) {
-  const files = unzip(fs.readFileSync(file));
-  const keys = new Map(), instr = new Map(), samples = [];
-  const xmlSample = [];
-
-  for (const [n, f] of files) {
-    if (!n.endsWith('.xml')) continue;
-    const t = text(await inflate(f));
-    const head = t.replace(/^\s+/, '').slice(0, 400);
-
-    if (head[0] === '{' && head.includes('"CLs"')) {
-      let i = 0;
-      while (i < t.length) {
-        while (i < t.length && /\s/.test(t[i])) i++;
-        if (t[i] !== '{') break;
-        let d = 0, j = i, ins = false, esc2 = false;
-        for (; j < t.length; j++) {
-          const c = t[j];
-          if (esc2) { esc2 = false; continue; }
-          if (c === '\\') { esc2 = true; continue; }
-          if (c === '"') ins = !ins;
-          else if (!ins) { if (c === '{') d++; else if (c === '}' && --d === 0) { j++; break; } }
-        }
-        let o;
-        try { o = JSON.parse(t.slice(i, j)); } catch (e) { break; }
-        i = j;
-        for (const e of (o.CLs || [])) {
-          if (e.__type !== 'F') continue;
-          Object.keys(e).forEach(k => keys.set(k, (keys.get(k) || 0) + 1));
-          const nm = e.Name || '(tanpa nama)';
-          instr.set(nm, (instr.get(nm) || 0) + 1);
-          samples.push(e);
-        }
-      }
-    } else if (head.includes('<LadderDiagram') && xmlSample.length < 2) {
-      const m = t.match(/<DiagramElement[^>]*i:type="Function[^"]*"[\s\S]{0,1200}/);
-      if (m) xmlSample.push(m[0]);
-    }
-  }
-
-  const total = [...instr.values()].reduce((a, b) => a + b, 0);
-  console.log('ELEMEN FUNGSI (JSON, Studio >= 1.66): ' + total);
-  if (keys.size) {
-    console.log('');
-    console.log('FIELD            MUNCUL');
-    [...keys.entries()].sort((a, b) => b[1] - a[1])
-      .forEach(([k, c]) => console.log(k.padEnd(16) + String(c).padStart(6)));
-    console.log('');
-    console.log('INSTRUKSI yang dipakai (' + instr.size + ' jenis):');
-    [...instr.entries()].sort((a, b) => b[1] - a[1]).slice(0, 40)
-      .forEach(([k, c]) => console.log('   ' + String(c).padStart(5) + '  ' + k));
-    samples.sort((a, b) => JSON.stringify(b).length - JSON.stringify(a).length);
-    console.log('');
-    console.log('CONTOH objek terkaya (maks 3):');
-    samples.slice(0, 3).forEach(e => {
-      console.log(JSON.stringify(e, null, 2).slice(0, 1500));
-      console.log('   ---');
-    });
-  }
-  if (xmlSample.length) {
-    console.log('');
-    console.log('CONTOH FunctionElement (XML, Studio <= 1.56):');
-    xmlSample.forEach(s => { console.log(s); console.log('   ---'); });
-  }
-  if (!keys.size && !xmlSample.length) console.log('Tidak ada elemen fungsi di project ini.');
-}

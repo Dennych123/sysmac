@@ -22,7 +22,27 @@ const path = require('path');
 const ROOT = __dirname;
 // Urutan penting: yang dipakai duluan harus dideklarasikan duluan.
 const ORDER = ['env.js', 'xml.js', 'zip.js', 'symbols.js', 'smc2.js',
-               'ladder.js', 'motion.js', 'graph.js'];
+               'ladder.js', 'motion.js', 'graph.js', 'net.js', 'xmlout.js',
+               'reports.js'];
+
+// Pembangun XML milik GENERATOR, dipinjam apa adanya supaya viewer bisa
+// mengekspor XML yang PERSIS sama dengan yang ditulis cli.js dan generator.
+// Dibungkus IIFE, bukan ditempel polos: lib.js punya `function esc` sendiri dan
+// src/env.js punya `const esc` - dua-duanya di lingkup yang sama bikin seluruh
+// halaman mati dengan "Identifier 'esc' has already been declared", persis
+// jebakan yang sama yang bikin blok require/module.exports harus dibuang.
+const LIB = path.join(ROOT, '..', 'js', 'lib.js');
+
+function libSource() {
+  if (!fs.existsSync(LIB)) {
+    throw new Error('js/lib.js tidak ketemu di ' + LIB + ' - viewer memakai pembangun ' +
+                    'XML milik generator, bukan salinannya.');
+  }
+  return '// ' + '-'.repeat(60) + ' js/lib.js (generator)\n' +
+         'const SGLIB = (function () {\n' +
+         fs.readFileSync(LIB, 'utf8').trim() + '\n' +
+         'return { Rung: Rung, sect: sect, prog: prog, vr: vr, esc: esc };\n})();';
+}
 
 /** Buang blok `if (typeof X !== 'undefined') { ... }` di tingkat atas. */
 function stripGuard(src, what) {
@@ -49,7 +69,7 @@ function moduleSource(f) {
 
 const shell = fs.readFileSync(path.join(ROOT, 'viewer', 'shell.html'), 'utf8');
 const ui = fs.readFileSync(path.join(ROOT, 'viewer', 'ui.js'), 'utf8').trim();
-const src = ORDER.map(moduleSource).join('\n\n');
+const src = [libSource()].concat(ORDER.map(moduleSource)).join('\n\n');
 
 let out = shell.replace('/*__SRC__*/', () => "'use strict';\n\n" + src)
                .replace('/*__UI__*/', () => ui);
@@ -57,7 +77,14 @@ let out = shell.replace('/*__SRC__*/', () => "'use strict';\n\n" + src)
 // Penjagaan: satu kesalahan ketik di penanda bikin halaman diam-diam kehilangan
 // seluruh logikanya, dan itu cuma kelihatan waktu file .smc2 dijatuhkan.
 for (const must of ['function readProject', 'function ladderHtml', 'function graphSvg',
-                    'function draw', "$('#drop')"]) {
+                    'function draw', "$('#drop')",
+                    // Tiap perintah CLI harus punya padanannya di halaman. Kalau
+                    // salah satu modulnya lepas dari ORDER, tombolnya tetap ada
+                    // tapi mati waktu diklik - dan itu cuma ketahuan kalau ada
+                    // yang membuka file .smc2 lalu mengklik tab yang tepat.
+                    'const SGLIB', 'function rungNet', 'function exportProject',
+                    'function xref', 'function llmDump', 'function graphData',
+                    'function probeFb']) {
   if (!out.includes(must)) throw new Error('hasil build kehilangan: ' + must);
 }
 if (out.includes('/*__SRC__*/') || out.includes('/*__UI__*/')) {

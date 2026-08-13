@@ -90,6 +90,19 @@
         white-space:pre-wrap;word-break:break-word}
   .expr .out{color:var(--ok);font-weight:600}
   .expr .ap{color:var(--warn)}
+  /* Keluaran teks yang PERSIS sama dengan CLI (silang-rujuk, probe blok fungsi,
+     laporan ekspor). Sengaja monospace dan tidak dibungkus ulang jadi tabel HTML:
+     kolomnya sudah diratakan di src/reports.js, dan menatanya ulang di sini
+     berarti dua tata letak untuk keluaran yang sama - yang pasti berbeda suatu
+     saat, dan yang tampilannya bagus yang dipercaya orang. */
+  .rep{font-family:Consolas,monospace;font-size:12px;line-height:1.45;margin:0;padding:12px;
+       white-space:pre;overflow-x:auto;color:var(--fg)}
+  .exp-row{display:flex;align-items:flex-start;gap:12px;padding:10px 0;
+           border-bottom:1px solid var(--line)}
+  .exp-row button{flex:0 0 280px;text-align:left}
+  .exp-row span{font-size:12.5px;color:var(--muted);line-height:1.5}
+  .exp-warn{margin:14px 0 0;padding:10px 12px;border-radius:8px;font-size:12.5px;
+            line-height:1.55;background:#fff8e6;border:1px solid #f0d9a0;color:#5c4708}
   .gloss{font-size:11.5px;color:var(--muted);margin-top:4px}
   .gloss b{font-family:Consolas,monospace;color:var(--fg);font-weight:600}
 
@@ -183,17 +196,60 @@ komputermu.</p>
     <button class="tab" data-p="rung">Rung</button>
     <button class="tab" data-p="flow">Flowchart</button>
     <button class="tab" data-p="op">Operand</button>
+    <button class="tab" data-p="xref">Silang-rujuk</button>
     <button class="tab" data-p="var">Variabel</button>
+    <button class="tab" data-p="fb">Blok fungsi</button>
+    <button class="tab" data-p="exp">Ekspor</button>
     <span style="flex:1"></span>
     <input type="search" id="q" placeholder="cari nama / operand / komen...">
-    <button class="alt" id="dl">Download JSON</button>
   </div>
 
   <div class="panel on" id="p-sum"><div class="scroll"><table id="t-sum"></table></div></div>
   <div class="panel" id="p-rung"><div class="scroll" id="t-rung"></div></div>
   <div class="panel" id="p-flow"><div class="scroll" id="t-flow"></div></div>
   <div class="panel" id="p-op"><div class="scroll"><table id="t-op"></table></div></div>
+  <div class="panel" id="p-xref"><div class="scroll"><pre class="rep" id="t-xref"></pre></div></div>
   <div class="panel" id="p-var"><div class="scroll"><table id="t-var"></table></div></div>
+  <div class="panel" id="p-fb"><div class="scroll"><pre class="rep" id="t-fb"></pre></div></div>
+
+  <!-- Ekspor: padanan tiap perintah cli.js yang menghasilkan BERKAS. Keluarannya
+       dihitung modul yang sama persis dengan CLI (src/reports.js, src/xmlout.js),
+       jadi berkas dari sini dan dari baris perintah tidak bisa berbeda. -->
+  <div class="panel" id="p-exp">
+    <div class="scroll" style="padding:14px">
+      <div class="exp-row">
+        <button id="x-llm">Konteks LLM (.md)</button>
+        <span>Seluruh logika rung jadi kalimat boolean + arti tiap bit + silang-rujuk.
+              Besar &mdash; tinggal disuap ke LLM. <code>--llm</code></span>
+      </div>
+      <div class="exp-row">
+        <button id="x-flow">Urutan gerakan (.json)</button>
+        <span>Langkah motion jadi <code>motionSequences</code>, format yang sama
+              dengan editor generator jadi bisa langsung diimpor. <code>--flowchart</code></span>
+      </div>
+      <div class="exp-row">
+        <button id="x-graph">Graf node+edge (.json)</button>
+        <span>Alur sinyal antar program dan section. <code>--graph</code></span>
+      </div>
+      <div class="exp-row">
+        <button id="x-json">Dump mentah (.json)</button>
+        <span>Seluruh hasil baca apa adanya. <code>--json</code></span>
+      </div>
+      <div class="exp-row">
+        <button id="x-xml">XML importable (satu berkas per program)</button>
+        <span>Rung dikeluarkan lagi dalam bentuk yang Studio TERIMA lewat import.
+              Browser akan minta izin unduh banyak berkas sekaligus. <code>--xml</code></span>
+      </div>
+      <div class="exp-warn">
+        <b>XML itu hasil rekonstruksi, bukan export resmi Omron.</b>
+        Rung berblok fungsi belum didukung dan menjadi <i>rung komentar</i> berisi alasan
+        dan logika aslinya &mdash; tempatnya tetap ada, jadi nomor rung tidak bergeser dan
+        lubangnya kelihatan di layar Studio. Import ke project KOSONG dulu, lalu bandingkan
+        dengan tab Rung sebelah-menyebelah sebelum dipakai.
+      </div>
+      <pre class="rep" id="t-exp"></pre>
+    </div>
+  </div>
 </div>
 
 <div class="note">
@@ -205,6 +261,149 @@ komputermu.</p>
 
 <script>
 'use strict';
+
+// ------------------------------------------------------------ js/lib.js (generator)
+const SGLIB = (function () {
+// ===== SG LIB : Susmax IEC61131-10 XML builder (shared, jangan diedit per-node) =====
+function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/[\u2013\u2014]/g,'-').replace(/\u2192/g,'->').replace(/[^\x00-\x7F]/g,'');}
+function Rung(o,c){this.o=o;this.c=c;this.a=[];this.n=1;}
+Rung.prototype.rail=function(){var i=this.n++;this.a.push('<LdObject xsi:type="LeftPowerRail"><ConnectionPointOut connectionPointOutId="'+i+'" /></LdObject>');return i;};
+Rung.prototype.ct=function(op,ref,neg,edge){var i=this.n++;this.a.push('<LdObject xsi:type="Contact"'+(neg?' negated="true"':'')+(edge?' edge="'+edge+'"':'')+' operand="'+op+'"><ConnectionPointIn><Connection refConnectionPointOutId="'+ref+'" /></ConnectionPointIn><ConnectionPointOut connectionPointOutId="'+i+'" /></LdObject>');return i;};
+Rung.prototype.ctm=function(op,refs,neg){var i=this.n++;var r=refs.map(function(x){return '<Connection refConnectionPointOutId="'+x+'" />';}).join('');this.a.push('<LdObject xsi:type="Contact"'+(neg?' negated="true"':'')+' operand="'+op+'"><ConnectionPointIn>'+r+'</ConnectionPointIn><ConnectionPointOut connectionPointOutId="'+i+'" /></LdObject>');return i;};
+Rung.prototype.cl=function(op,ref,neg,edge){var i=this.n++;this.a.push('<LdObject xsi:type="Coil"'+(neg?' negated="true"':'')+(edge?' edge="'+edge+'"':'')+' operand="'+op+'"><ConnectionPointIn><Connection refConnectionPointOutId="'+ref+'" /></ConnectionPointIn><ConnectionPointOut connectionPointOutId="'+i+'" /></LdObject>');return i;};
+Rung.prototype.clm=function(op,refs,neg){var i=this.n++;var r=refs.map(function(x){return '<Connection refConnectionPointOutId="'+x+'" />';}).join('');this.a.push('<LdObject xsi:type="Coil"'+(neg?' negated="true"':'')+' operand="'+op+'"><ConnectionPointIn>'+r+'</ConnectionPointIn><ConnectionPointOut connectionPointOutId="'+i+'" /></LdObject>');return i;};
+Rung.prototype.rr=function(refs){this.a.push('<LdObject xsi:type="RightPowerRail">'+refs.map(function(x){return '<ConnectionPointIn><Connection refConnectionPointOutId="'+x+'" /></ConnectionPointIn>';}).join('')+'</LdObject>');};
+Rung.prototype.build=function(){var c=this.c?'<CommonObject xsi:type="Comment"><Content xsi:type="SimpleText">'+esc(this.c)+'</Content></CommonObject>':'';return '<Rung evaluationOrder="'+this.o+'">'+c+this.a.join('')+'</Rung>';};
+
+// conds = [[operand, negated], ...]  -> AND series -> 1 coil
+function series(o,conds,out,cmt,outNeg,edge){var r=new Rung(o,cmt);var cur=r.rail();conds.forEach(function(c){cur=r.ct(c[0],cur,c[1]);});var x=r.cl(out,cur,outNeg,edge);r.rr([x]);return r.build();}
+// bits = [operand, ...]  -> OR (parallel dari rail) -> 1 coil, kebalikan AND-nya series()
+function orMany(o,bits,out,cmt){var r=new Rung(o,cmt);var rail=r.rail();var ids=bits.map(function(b){return r.ct(b,rail);});var x=r.clm(out,ids);r.rr([x]);return r.build();}
+// self-latch: (OR trigs OR bit) AND blocks -> bit
+function latch(o,trigs,bit,blocks,cmt){var r=new Rung(o,cmt);var rail=r.rail();var ids=trigs.map(function(t){return r.ct(t[0],rail,t[1]);});ids.push(r.ct(bit,rail));blocks=blocks||[];if(!blocks.length){var x=r.clm(bit,ids);r.rr([x]);return r.build();}var cur=r.ctm(blocks[0][0],ids,blocks[0][1]);for(var i=1;i<blocks.length;i++)cur=r.ct(blocks[i][0],cur,blocks[i][1]);var y=r.cl(bit,cur);r.rr([y]);return r.build();}
+// mutual-exclusion group: SATU rung, satu kontak gate dipakai bareng (mis. LB400), tiap branches[i]
+// = {trigs:[[op,neg],...], bit:coilBit, blocks:[[op,neg],...]} jadi cabang paralel dari gate ->
+// (OR trigs OR seal-diri sendiri) -> AND blocks (interlock ANDNOT branch lain) -> coil sendiri.
+// Semua coil nyambung ke SATU RightPowerRail (banyak ConnectionPointIn) - persis network Ndeso
+// "Autorun Condition Running" (LB400 di kiri, N baris kondisi mutual exclusion, N coil sejajar).
+function mutexGroup(o,gate,branches,cmt){
+    var r=new Rung(o,cmt); var rail=r.rail();
+    var start=gate?r.ct(gate[0],rail,gate[1]):rail;
+    var coilRefs=branches.map(function(br){
+        var ids=(br.trigs||[]).map(function(t){return r.ct(t[0],start,t[1]);});
+        ids.push(r.ct(br.bit,start));
+        var blocks=br.blocks||[];
+        if(!blocks.length) return r.clm(br.bit,ids);
+        var cur=r.ctm(blocks[0][0],ids,blocks[0][1]);
+        for(var i=1;i<blocks.length;i++) cur=r.ct(blocks[i][0],cur,blocks[i][1]);
+        return r.cl(br.bit,cur);
+    });
+    r.rr(coilRefs);
+    return r.build();
+}
+// groups = [[[operand,negated],...], ...] -> tiap group AND-series jadi 1 cabang, semua cabang OR -> 1 coil
+// (Condition section: satu bit boleh dinyalain lewat beberapa kombinasi syarat berbeda)
+function orOfAnds(o,groups,out,cmt){var r=new Rung(o,cmt);var rail=r.rail();var ends=groups.map(function(g){var cur=rail;g.forEach(function(c){cur=r.ct(c[0],cur,c[1]);});return cur;});var x=ends.length>1?r.clm(out,ends):r.cl(out,ends[0]);r.rr([x]);return r.build();}
+// dual-aux confirm Ndeso (3 rung)
+function dualAux(o,sa,aa,sb,ab,out,cmt){return series(o,[[sa,false]],aa,cmt)+series(o+1,[[sb,false]],ab)+series(o+2,[[aa,false],[ab,false]],out);}
+// LS Combination 2 posisi (2 rung)
+function ls2(o,af,ab,lf,lb,cmt){return series(o,[[af,false],[ab,true]],lf,cmt)+series(o+1,[[ab,false],[af,true]],lb);}
+// AutoOutput merge: LD auto OR ind OUT sol
+function merge2(o,a,b,out,cmt){var r=new Rung(o,cmt);var rail=r.rail();var ids=[r.ct(a,rail)];if(b)ids.push(r.ct(b,rail));var x=(ids.length>1)?r.clm(out,ids):r.cl(out,ids[0]);r.rr([x]);return r.build();}
+// AND banyak kontak NOT -> 1 coil, dipecah max 6 per rung (anti rung kepanjangan)
+function chunkNot(o,list,outBit,auxPrefix,cmt,vsink){var m='',bits=[],ch=[],i;for(i=0;i<list.length;i+=6)ch.push(list.slice(i,i+6));if(ch.length===1){return {xml:series(o,ch[0].map(function(x){return [x,true];}),outBit,cmt),n:1};}
+ch.forEach(function(c,idx){var b=auxPrefix+'_'+(idx+1);bits.push(b);if(vsink)vsink.push(b);m+=series(o+idx,c.map(function(x){return [x,true];}),b,idx===0?cmt:null);});
+m+=series(o+ch.length,bits.map(function(b){return [b,false];}),outBit);return {xml:m,n:ch.length+1};}
+// Motion step Ndeso (AutoRunning): TR0=prevBit. cmd = TR0 ANDNOT confirm (bukan ANDNOT lsc - cmd
+// harus tetap ON sampai confirm sendiri jadi TRUE, biar solenoid gak drop pas posisi baru kesentuh
+// dikit; ini persis idiom project asli Autorun.cxr sekali step-mode overlay-nya dibuang).
+// confirm = TR0 AND (sol AND lsc OR confirm). Confirm self-latch WAJIB refIn ke TR0, bukan
+// LeftPowerRail - PATTERN 4, salah ini bikin ladder salah tanpa error import.
+function motionStep(o,prevBit,sol,lsc,cmdBit,confirmBit,cmt){
+  var r=new Rung(o,cmt); var rail=r.rail();
+  var tr0=r.ct(prevBit,rail);
+  var cmdCoil=r.cl(cmdBit,r.ct(confirmBit,tr0,true));
+  var solLsc=r.ct(lsc,r.ct(sol,tr0));
+  var confAux=r.ct(confirmBit,tr0);
+  var confCoil=r.clm(confirmBit,[solLsc,confAux]);
+  r.rr([cmdCoil,confCoil]);
+  return r.build();
+}
+// Satu cabang blok judgement (IF-ELSE), sepasang dipakai bareng buat Y dan N:
+//   prevBit AND (kondisi OR cabang-ini) ANDNOT cabang-lawan -> cabang-ini
+// Tiga sifat yang bikin ini beda dari series() biasa:
+//   HOLD  - begitu keputusan diambil, cabangnya nyangkut lewat seal. Tanpa ini, kondisi yang kedip
+//           (sensor mantul, benda bergetar) bikin cabang lepas di tengah jalan dan langkah sesudahnya
+//           ikut mati.
+//   MUTEX - ANDNOT cabang lawan, jadi Y dan N MUSTAHIL nyala barengan sekali salah satu ngunci.
+//   RESET - seal-nya seri di belakang prevBit, jadi pas step sebelumnya drop (cycle kelar/di-stop)
+//           dua-duanya lepas sendiri, gak perlu rung reset terpisah.
+// Seal-nya WAJIB refIn ke titik SETELAH prevBit (tr0), bukan ke LeftPowerRail - PATTERN 4, sama
+// kayak confirm di motionStep(); salah di sini bikin cabang nyangkut selamanya tanpa error import.
+function judgeBranch(o,prevBit,condBit,condNeg,bit,otherBit,cmt){
+  var r=new Rung(o,cmt); var rail=r.rail();
+  var tr0=r.ct(prevBit,rail);
+  var trig=r.ct(condBit,tr0,condNeg);
+  var seal=r.ct(bit,tr0);
+  var gate=r.ctm(otherBit,[trig,seal],true);
+  var coil=r.cl(bit,gate);
+  r.rr([coil]);
+  return r.build();
+}
+function vr(n,t,d){return '<Variable name="'+n+'"><Documentation xsi:type="SimpleText">'+esc(d||'')+'</Documentation><Type><TypeName>'+(t||'BOOL')+'</TypeName></Type></Variable>';}
+function sect(n,o,rungs){return '<BodyContent xsi:type="smcext:LdSection" name="'+esc(n)+'" evaluationOrder="'+o+'">'+rungs.join('')+'</BodyContent>';}
+function prog(name,ext,priv,sections,glob){
+return '<?xml version="1.0"?>\n<Project xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"\n         xmlns:smcext="https://www.ia.omron.com/Smc"\n         xsi:schemaLocation="https://www.ia.omron.com/Smc IEC61131_10_Ed1_0_SmcExt1_0_Spc1_0.xsd"\n         schemaVersion="1"\n         xmlns="www.iec.ch/public/TC65SC65BWG7TF10">\n  <FileHeader companyName="PT. Ndeso Indonesia" productName="Susmax Studio" productVersion="1.30.0.0" />\n  <ContentHeader name="'+name+'" creationDateTime="2026-07-30T00:00:00">\n    <AddData><Data name="https://www.ia.omron.com/Smc IEC61131_10_Ed1_0_SmcExt1_0_Spc1_0.xsd" handleUnknown="discard"><smcext:DeviceInfo modelName="NX1P2" version="1.40" /></Data></AddData>\n  </ContentHeader>\n  <Types><GlobalNamespace><Program name="'+name+'">\n    <ExternalVars>\n'+ext.join('\n')+'\n    </ExternalVars>\n    <Vars accessSpecifier="private">\n'+priv.join('\n')+'\n    </Vars>\n    <MainBody>\n'+sections.join('\n')+'\n    </MainBody>\n  </Program></GlobalNamespace></Types>\n  <Instances><Configuration name="CE_Feeder_Machine"><Resource name="MainResource" resourceTypeName="">\n    <GlobalVars>\n'+glob.join('\n')+'\n    </GlobalVars>\n  </Resource></Configuration></Instances>\n</Project>\n';}
+
+// ===== TON timer rung (Block typeName=TON + instanceName, Q -> coil) =====
+function ton(o,gate,preset,tmrInst,doneBit,cmt,alwaysOn){
+  var r=new Rung(o,cmt); var rail=r.rail(); var inId;
+  if(gate) inId=r.ct(gate[0],rail,gate[1]); else inId=r.ct(alwaysOn||'GSB000',rail);
+  var ptId=r.n++; r.a.push('<FbdObject xsi:type="DataSource" identifier="'+preset+'"><ConnectionPointOut connectionPointOutId="'+ptId+'" /></FbdObject>');
+  var qId=r.n++;
+  var AD=function(tag,ord){return '<AddData><Data name="https://www.ia.omron.com/Smc IEC61131_10_Ed1_0_SmcExt1_0_Spc1_0.xsd" handleUnknown="discard"><smcext:'+tag+' order="'+ord+'" /></Data></AddData>';};
+  r.a.push('<FbdObject xsi:type="Block" typeName="TON" instanceName="'+tmrInst+'">'
+   +'<InputVariables>'
+   +'<InputVariable parameterName="In"><ConnectionPointIn>'+AD('ConnectionPointInOrder',1)+'<Connection refConnectionPointOutId="'+inId+'" /></ConnectionPointIn></InputVariable>'
+   +'<InputVariable parameterName="PT"><ConnectionPointIn>'+AD('ConnectionPointInOrder',2)+'<Connection refConnectionPointOutId="'+ptId+'" /></ConnectionPointIn></InputVariable>'
+   +'</InputVariables>'
+   +'<OutputVariables>'
+   +'<OutputVariable parameterName="Q"><ConnectionPointOut connectionPointOutId="'+qId+'">'+AD('ConnectionPointOutOrder',1)+'</ConnectionPointOut></OutputVariable>'
+   +'</OutputVariables></FbdObject>');
+  var coilId=r.cl(doneBit,qId);
+  r.rr([coilId]);
+  return r.build();
+}
+
+// alamat -> nama variable port. "0.00"->CH000_00 ; "CH000_00" dibiarkan
+function portName(addr){
+  var a=String(addr||'').trim();
+  if(/^[A-Za-z]/.test(a)) return a.replace(/\./g,'_');
+  var m=a.match(/^(\d+)\.(\d+)$/);
+  if(m) return 'CH'+('000'+m[1]).slice(-3)+'_'+('00'+m[2]).slice(-2);
+  return 'CH'+a.replace(/\./g,'_');
+}
+
+// ===== TON menempel di rung yang sudah ada: inId (atau [inId,...] untuk OR-merge langsung di pin In) -> TON -> coil doneBit =====
+Rung.prototype.ton=function(inId,preset,inst,doneBit){
+  var ptId=this.n++;
+  this.a.push('<FbdObject xsi:type="DataSource" identifier="'+preset+'"><ConnectionPointOut connectionPointOutId="'+ptId+'" /></FbdObject>');
+  var qId=this.n++;
+  var AD=function(tag,ord){return '<AddData><Data name="https://www.ia.omron.com/Smc IEC61131_10_Ed1_0_SmcExt1_0_Spc1_0.xsd" handleUnknown="discard"><smcext:'+tag+' order="'+ord+'" /></Data></AddData>';};
+  var ins=Array.isArray(inId)?inId:[inId];
+  var inConns=ins.map(function(x){return '<Connection refConnectionPointOutId="'+x+'" />';}).join('');
+  this.a.push('<FbdObject xsi:type="Block" typeName="TON" instanceName="'+inst+'">'
+   +'<InputVariables>'
+   +'<InputVariable parameterName="In"><ConnectionPointIn>'+AD('ConnectionPointInOrder',1)+inConns+'</ConnectionPointIn></InputVariable>'
+   +'<InputVariable parameterName="PT"><ConnectionPointIn>'+AD('ConnectionPointInOrder',2)+'<Connection refConnectionPointOutId="'+ptId+'" /></ConnectionPointIn></InputVariable>'
+   +'</InputVariables>'
+   +'<OutputVariables>'
+   +'<OutputVariable parameterName="Q"><ConnectionPointOut connectionPointOutId="'+qId+'">'+AD('ConnectionPointOutOrder',1)+'</ConnectionPointOut></OutputVariable>'
+   +'</OutputVariables></FbdObject>');
+  return this.cl(doneBit,qId);
+};
+return { Rung: Rung, sect: sect, prog: prog, vr: vr, esc: esc };
+})();
 
 // ------------------------------------------------------------------ src/env.js
 // Lapisan tipis yang bikin modul yang sama jalan di BROWSER dan di NODE.
@@ -1568,6 +1767,732 @@ function graphSvg(variant, key) {
   return `<svg class="graph-canvas" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" ` +
          `xmlns="http://www.w3.org/2000/svg">${o.join('')}</svg>`;
 }
+
+// ------------------------------------------------------------------ src/net.js
+// Netlist rung yang EKSAK - dipakai untuk mengekspor ladder jadi XML importable.
+//
+// Bedanya dengan rungExpr() di ladder.js: rungExpr MENEBAK bentuk rangkaian dari
+// koordinat saja (cabang bersarang disederhanakan satu tingkat, ditandai '~').
+// Tebakan itu cukup untuk DIBACA manusia, tapi TIDAK cukup untuk ditulis balik
+// jadi program - rangkaian yang salah susun tetap ter-import Sysmac tanpa keluhan
+// dan mesinnya yang salah jalan.
+//
+// Untungnya tidak perlu menebak: format JSON (Studio >= 1.66) menyimpan LINK
+// VERTIKAL-nya sendiri di `VLs`, dan itu topologi paralel yang sebenarnya.
+//
+//   {"Ix":9,"X":2}          palang di TEPI KIRI kolom 2, menyambung baris 0 & 1
+//   {"Ix":9,"X":2,"Y":1}    ruas berikutnya palang yang SAMA (Ix sama), baris 1 & 2
+//
+// Jadi rung dimodelkan sebagai rangkaian listrik biasa di atas grid:
+//
+//   TITIK (y,b)  = simpul kawat di baris y, batas kolom b (b = tepi KIRI kolom b)
+//   elemen (y,x) = komponen dari titik (y,x) ke titik (y,x+1)
+//   HL           = kawat lurus, menyambung (y,x) dengan (y,x+1)
+//   VL {X,Y}     = palang tegak, menyambung (Y,X) dengan (Y+1,X)
+//   rel kiri     = SEMUA titik (y,0) - relnya satu batang tegak
+//   rel kanan    = SEMUA titik (y,maxB)
+//
+// Simpul yang tersambung digabung pakai union-find, lalu hasilnya diperiksa:
+// tiap masukan harus ADA yang menyetir, dan cuma coil yang boleh menyentuh rel
+// kanan. Rung yang tidak lolos DITOLAK, bukan dipaksakan - rung yang salah baca
+// jauh lebih berbahaya daripada rung yang tidak jadi diekspor, karena yang salah
+// tetap ter-import dengan mulus.
+
+// Elemen yang bisa dijadikan rangkaian. Sisanya (F, FB, IST, JMP) butuh bentuk
+// XML sendiri per instruksi dan BELUM didukung - lihat catatan di xml_out.js.
+const NET_KINDS = { Contact: 1, Coil: 1, HLink: 1 };
+
+/**
+ * Susun netlist sebuah rung.
+ * @returns {{ok:true, parts:Array, leftNet:string, rightNet:string, maxB:number}}
+ *          | {{ok:false, why:string}}
+ *   parts[i] = { el, idx, y, x, inNet, outNet }  untuk tiap Contact/Coil
+ *              (HLink tidak ikut - dia cuma kawat, bukan komponen)
+ */
+function rungNet(rung) {
+  const all = (rung.elements || []).filter(e => e && e.kind);
+  if (!all.length) return { ok: false, why: 'rung kosong' };
+
+  const odd = all.find(e => !NET_KINDS[e.kind]);
+  if (odd) return { ok: false, why: 'blok fungsi / ST sisipan / jump', what: odd.func || odd.kind };
+
+  // Studio <= 1.56 tidak menyimpan koordinat sama sekali. Tata letaknya tidak bisa
+  // dipulihkan, jadi rangkaiannya juga tidak - kecuali rung sepele satu elemen.
+  const hasXY = all.some(e => 'x' in e || 'y' in e);
+  if (!hasXY && all.length > 1) return { ok: false, why: 'tanpa koordinat (Studio <= 1.56)' };
+
+  const X = e => e.x || 0, Y = e => e.y || 0;
+  let maxB = 0, maxY = 0;
+  all.forEach(e => {
+    if (X(e) + 1 > maxB) maxB = X(e) + 1;
+    if (Y(e) > maxY) maxY = Y(e);
+  });
+
+  // Dua elemen di sel yang sama berarti gridnya salah baca - jangan diterka.
+  const cell = new Set();
+  for (const e of all) {
+    const k = Y(e) + ':' + X(e);
+    if (cell.has(k)) return { ok: false, why: 'dua elemen di sel yang sama (' + k + ')' };
+    cell.add(k);
+  }
+
+  const par = new Map();
+  const find = k => {
+    if (!par.has(k)) { par.set(k, k); return k; }
+    let r = k;
+    while (par.get(r) !== r) r = par.get(r);
+    while (par.get(k) !== r) { const nx = par.get(k); par.set(k, r); k = nx; }
+    return r;
+  };
+  const union = (a, b) => { a = find(a); b = find(b); if (a !== b) par.set(b, a); };
+  const P = (y, b) => y + ':' + b;
+
+  for (let y = 1; y <= maxY; y++) union(P(0, 0), P(y, 0));          // rel kiri
+  for (let y = 1; y <= maxY; y++) union(P(0, maxB), P(y, maxB));    // rel kanan
+  all.forEach(e => { if (e.kind === 'HLink') union(P(Y(e), X(e)), P(Y(e), X(e) + 1)); });
+  for (const v of (rung.vlinks || [])) {
+    const vy = v.Y || 0, vx = v.X || 0;
+    if (vx > maxB) return { ok: false, why: 'VL di luar rung (X=' + vx + ')' };
+    union(P(vy, vx), P(vy + 1, vx));
+  }
+
+  const leftNet = find(P(0, 0)), rightNet = find(P(0, maxB));
+  if (leftNet === rightNet) return { ok: false, why: 'rel kiri dan kanan terhubung (korslet)' };
+
+  const parts = [];
+  all.forEach((e, idx) => {
+    if (e.kind === 'HLink') return;
+    parts.push({ el: e, idx, y: Y(e), x: X(e),
+                 inNet: find(P(Y(e), X(e))), outNet: find(P(Y(e), X(e) + 1)) });
+  });
+  if (!parts.length) return { ok: false, why: 'rung tanpa kontak/coil' };
+  if (!parts.some(p => p.el.kind === 'Coil')) return { ok: false, why: 'rung tanpa coil' };
+
+  // Elemen yang kedua ujungnya di simpul yang sama = terhubung singkat. Selain
+  // memang mustahil sebagai rangkaian, ini juga yang bisa membuat "penyetir"
+  // sebuah simpul berada di KANAN pemakainya - dan penulis XML mengandalkan
+  // penyetir selalu lebih dulu (lihat urutan kolom di xml_out.js).
+  for (const p of parts) {
+    if (p.inNet === p.outNet) return { ok: false, why: 'ada elemen terhubung singkat' };
+  }
+
+  // Cuma coil yang boleh menyentuh rel kanan - kontak yang menyentuhnya berarti
+  // gridnya salah baca (kontak nyambung langsung ke rel = korslet).
+  for (const p of parts) {
+    if (p.outNet === rightNet && p.el.kind !== 'Coil') {
+      return { ok: false, why: 'kontak menyentuh rel kanan' };
+    }
+    if (p.el.kind === 'Coil' && p.outNet !== rightNet) {
+      return { ok: false, why: 'coil tidak sampai rel kanan' };
+    }
+  }
+
+  // Tiap masukan harus ada yang menyetir. Simpul tanpa penyetir = potongan rung
+  // yang tidak terbaca, dan mengekspornya diam-diam membuang logika.
+  const driven = new Set([leftNet]);
+  parts.forEach(p => { if (p.el.kind !== 'Coil') driven.add(p.outNet); });
+  for (const p of parts) {
+    if (!driven.has(p.inNet)) return { ok: false, why: 'ada bagian rung yang tidak tersambung' };
+  }
+
+  return { ok: true, parts, leftNet, rightNet, maxB };
+}
+
+;
+
+// ------------------------------------------------------------------ src/xmlout.js
+// Rung  ->  XML IEC 61131-10 yang bisa DI-IMPORT Sysmac Studio.
+//
+// Ini penutup lingkarannya: Studio bisa meng-import XML tapi tidak bisa
+// meng-export, jadi program yang sudah jadi selama ini satu arah saja.
+//
+// Pembangun XML-nya BUKAN salinan - dia disuntikkan dari luar sebagai `L`, dan
+// yang disuntikkan selalu `js/lib.js` milik generator (di Node dibaca dari disk
+// oleh ../xml_out.js, di browser di-inline oleh build.js). Kalau bentuk XML-nya
+// berubah, generator dan exporter ikut berubah bersamaan. Parser .smc2 dulu
+// ditulis dua kali dan diam-diam drift; drift di sisi TULIS jauh lebih mahal,
+// karena hasilnya ter-import mulus tapi mesinnya yang salah jalan.
+//
+// ================================ YANG BELUM DIEKSPOR ================================
+// Cuma rung yang murni KONTAK / COIL / LINK yang ditulis. Rung yang memuat blok
+// fungsi (MOVE, TON, pembanding, FB motion) atau ST sisipan DILEWATI - bentuk XML
+// tiap instruksi harus diverifikasi lewat import sungguhan dulu, dan menebaknya
+// menghasilkan berkas yang ter-import tanpa keluhan tapi jalannya lain.
+//
+// Rung yang dilewati TIDAK dihapus diam-diam: tempatnya tetap ada sebagai rung
+// berisi KOMENTAR yang menuliskan alasan dan logika aslinya. Jadi nomor rung tidak
+// bergeser, dan lubangnya kelihatan di layar Studio - bukan hilang tanpa jejak.
+
+// ------------------------------------------------------------------ satu rung
+/**
+ * Netlist -> <Rung> XML.
+ * Penyetir tiap simpul dikumpulkan sambil berjalan dari kolom kiri ke kanan.
+ * Urutan itu yang menjamin penyetir sebuah simpul SELALU sudah tertulis sebelum
+ * pemakainya - rungNet() sudah menolak rung yang bisa melanggarnya.
+ * @returns {{xml:string}|{skip:string}}
+ */
+function rungToXml(L, order, rung, net) {
+  const R = new L.Rung(order, rung.comment || '');
+  const drv = new Map([[net.leftNet, [R.rail()]]]);
+  const add = (n, id) => { if (!drv.has(n)) drv.set(n, []); drv.get(n).push(id); };
+
+  const parts = net.parts.slice().sort((a, b) => a.x - b.x || a.y - b.y);
+  const coils = [];
+  for (const p of parts) {
+    const e = p.el;
+    const refs = drv.get(p.inNet);
+    if (!refs || !refs.length) return { skip: 'simpul tanpa penyetir' };
+    const op = String(e.var || '');
+    if (!op) return { skip: 'elemen tanpa operand' };
+
+    if (e.kind === 'Coil') {
+      // Coil Set/Reset punya atribut XML sendiri yang belum diverifikasi lewat
+      // import sungguhan. Menulisnya sebagai coil BIASA akan ter-import mulus dan
+      // mengubah arti rung total (bit yang harusnya nyangkut jadi ikut lepas).
+      if (e.set) return { skip: 'coil Set belum didukung' };
+      if (e.reset) return { skip: 'coil Reset belum didukung' };
+      coils.push(R.clm(op, refs, !!e.neg));
+    } else {
+      // Kontak edge butuh atribut `edge`, dan pembangunnya cuma menerima SATU
+      // sambungan masuk - kontak edge di titik gabungan belum bisa ditulis.
+      let id;
+      if (e.edge) {
+        if (refs.length > 1) return { skip: 'kontak edge di titik gabungan' };
+        id = R.ct(op, refs[0], !!e.nc, e.edge);
+      } else {
+        id = R.ctm(op, refs, !!e.nc);
+      }
+      add(p.outNet, id);
+    }
+  }
+  if (!coils.length) return { skip: 'rung tanpa coil' };
+  R.rr(coils);
+  return { xml: R.build() };
+}
+
+/** Rung pengganti: cuma komentar, supaya lubangnya kelihatan dan nomor rung tetap. */
+function holeRung(L, order, rung, why) {
+  const { expr, outs, approx } = rungExpr(rung);
+  const logic = expr || outs.length ? (expr + (outs.length ? '  ->  ' + outs.join(', ') : '')) : '';
+  const head = (rung.comment ? rung.comment.replace(/\s+/g, ' ').trim() + ' | ' : '');
+  return new L.Rung(order,
+    head + '[TIDAK DIEKSPOR: ' + why + '] ' + (approx ? '~' : '') + logic).build();
+}
+
+// ------------------------------------------------------- nama variabel & tipe
+// Operand boleh menunjuk BAGIAN sebuah variabel (Struct.B[3], Ary[7]). Yang
+// dideklarasikan itu variabel DASARnya, bukan potongannya.
+const baseName = op => String(op || '').split(/[.[]/)[0];
+
+const safeName = s => String(s || '').replace(/[^A-Za-z0-9_]/g, '_').replace(/^(\d)/, '_$1');
+
+/**
+ * Ekspor satu project jadi kumpulan berkas XML (satu per program) + laporan.
+ * @param p project hasil readProject()
+ * @param L pembangun XML dari js/lib.js: { Rung, sect, prog, vr, esc }
+ * @returns {{files:Array<{name:string,xml:string}>, report:Object}}
+ */
+function exportProject(p, L) {
+  const gvar = new Map((p.variables || []).map(v => [v.name, v]));
+
+  const files = [];
+  const report = { programs: [], total: 0, exact: 0, holes: 0,
+                   skipWhy: new Map(), skipWhat: new Map(), undeclared: new Set() };
+
+  p.programs.forEach((prog, pi) => {
+    const secs = [];
+    const used = new Set();
+    const prep = { name: prog.name, sections: [], exact: 0, total: 0, holes: 0 };
+
+    prog.sections.forEach((s, si) => {
+      if (s.kind !== 'ladder') {
+        // Section ST tidak punya padanan LdSection. Dilewati seluruhnya, dan
+        // dicatat - kalau tidak, program hasil ekspor tampak lengkap padahal
+        // sebagian logikanya memang tidak ikut.
+        if (s.kind === 'st') prep.sections.push({ name: s.name, kind: 'st', total: 0, exact: 0 });
+        return;
+      }
+      const rungs = [];
+      let exact = 0;
+      s.rungs.forEach((r, ri) => {
+        const order = ri + 1;
+        const net = rungNet(r);
+        const out = net.ok ? rungToXml(L, order, r, net) : { skip: net.why, what: net.what };
+        if (out.xml) {
+          exact++;
+          rungs.push(out.xml);
+          r.elements.forEach(e => { if (e.var) used.add(e.var); });
+        } else {
+          rungs.push(holeRung(L, order, r, out.skip));
+          report.skipWhy.set(out.skip, (report.skipWhy.get(out.skip) || 0) + 1);
+          if (out.what) report.skipWhat.set(out.what, (report.skipWhat.get(out.what) || 0) + 1);
+        }
+      });
+      secs.push(L.sect(safeName(s.name), si + 1, rungs));
+      prep.sections.push({ name: s.name, kind: 'ladder', total: s.rungs.length, exact });
+      prep.total += s.rungs.length;
+      prep.exact += exact;
+      prep.holes += s.rungs.length - exact;
+    });
+
+    if (!secs.length) return;
+
+    // Variabel: yang ada di tabel global project dipakai APA ADANYA (tipe dan
+    // komentarnya ikut). Yang tidak ada di tabel cuma boleh dianggap BOOL kalau
+    // namanya utuh - operand yang menunjuk bagian struct/array tipenya tidak bisa
+    // disimpulkan, jadi dibiarkan TIDAK dideklarasikan dan dilaporkan. Studio akan
+    // menolaknya waktu import - dan penolakan yang berisik jauh lebih baik daripada
+    // deklarasi tebakan yang lolos diam-diam dengan tipe salah.
+    const ext = [], glob = [], priv = [], seen = new Set();
+    [...used].sort().forEach(op => {
+      const b = baseName(op);
+      if (seen.has(b)) return;
+      seen.add(b);
+      const g = gvar.get(b);
+      if (g) {
+        const v = '      ' + L.vr(b, g.type || 'BOOL', g.comment || '');
+        ext.push(v); glob.push(v);
+      } else if (b === op) {
+        priv.push('      ' + L.vr(b, 'BOOL', ''));
+      } else {
+        report.undeclared.add(b);
+      }
+    });
+
+    const name = 'Prg' + String(pi + 1).padStart(3, '0') + '_' + safeName(prog.name);
+    files.push({ name: name + '.xml', xml: L.prog(name, ext, priv, secs, glob) });
+    report.programs.push(prep);
+    report.total += prep.total;
+    report.exact += prep.exact;
+    report.holes += prep.holes;
+  });
+
+  return { files, report };
+}
+
+// ------------------------------------------------------------------- laporan
+const xoPadR = (s, n) => String(s).slice(0, n).padEnd(n);
+const xoPadL = (s, n) => String(s).padStart(n);
+
+function exportReport(report) {
+  const L = [];
+  L.push('PROGRAM / SECTION                            RUNG  EKSAK  LUBANG');
+  for (const p of report.programs) {
+    L.push(xoPadR(p.name, 44) + xoPadL(p.total, 5) + xoPadL(p.exact, 7) + xoPadL(p.holes, 8));
+    for (const s of p.sections) {
+      const mark = s.kind === 'st' ? '(ST - tidak diekspor)'
+                 : xoPadL(s.total, 5) + xoPadL(s.exact, 7) + xoPadL(s.total - s.exact, 8);
+      L.push('    ' + xoPadR(s.name, 40) + mark);
+    }
+  }
+  const pct = report.total ? (100 * report.exact / report.total).toFixed(1) : '0.0';
+  L.push('');
+  L.push(report.exact + ' dari ' + report.total + ' rung diekspor UTUH (' + pct + '%).');
+  if (report.holes) {
+    L.push('');
+    L.push(report.holes + ' rung jadi LUBANG - tempatnya tetap ada sebagai rung komentar,');
+    L.push('lengkap dengan logika aslinya, jadi nomor rung tidak bergeser dan lubangnya');
+    L.push('kelihatan di layar Studio. Alasannya:');
+    [...report.skipWhy.entries()].sort((a, b) => b[1] - a[1]).forEach(([w, c]) =>
+      L.push('   ' + xoPadL(c, 5) + '  ' + w));
+    if (report.skipWhat.size) {
+      const top = [...report.skipWhat.entries()].sort((a, b) => b[1] - a[1]);
+      L.push('');
+      L.push('Instruksi yang paling sering bikin rung dilewati (' + report.skipWhat.size + ' jenis):');
+      top.slice(0, 12).forEach(([w, c]) => L.push('   ' + xoPadL(c, 5) + '  ' + w));
+      if (top.length > 12) {
+        L.push('   ' + xoPadL(top.slice(12).reduce((a, b) => a + b[1], 0), 5) +
+               '  (' + (top.length - 12) + ' instruksi lain)');
+      }
+    }
+  }
+  if (report.undeclared.size) {
+    L.push('');
+    L.push(report.undeclared.size + ' variabel dipakai tapi TIDAK ada di tabel global project,');
+    L.push('dan tipenya tidak bisa disimpulkan (operand menunjuk bagian struct/array).');
+    L.push('Dibiarkan tanpa deklarasi - Studio akan menolaknya waktu import. Deklarasikan');
+    L.push('manual, jangan ditebak:');
+    [...report.undeclared].sort().slice(0, 20).forEach(v => L.push('   ' + v));
+    if (report.undeclared.size > 20) L.push('   ... dan ' + (report.undeclared.size - 20) + ' lagi');
+  }
+  L.push('');
+  L.push('SEBELUM DIPAKAI: import ke project KOSONG dulu, lalu bandingkan rung-nya');
+  L.push('dengan viewer sebelah-menyebelah. Berkas ini hasil rekonstruksi, bukan');
+  L.push('export resmi Omron.');
+  return L.join('\n');
+}
+
+// ------------------------------------------------------------------ src/reports.js
+// Pembangun keluaran: ringkasan, silang-rujuk, graf, inventaris operand,
+// konteks LLM, flowchart urutan gerakan, dan bentuk mentah blok fungsi.
+//
+// Semuanya mengembalikan STRING (atau objek), bukan mencetak sendiri - biar bisa
+// diuji tanpa menangkap stdout, biar cli.js tetap tipis, dan biar viewer bisa
+// menampilkan keluaran yang PERSIS sama dengan CLI. Dua jalan yang menghitung
+// sendiri-sendiri pasti berbeda suatu saat, dan yang tampilannya bagus yang
+// dipercaya orang.
+
+// Pemadan lebar ala format % di Python, supaya keluarannya tetap kolom rapi.
+const padR = (s, n) => String(s).slice(0, n).padEnd(n);
+const padL = (s, n) => String(s).padStart(n);
+
+/** Semua rung project, dengan lokasinya. */
+function eachRung(p, fn) {
+  for (const prog of p.programs) {
+    for (const s of prog.sections) {
+      s.rungs.forEach((r, i) => fn(r, prog, s, i + 1,
+        prog.name + '/' + s.name + '#' + (i + 1)));
+    }
+  }
+}
+
+/** {wr, rd}: operand -> daftar lokasi yang menulis / membaca. */
+function crossRef(p) {
+  const wr = new Map(), rd = new Map();
+  const push = (m, k, v) => { if (!m.has(k)) m.set(k, []); m.get(k).push(v); };
+  eachRung(p, (r, prog, s, i, loc) => {
+    for (const e of r.elements) {
+      if (e.var) push(e.kind === 'Coil' ? wr : rd, e.var, loc);
+    }
+  });
+  return { wr, rd };
+}
+
+const cmtMap = p => new Map((p.variables || []).map(v => [v.name, v.comment || '']));
+const addrMap = p => new Map((p.variables || []).map(v => [v.name, v.address || '']));
+
+// ------------------------------------------------------------------ ringkasan
+function summarise(p) {
+  const L = [];
+  L.push('SOLUTION : ' + (p.solution || '(tanpa nama)'));
+  L.push('FILE     : ' + p.file);
+  let totR = 0, totS = 0;
+  L.push('');
+  for (const prog of p.programs) {
+    const lad = prog.sections.filter(s => s.kind === 'ladder');
+    const n = lad.reduce((a, s) => a + s.rungs.length, 0);
+    totR += n; totS += prog.sections.length;
+    L.push('PROGRAM ' + padR(prog.name, 34) + ' ' + padL(prog.sections.length, 2) +
+           ' section, ' + padL(n, 4) + ' rung');
+    for (const s of prog.sections) {
+      const mark = s.kind === 'ladder' ? padL(s.rungs.length, 4) + ' rung'
+                 : s.kind === 'st' ? 'ST ' + (s.st || '').length + ' char'
+                 : '(kosong)';
+      L.push('    ' + padR(s.name, 38) + ' ' + mark);
+    }
+  }
+  L.push('');
+  const v = p.variables || [];
+  L.push('TOTAL    : ' + p.programs.length + ' program, ' + totS + ' section, ' + totR + ' rung');
+  L.push('VARIABEL : ' + v.length + ' (' + v.filter(x => x.address).length + ' punya alamat IO)');
+  return L.join('\n');
+}
+
+// -------------------------------------------------------------- silang-rujuk
+// Artefak paling menolong waktu membaca program orang lain. Pertanyaan pertama
+// yang selalu muncul - "bit ini siapa yang nyalain?" - kejawab langsung, tanpa
+// menyisir section satu per satu.
+function xref(p, only) {
+  const { wr, rd } = crossRef(p);
+  const cmt = cmtMap(p);
+  let keys = [...new Set([...wr.keys(), ...rd.keys()])].sort();
+  if (only) keys = keys.filter(k => k.toLowerCase().includes(only.toLowerCase()));
+
+  const L = [];
+  L.push(padR('OPERAND', 24) + ' ' + padL('TULIS', 5) + ' ' + padL('BACA', 5) + '  KOMEN');
+  L.push('-'.repeat(78));
+  for (const k of keys) {
+    const w = wr.get(k) || [], r = rd.get(k) || [];
+    L.push(padR(k, 24) + ' ' + padL(w.length, 5) + ' ' + padL(r.length, 5) + '  ' +
+           (cmt.get(k) || '').slice(0, 34));
+    if (only) {
+      w.forEach(l => L.push('        TULIS  ' + l));
+      r.slice(0, 40).forEach(l => L.push('        baca   ' + l));
+    }
+  }
+  L.push('');
+  const yatim = keys.filter(k => (rd.get(k) || []).length && !(wr.get(k) || []).length).length;
+  L.push(keys.length + ' operand. Dibaca tapi tidak pernah ditulis di project ini: ' + yatim);
+  return L.join('\n');
+}
+
+// ------------------------------------------------------------------- operand
+function operands(p) {
+  const use = new Map(), cmt = new Map();
+  eachRung(p, r => {
+    for (const e of r.elements) {
+      if (!e.var) continue;
+      use.set(e.var, (use.get(e.var) || 0) + 1);
+      if (e.comment && !cmt.has(e.var)) cmt.set(e.var, e.comment);
+    }
+  });
+  const L = ['operand unik: ' + use.size, ''];
+  L.push(padR('OPERAND', 26) + ' ' + padL('DIPAKAI', 6) + '  KOMEN');
+  // Urut menurun; seri tetap urut kemunculan (Array.sort stabil), sama seperti
+  // Counter.most_common() di Python.
+  [...use.entries()].sort((a, b) => b[1] - a[1]).forEach(([v, c]) => {
+    L.push(padR(v, 26) + ' ' + padL(c, 6) + '  ' + (cmt.get(v) || '').slice(0, 44));
+  });
+  return L.join('\n');
+}
+
+// ---------------------------------------------------------------------- graf
+// Bentuknya sengaja datar: program & section jadi wadah, operand jadi simpul,
+// dan arah edge menyatakan siapa menulis siapa membaca. Dari situ alur sinyal
+// antar section kelihatan tanpa perlu membuka ladder-nya.
+function graphData(p) {
+  const nodes = [], edges = [], seen = new Set();
+  const node = (id, kind, label, extra) => {
+    if (seen.has(id)) return;
+    seen.add(id);
+    nodes.push(Object.assign({ id, kind, label }, extra || {}));
+  };
+  const cmt = cmtMap(p), addr = addrMap(p);
+
+  for (const prog of p.programs) {
+    const pid = 'prog:' + prog.name;
+    node(pid, 'program', prog.name);
+    for (const s of prog.sections) {
+      const sid = 'sect:' + prog.name + '/' + s.name;
+      node(sid, 'section', s.name, { program: prog.name, rungs: s.rungs.length });
+      edges.push({ from: pid, to: sid, rel: 'contains' });
+      for (const r of s.rungs) {
+        for (const e of r.elements) {
+          if (!e.var) continue;
+          const vid = 'var:' + e.var;
+          node(vid, 'operand', e.var, { comment: cmt.get(e.var) || '', address: addr.get(e.var) || '' });
+          if (e.kind === 'Coil') edges.push({ from: sid, to: vid, rel: 'writes' });
+          else edges.push({ from: vid, to: sid, rel: 'read_by' });
+        }
+      }
+    }
+  }
+  // Buang edge kembar - satu operand bisa dibaca puluhan kali di section yang sama.
+  const uniq = new Map();
+  edges.forEach(e => uniq.set(e.from + ' ' + e.to + ' ' + e.rel, e));
+  return { solution: p.solution || '', nodes, edges: [...uniq.values()] };
+}
+
+// ------------------------------------------------------------- konteks LLM
+// Tujuannya: engineer bisa bertanya ke AI sebelum memodifikasi program orang
+// lain. Yang dibutuhkan untuk itu bukan cuma ladder-nya, tapi konteksnya -
+// komentar rung, arti tiap bit, siapa menulis siapa membaca.
+function llmDump(p) {
+  const cmt = cmtMap(p), addr = addrMap(p);
+  const { wr, rd } = crossRef(p);
+  const L = [];
+  const A = s => L.push(s);
+
+  A('# Program PLC: ' + (p.solution || '(tanpa nama)') + '\n');
+  A('Diekstrak dari file project Sysmac. Berkas ini memuat seluruh konteks yang');
+  A('dibutuhkan untuk memahami program: logika tiap rung, komentarnya, arti tiap');
+  A('bit, dan silang-rujuk siapa menulis siapa membaca.\n');
+  A('- Program: ' + p.programs.length);
+  A('- Section: ' + p.programs.reduce((a, x) => a + x.sections.length, 0));
+  A('- Rung: ' + p.programs.reduce((a, x) => a + x.sections.reduce((b, s) => b + s.rungs.length, 0), 0));
+  A('- Variabel: ' + (p.variables || []).length + '\n');
+  A('## Cara membaca\n');
+  A('`/BIT` berarti kontak normally-closed (kebalikan). `->` menunjuk keluaran');
+  A('(coil). Baris bertanda `~` artinya susunan cabangnya disederhanakan.\n');
+
+  for (const prog of p.programs) {
+    A('\n---\n');
+    A('# PROGRAM ' + prog.name + '\n');
+    for (const s of prog.sections) {
+      if (!s.rungs.length && !s.st) continue;
+      A('\n## ' + prog.name + ' / ' + s.name + '\n');
+      if (s.st) { A('```\n' + String(s.st).trim().slice(0, 4000) + '\n```\n'); continue; }
+      s.rungs.forEach((r, idx) => {
+        const { expr, outs, approx } = rungExpr(r);
+        A(r.comment ? '\n**' + (idx + 1) + '. ' + r.comment + '**' : '\n**' + (idx + 1) + '.**');
+        if (expr || outs.length) {
+          A('```');
+          A((approx ? '~ ' : '') + (expr || 'TRUE') + (outs.length ? '  ->  ' + outs.join(', ') : ''));
+          A('```');
+        }
+        // Arti tiap bit yang dipakai di rung ini - konteks yang biasanya hilang
+        // kalau cuma membaca ladder-nya.
+        const seen = new Set(), gloss = [];
+        for (const e of r.elements) {
+          if (!e.var || seen.has(e.var)) continue;
+          seen.add(e.var);
+          const c = cmt.get(e.var) || '', a = addr.get(e.var) || '';
+          if (c || a) gloss.push('- `' + e.var + '` ' + c + (a ? ' [' + a + ']' : ''));
+        }
+        if (gloss.length) A(gloss.join('\n'));
+      });
+    }
+  }
+
+  A('\n---\n');
+  A('# Silang-rujuk operand\n');
+  A('| Operand | Arti | Ditulis di | Dibaca (kali) |');
+  A('|---|---|---|---|');
+  for (const v of [...new Set([...wr.keys(), ...rd.keys()])].sort()) {
+    A('| `' + v + '` | ' + (cmt.get(v) || '') + ' | ' +
+      ((wr.get(v) || []).slice(0, 3).join(', ') || '(tidak ditulis di project ini)') +
+      ' | ' + (rd.get(v) || []).length + ' |');
+  }
+  return L.join('\n');
+}
+
+// --------------------------------------------------- flowchart urutan gerakan
+// Susun ulang urutan gerak jadi motionSequences JSON - bentuk yang sama dengan
+// yang dibaca editor flowchart generator, jadi bisa langsung diimpor.
+//
+// Satu section bisa punya beberapa VARIAN: urutan yang berangkat dari bit syarat
+// berbeda (pemilihan TIPE). Digabung jadi satu, dua urutan yang tidak pernah
+// jalan bersamaan malah terbaca seperti satu alur panjang.
+function flowchart(p) {
+  const result = {}, report = [];
+  for (const prog of p.programs) {
+    // Gerbang varian dicari per PROGRAM: bit syaratnya ditulis di section
+    // Condition, bukan di AutoRunning, jadi satu section saja tidak cukup.
+    const { gates } = variantGates(prog);
+    for (const s of prog.sections) {
+      if (!MOTION_SECT.test(s.name) || !s.rungs.length) continue;
+      const { steps, unmapped } = findMotionSteps(s);
+      const key = prog.name + '/' + s.name;
+      const row = { key, rungs: s.rungs.length, steps: steps.length,
+                    unmapped, chained: 0, variants: 0 };
+      report.push(row);
+      if (!steps.length) continue;
+
+      const chain = chainSteps(s, steps, gates);
+      row.chained = chain.filter(x => 'afterIdx' in x).length;
+
+      // Bentuk varian dibangun oleh modul yang SAMA dengan yang dipakai viewer -
+      // kalau disalin ulang di sini, dua gambar untuk mesin yang sama pelan-pelan
+      // berbeda lagi, persis seperti waktu parser-nya masih ditulis dua kali.
+      const variants = stepsToVariants(chain, s.name, gates).map(v => ({
+        condition: v.variant.condition,
+        comment: v.variant.comment,
+        conditionComments: v.variant.conditionComments,
+        conditionPositions: {},
+        // Field khusus tampilan (comment per node, loopAfter) tidak ikut diekspor:
+        // yang dibaca editor generator cuma bentuk di bawah ini.
+        nodes: v.variant.nodes.map(n => ({
+          id: n.id, type: n.type,
+          ...(n.type === 'condition' ? { bit: n.bit } : { sol: n.sol }),
+          after: n.after, join: n.join || 'AND', x: n.x, y: n.y,
+        })),
+      }));
+      row.variants = variants.length;
+      result[key] = variants;
+    }
+  }
+  return { result, report };
+}
+
+function flowchartReport(report) {
+  const L = [];
+  L.push(padR('SECTION', 38) + ' ' + padL('RUNG', 5) + ' ' + padL('STEP', 5) + ' ' +
+         padL('BERANTAI', 8) + ' ' + padL('VARIAN', 6) + ' TAK TERPETAKAN');
+  L.push('-'.repeat(86));
+  let tS = 0, tU = 0, tC = 0, tV = 0;
+  for (const r of report) {
+    L.push(padR(r.key, 38) + ' ' + padL(r.rungs, 5) + ' ' + padL(r.steps, 5) + ' ' +
+           padL(r.steps ? r.chained + '/' + r.steps : '-', 8) + ' ' +
+           padL(r.variants || '-', 6) + ' ' + padL(r.unmapped.length, 5));
+    tS += r.steps; tU += r.unmapped.length; tC += r.chained; tV += r.variants;
+  }
+  L.push('');
+  L.push(tS + ' langkah gerakan terpetakan jadi ' + tV + ' varian urutan, ' +
+         tC + ' langkah berhasil dirantai.');
+  L.push('Varian = urutan yang berangkat dari bit syarat berbeda. Digabung jadi satu,');
+  L.push('dua urutan yang tidak pernah jalan bersamaan terbaca seperti satu alur panjang.');
+  if (tS && tC < tS) {
+    L.push('Langkah yang TIDAK berantai dibiarkan menunjuk bit aslinya - di editor akan');
+    L.push('muncul sebagai blok syarat, bukan disembunyikan. Urutannya perlu dicek manual.');
+  }
+  L.push('');
+  L.push(tU + ' rung tidak terpetakan. Itu BUKAN berarti salah - kebanyakan memang bukan');
+  L.push('langkah gerakan (mutex varian, output, interlock). Alasan per rung:');
+  const why = new Map();
+  report.forEach(r => r.unmapped.forEach(u => why.set(u, (why.get(u) || 0) + 1)));
+  [...why.entries()].sort((a, b) => b[1] - a[1]).forEach(([a, c]) => {
+    L.push('   ' + padL(c, 4) + '  ' + a);
+  });
+  return L.join('\n');
+}
+
+// ----------------------------------------------- bentuk mentah blok fungsi (probe)
+// Dipakai waktu menambah dukungan blok yang belum dikenali: dia menunjukkan field
+// apa saja yang BENAR-BENAR ada di elemen fungsi project ini, supaya bentuknya
+// dibaca dari berkas, bukan ditebak. Ini yang membedakan "didukung" dari "kelihatan
+// jalan": instruksi yang bentuk XML-nya ditebak tetap ter-import tanpa keluhan.
+//
+// Keluarannya aman ditempel ke chat - cuma nama field, nama instruksi, dan
+// beberapa contoh objek, bukan seluruh program.
+async function probeFb(buf, unzipFn) {
+  const files = unzipFn(buf);
+  const keys = new Map(), instr = new Map(), samples = [], xmlSample = [];
+
+  for (const [n, f] of files) {
+    if (!n.endsWith('.xml')) continue;
+    const t = text(await inflate(f));
+    const head = t.replace(/^\s+/, '').slice(0, 400);
+
+    if (head[0] === '{' && head.includes('"CLs"')) {
+      let i = 0;
+      while (i < t.length) {
+        while (i < t.length && /\s/.test(t[i])) i++;
+        if (t[i] !== '{') break;
+        // Pindai kurung sambil menghormati string - komentar rung bisa memuat '{'.
+        let d = 0, j = i, ins = false, esc2 = false;
+        for (; j < t.length; j++) {
+          const c = t[j];
+          if (esc2) { esc2 = false; continue; }
+          if (c === '\\') { esc2 = true; continue; }
+          if (c === '"') ins = !ins;
+          else if (!ins) { if (c === '{') d++; else if (c === '}' && --d === 0) { j++; break; } }
+        }
+        let o;
+        try { o = JSON.parse(t.slice(i, j)); } catch (e) { break; }
+        i = j;
+        for (const e of (o.CLs || [])) {
+          // F = fungsi, FB = instance blok fungsi. Dua-duanya kotak berpin di layar.
+          if (e.__type !== 'F' && e.__type !== 'FB') continue;
+          Object.keys(e).forEach(k => keys.set(k, (keys.get(k) || 0) + 1));
+          const nm = e.Name || '(tanpa nama)';
+          instr.set(nm, (instr.get(nm) || 0) + 1);
+          samples.push(e);
+        }
+      }
+    } else if (head.includes('<LadderDiagram') && xmlSample.length < 2) {
+      const m = t.match(/<DiagramElement[^>]*i:type="Function[^"]*"[\s\S]{0,1200}/);
+      if (m) xmlSample.push(m[0]);
+    }
+  }
+
+  const L = [];
+  const total = [...instr.values()].reduce((a, b) => a + b, 0);
+  L.push('ELEMEN FUNGSI (JSON, Studio >= 1.66): ' + total);
+  if (keys.size) {
+    L.push('');
+    L.push('FIELD            MUNCUL');
+    [...keys.entries()].sort((a, b) => b[1] - a[1])
+      .forEach(([k, c]) => L.push(padR(k, 16) + padL(c, 6)));
+    L.push('');
+    L.push('INSTRUKSI yang dipakai (' + instr.size + ' jenis):');
+    [...instr.entries()].sort((a, b) => b[1] - a[1]).slice(0, 40)
+      .forEach(([k, c]) => L.push('   ' + padL(c, 5) + '  ' + k));
+    samples.sort((a, b) => JSON.stringify(b).length - JSON.stringify(a).length);
+    L.push('');
+    L.push('CONTOH objek terkaya (maks 3):');
+    samples.slice(0, 3).forEach(e => {
+      L.push(JSON.stringify(e, null, 2).slice(0, 1500));
+      L.push('   ---');
+    });
+  }
+  if (xmlSample.length) {
+    L.push('');
+    L.push('CONTOH FunctionElement (XML, Studio <= 1.56):');
+    xmlSample.forEach(s => { L.push(s); L.push('   ---'); });
+  }
+  if (!keys.size && !xmlSample.length) L.push('Tidak ada elemen fungsi di project ini.');
+  return L.join('\n');
+}
 // ================================================================== tampilan
 // Cuma UI. Semua parsing dan penggambaran ada di src/*.js, yang di-inline ke
 // berkas ini oleh build.js dan di-require apa adanya oleh cli.js - satu sumber,
@@ -1575,6 +2500,8 @@ function graphSvg(variant, key) {
 //   node build.js        -> smc2-viewer.html
 // Jangan mengedit smc2-viewer.html langsung: itu hasil build.
 let PROJ = null;
+let RAW = null;      // isi berkas .smc2 apa adanya - dibutuhkan tab Blok fungsi,
+                     // yang membaca bentuk MENTAH elemen, bukan hasil parse
 const $ = s => document.querySelector(s);
 
 function render() {
@@ -1740,6 +2667,12 @@ function draw() {
   });
   $('#t-op').innerHTML = o;
 
+  // --- silang-rujuk ---
+  // Kotak cari dipakai sebagai FILTER, sama persis dengan `--xref LB800` di CLI.
+  // Tanpa filter daftarnya ribuan baris dan tidak ada yang membacanya utuh; yang
+  // dicari orang selalu satu bit ("ini siapa yang menyalakan?").
+  $('#t-xref').textContent = xref(p, $('#q').value.trim() || null);
+
   // --- variabel ---
   const vs = p.variables.filter(v => hit(v.name) || hit(v.comment) || hit(v.address));
   let vh = '<tr><th>Nama</th><th>Tipe</th><th>Alamat IO</th><th>Grup</th><th>Komen</th></tr>';
@@ -1755,7 +2688,11 @@ async function load(file) {
   $('#err').textContent = '';
   $('#drop .big').textContent = 'Membaca ' + file.name + ' ...';
   try {
-    PROJ = await readProject(await file.arrayBuffer(), unzip);
+    RAW = await file.arrayBuffer();
+    FB_DONE = false;
+    $('#t-exp').textContent = '';
+    PROJ = await readProject(RAW, unzip);
+    PROJ.file = file.name;
     $('#drop .big').textContent = file.name;
     $('#drop .sub').textContent = 'klik untuk ganti file';
     render();
@@ -1776,21 +2713,74 @@ $('#file').addEventListener('change', e => { if (e.target.files[0]) load(e.targe
 }));
 $('#drop').addEventListener('drop', e => { if (e.dataTransfer.files[0]) load(e.dataTransfer.files[0]); });
 
+let FB_DONE = false;
+
 document.querySelectorAll('button.tab').forEach(b => b.addEventListener('click', () => {
   document.querySelectorAll('button.tab').forEach(x => x.classList.remove('active'));
   document.querySelectorAll('.panel').forEach(x => x.classList.remove('on'));
   b.classList.add('active');
   $('#p-' + b.dataset.p).classList.add('on');
+  // Probe blok fungsi membaca ULANG seluruh berkas mentah, jadi dihitung waktu
+  // tabnya dibuka - bukan tiap kali ada yang mengetik di kotak cari.
+  if (b.dataset.p === 'fb' && !FB_DONE && RAW) {
+    FB_DONE = true;
+    $('#t-fb').textContent = 'membaca bentuk mentah elemen fungsi ...';
+    probeFb(RAW, unzip).then(s => { $('#t-fb').textContent = s; })
+                       .catch(e => { $('#t-fb').textContent = 'Gagal: ' + e.message; FB_DONE = false; });
+  }
 }));
 
 let t = null;
 $('#q').addEventListener('input', () => { clearTimeout(t); t = setTimeout(draw, 180); });
 
-$('#dl').addEventListener('click', () => {
-  const b = new Blob([JSON.stringify(PROJ, null, 2)], { type: 'application/json' });
+// ------------------------------------------------------------------- ekspor
+// Tiap perintah cli.js yang menghasilkan BERKAS punya tombolnya di sini, dan
+// isinya dihitung modul yang SAMA (src/reports.js, src/xmlout.js). Menghitungnya
+// sendiri di UI berarti dua jawaban untuk satu pertanyaan, dan yang tampilannya
+// bagus yang dipercaya orang.
+function download(name, data, mime) {
+  const b = new Blob([data], { type: mime || 'text/plain' });
   const u = URL.createObjectURL(b), a = document.createElement('a');
-  a.href = u; a.download = (PROJ.solution || 'sysmac') + '.json';
-  document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(u);
+  a.href = u; a.download = name;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  // Jangan dicabut seketika: waktu beberapa berkas diunduh beruntun, sebagian
+  // browser membatalkan yang URL-nya sudah hilang sebelum unduhannya mulai.
+  setTimeout(() => URL.revokeObjectURL(u), 2000);
+}
+const stem = () => (PROJ.solution || 'sysmac').replace(/[^\w.-]+/g, '_');
+
+$('#x-json').addEventListener('click', () =>
+  download(stem() + '.json', JSON.stringify(PROJ, null, 2), 'application/json'));
+
+$('#x-llm').addEventListener('click', () => {
+  const md = llmDump(PROJ);
+  download(stem() + '.md', md, 'text/markdown');
+  $('#t-exp').textContent = 'WROTE ' + stem() + '.md  (' + md.split('\n').length + ' baris)';
+});
+
+$('#x-graph').addEventListener('click', () => {
+  const g = graphData(PROJ);
+  download(stem() + '-graph.json', JSON.stringify(g, null, 2), 'application/json');
+  $('#t-exp').textContent = 'WROTE ' + stem() + '-graph.json  (' +
+    g.nodes.length + ' node, ' + g.edges.length + ' edge)';
+});
+
+$('#x-flow').addEventListener('click', () => {
+  const { result, report } = flowchart(PROJ);
+  download(stem() + '-motionSequences.json', JSON.stringify(result, null, 2), 'application/json');
+  $('#t-exp').textContent = 'WROTE ' + stem() + '-motionSequences.json\n\n' + flowchartReport(report);
+});
+
+$('#x-xml').addEventListener('click', () => {
+  const { files, report } = exportProject(PROJ, SGLIB);
+  // Laporannya ditulis DULUAN, sebelum unduhan mulai - di situ tertulis berapa
+  // rung yang jadi lubang dan kenapa. Berkas yang diambil tanpa membaca itu
+  // tampak lengkap padahal tidak.
+  $('#t-exp').textContent = 'WROTE ' + files.length + ' berkas\n\n' + exportReport(report);
+  // ponytail: diunduh satu per satu, bukan dibungkus ZIP - src/zip.js cuma bisa
+  // MEMBACA zip. Kalau jumlah programnya bikin ini mengganggu, baru tulis
+  // pembungkus ZIP stored (butuh CRC32, sekitar 40 baris).
+  files.forEach((f, i) => setTimeout(() => download(f.name, f.xml, 'application/xml'), i * 300));
 });
 
 if (!window.DecompressionStream) {

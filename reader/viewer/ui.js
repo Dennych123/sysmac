@@ -5,6 +5,8 @@
 //   node build.js        -> smc2-viewer.html
 // Jangan mengedit smc2-viewer.html langsung: itu hasil build.
 let PROJ = null;
+let RAW = null;      // isi berkas .smc2 apa adanya - dibutuhkan tab Blok fungsi,
+                     // yang membaca bentuk MENTAH elemen, bukan hasil parse
 const $ = s => document.querySelector(s);
 
 function render() {
@@ -170,6 +172,12 @@ function draw() {
   });
   $('#t-op').innerHTML = o;
 
+  // --- silang-rujuk ---
+  // Kotak cari dipakai sebagai FILTER, sama persis dengan `--xref LB800` di CLI.
+  // Tanpa filter daftarnya ribuan baris dan tidak ada yang membacanya utuh; yang
+  // dicari orang selalu satu bit ("ini siapa yang menyalakan?").
+  $('#t-xref').textContent = xref(p, $('#q').value.trim() || null);
+
   // --- variabel ---
   const vs = p.variables.filter(v => hit(v.name) || hit(v.comment) || hit(v.address));
   let vh = '<tr><th>Nama</th><th>Tipe</th><th>Alamat IO</th><th>Grup</th><th>Komen</th></tr>';
@@ -185,7 +193,11 @@ async function load(file) {
   $('#err').textContent = '';
   $('#drop .big').textContent = 'Membaca ' + file.name + ' ...';
   try {
-    PROJ = await readProject(await file.arrayBuffer(), unzip);
+    RAW = await file.arrayBuffer();
+    FB_DONE = false;
+    $('#t-exp').textContent = '';
+    PROJ = await readProject(RAW, unzip);
+    PROJ.file = file.name;
     $('#drop .big').textContent = file.name;
     $('#drop .sub').textContent = 'klik untuk ganti file';
     render();
@@ -206,21 +218,74 @@ $('#file').addEventListener('change', e => { if (e.target.files[0]) load(e.targe
 }));
 $('#drop').addEventListener('drop', e => { if (e.dataTransfer.files[0]) load(e.dataTransfer.files[0]); });
 
+let FB_DONE = false;
+
 document.querySelectorAll('button.tab').forEach(b => b.addEventListener('click', () => {
   document.querySelectorAll('button.tab').forEach(x => x.classList.remove('active'));
   document.querySelectorAll('.panel').forEach(x => x.classList.remove('on'));
   b.classList.add('active');
   $('#p-' + b.dataset.p).classList.add('on');
+  // Probe blok fungsi membaca ULANG seluruh berkas mentah, jadi dihitung waktu
+  // tabnya dibuka - bukan tiap kali ada yang mengetik di kotak cari.
+  if (b.dataset.p === 'fb' && !FB_DONE && RAW) {
+    FB_DONE = true;
+    $('#t-fb').textContent = 'membaca bentuk mentah elemen fungsi ...';
+    probeFb(RAW, unzip).then(s => { $('#t-fb').textContent = s; })
+                       .catch(e => { $('#t-fb').textContent = 'Gagal: ' + e.message; FB_DONE = false; });
+  }
 }));
 
 let t = null;
 $('#q').addEventListener('input', () => { clearTimeout(t); t = setTimeout(draw, 180); });
 
-$('#dl').addEventListener('click', () => {
-  const b = new Blob([JSON.stringify(PROJ, null, 2)], { type: 'application/json' });
+// ------------------------------------------------------------------- ekspor
+// Tiap perintah cli.js yang menghasilkan BERKAS punya tombolnya di sini, dan
+// isinya dihitung modul yang SAMA (src/reports.js, src/xmlout.js). Menghitungnya
+// sendiri di UI berarti dua jawaban untuk satu pertanyaan, dan yang tampilannya
+// bagus yang dipercaya orang.
+function download(name, data, mime) {
+  const b = new Blob([data], { type: mime || 'text/plain' });
   const u = URL.createObjectURL(b), a = document.createElement('a');
-  a.href = u; a.download = (PROJ.solution || 'sysmac') + '.json';
-  document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(u);
+  a.href = u; a.download = name;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  // Jangan dicabut seketika: waktu beberapa berkas diunduh beruntun, sebagian
+  // browser membatalkan yang URL-nya sudah hilang sebelum unduhannya mulai.
+  setTimeout(() => URL.revokeObjectURL(u), 2000);
+}
+const stem = () => (PROJ.solution || 'sysmac').replace(/[^\w.-]+/g, '_');
+
+$('#x-json').addEventListener('click', () =>
+  download(stem() + '.json', JSON.stringify(PROJ, null, 2), 'application/json'));
+
+$('#x-llm').addEventListener('click', () => {
+  const md = llmDump(PROJ);
+  download(stem() + '.md', md, 'text/markdown');
+  $('#t-exp').textContent = 'WROTE ' + stem() + '.md  (' + md.split('\n').length + ' baris)';
+});
+
+$('#x-graph').addEventListener('click', () => {
+  const g = graphData(PROJ);
+  download(stem() + '-graph.json', JSON.stringify(g, null, 2), 'application/json');
+  $('#t-exp').textContent = 'WROTE ' + stem() + '-graph.json  (' +
+    g.nodes.length + ' node, ' + g.edges.length + ' edge)';
+});
+
+$('#x-flow').addEventListener('click', () => {
+  const { result, report } = flowchart(PROJ);
+  download(stem() + '-motionSequences.json', JSON.stringify(result, null, 2), 'application/json');
+  $('#t-exp').textContent = 'WROTE ' + stem() + '-motionSequences.json\n\n' + flowchartReport(report);
+});
+
+$('#x-xml').addEventListener('click', () => {
+  const { files, report } = exportProject(PROJ, SGLIB);
+  // Laporannya ditulis DULUAN, sebelum unduhan mulai - di situ tertulis berapa
+  // rung yang jadi lubang dan kenapa. Berkas yang diambil tanpa membaca itu
+  // tampak lengkap padahal tidak.
+  $('#t-exp').textContent = 'WROTE ' + files.length + ' berkas\n\n' + exportReport(report);
+  // ponytail: diunduh satu per satu, bukan dibungkus ZIP - src/zip.js cuma bisa
+  // MEMBACA zip. Kalau jumlah programnya bikin ini mengganggu, baru tulis
+  // pembungkus ZIP stored (butuh CRC32, sekitar 40 baris).
+  files.forEach((f, i) => setTimeout(() => download(f.name, f.xml, 'application/xml'), i * 300));
 });
 
 if (!window.DecompressionStream) {

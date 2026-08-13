@@ -90,6 +90,19 @@
         white-space:pre-wrap;word-break:break-word}
   .expr .out{color:var(--ok);font-weight:600}
   .expr .ap{color:var(--warn)}
+  /* Keluaran teks yang PERSIS sama dengan CLI (silang-rujuk, probe blok fungsi,
+     laporan ekspor). Sengaja monospace dan tidak dibungkus ulang jadi tabel HTML:
+     kolomnya sudah diratakan di src/reports.js, dan menatanya ulang di sini
+     berarti dua tata letak untuk keluaran yang sama - yang pasti berbeda suatu
+     saat, dan yang tampilannya bagus yang dipercaya orang. */
+  .rep{font-family:Consolas,monospace;font-size:12px;line-height:1.45;margin:0;padding:12px;
+       white-space:pre;overflow-x:auto;color:var(--fg)}
+  .exp-row{display:flex;align-items:flex-start;gap:12px;padding:10px 0;
+           border-bottom:1px solid var(--line)}
+  .exp-row button{flex:0 0 280px;text-align:left}
+  .exp-row span{font-size:12.5px;color:var(--muted);line-height:1.5}
+  .exp-warn{margin:14px 0 0;padding:10px 12px;border-radius:8px;font-size:12.5px;
+            line-height:1.55;background:#fff8e6;border:1px solid #f0d9a0;color:#5c4708}
   .gloss{font-size:11.5px;color:var(--muted);margin-top:4px}
   .gloss b{font-family:Consolas,monospace;color:var(--fg);font-weight:600}
 
@@ -183,17 +196,60 @@ komputermu.</p>
     <button class="tab" data-p="rung">Rung</button>
     <button class="tab" data-p="flow">Flowchart</button>
     <button class="tab" data-p="op">Operand</button>
+    <button class="tab" data-p="xref">Silang-rujuk</button>
     <button class="tab" data-p="var">Variabel</button>
+    <button class="tab" data-p="fb">Blok fungsi</button>
+    <button class="tab" data-p="exp">Ekspor</button>
     <span style="flex:1"></span>
     <input type="search" id="q" placeholder="cari nama / operand / komen...">
-    <button class="alt" id="dl">Download JSON</button>
   </div>
 
   <div class="panel on" id="p-sum"><div class="scroll"><table id="t-sum"></table></div></div>
   <div class="panel" id="p-rung"><div class="scroll" id="t-rung"></div></div>
   <div class="panel" id="p-flow"><div class="scroll" id="t-flow"></div></div>
   <div class="panel" id="p-op"><div class="scroll"><table id="t-op"></table></div></div>
+  <div class="panel" id="p-xref"><div class="scroll"><pre class="rep" id="t-xref"></pre></div></div>
   <div class="panel" id="p-var"><div class="scroll"><table id="t-var"></table></div></div>
+  <div class="panel" id="p-fb"><div class="scroll"><pre class="rep" id="t-fb"></pre></div></div>
+
+  <!-- Ekspor: padanan tiap perintah cli.js yang menghasilkan BERKAS. Keluarannya
+       dihitung modul yang sama persis dengan CLI (src/reports.js, src/xmlout.js),
+       jadi berkas dari sini dan dari baris perintah tidak bisa berbeda. -->
+  <div class="panel" id="p-exp">
+    <div class="scroll" style="padding:14px">
+      <div class="exp-row">
+        <button id="x-llm">Konteks LLM (.md)</button>
+        <span>Seluruh logika rung jadi kalimat boolean + arti tiap bit + silang-rujuk.
+              Besar &mdash; tinggal disuap ke LLM. <code>--llm</code></span>
+      </div>
+      <div class="exp-row">
+        <button id="x-flow">Urutan gerakan (.json)</button>
+        <span>Langkah motion jadi <code>motionSequences</code>, format yang sama
+              dengan editor generator jadi bisa langsung diimpor. <code>--flowchart</code></span>
+      </div>
+      <div class="exp-row">
+        <button id="x-graph">Graf node+edge (.json)</button>
+        <span>Alur sinyal antar program dan section. <code>--graph</code></span>
+      </div>
+      <div class="exp-row">
+        <button id="x-json">Dump mentah (.json)</button>
+        <span>Seluruh hasil baca apa adanya. <code>--json</code></span>
+      </div>
+      <div class="exp-row">
+        <button id="x-xml">XML importable (satu berkas per program)</button>
+        <span>Rung dikeluarkan lagi dalam bentuk yang Studio TERIMA lewat import.
+              Browser akan minta izin unduh banyak berkas sekaligus. <code>--xml</code></span>
+      </div>
+      <div class="exp-warn">
+        <b>XML itu hasil rekonstruksi, bukan export resmi Omron.</b>
+        Rung berblok fungsi belum didukung dan menjadi <i>rung komentar</i> berisi alasan
+        dan logika aslinya &mdash; tempatnya tetap ada, jadi nomor rung tidak bergeser dan
+        lubangnya kelihatan di layar Studio. Import ke project KOSONG dulu, lalu bandingkan
+        dengan tab Rung sebelah-menyebelah sebelum dipakai.
+      </div>
+      <pre class="rep" id="t-exp"></pre>
+    </div>
+  </div>
 </div>
 
 <div class="note">
