@@ -265,7 +265,14 @@ komputermu.</p>
 // ------------------------------------------------------------ js/lib.js (generator)
 const SGLIB = (function () {
 // ===== SG LIB : Susmax IEC61131-10 XML builder (shared, jangan diedit per-node) =====
-function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/[\u2013\u2014]/g,'-').replace(/\u2192/g,'->').replace(/[^\x00-\x7F]/g,'');}
+// Non-ASCII (di luar &<>) ditulis sebagai entitas numerik &#xNNNN;, BUKAN dibuang.
+// Dulu dibuang - aman selama input cuma yang diketik user di editor, tapi sejak
+// reader/ menyuntikkan fungsi ini buat menulis komentar rung/variabel dari
+// project SUNGGUHAN (reader/xml_out.js), komentar bermuatan '\u00b15mm', '80\u00b0C', atau
+// kutip pintar bekas tempel dari Word hilang diam-diam - tanpa error, tanpa tanda
+// di laporan. Entitas numerik tetap XML 1.0 yang sah apa pun deklarasi encoding-nya,
+// jadi tidak ada informasi yang hilang.
+function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/[\u2013\u2014]/g,'-').replace(/\u2192/g,'->').replace(/[^\x00-\x7F]/g,function(c){return '&#x'+c.codePointAt(0).toString(16).toUpperCase()+';';});}
 function Rung(o,c){this.o=o;this.c=c;this.a=[];this.n=1;}
 Rung.prototype.rail=function(){var i=this.n++;this.a.push('<LdObject xsi:type="LeftPowerRail"><ConnectionPointOut connectionPointOutId="'+i+'" /></LdObject>');return i;};
 Rung.prototype.ct=function(op,ref,neg,edge){var i=this.n++;this.a.push('<LdObject xsi:type="Contact"'+(neg?' negated="true"':'')+(edge?' edge="'+edge+'"':'')+' operand="'+op+'"><ConnectionPointIn><Connection refConnectionPointOutId="'+ref+'" /></ConnectionPointIn><ConnectionPointOut connectionPointOutId="'+i+'" /></LdObject>');return i;};
@@ -1816,8 +1823,12 @@ function rungNet(rung) {
   const odd = all.find(e => !NET_KINDS[e.kind]);
   if (odd) return { ok: false, why: 'blok fungsi / ST sisipan / jump', what: odd.func || odd.kind };
 
-  // Studio <= 1.56 tidak menyimpan koordinat sama sekali. Tata letaknya tidak bisa
-  // dipulihkan, jadi rangkaiannya juga tidak - kecuali rung sepele satu elemen.
+  // Studio <= 1.56 tidak menyimpan koordinat sama sekali (parseLadderXml tidak
+  // pernah mengisi .x/.y). Studio >= 1.66 (JSON) MENGHILANGKAN X atau Y saat
+  // nilainya nol - itu bukan tanda hilang, itu penghematan; cuma elemen di titik
+  // (0,0) yang kehilangan DUA-DUANYA. Dua elemen yang sama-sama jatuh ke (0,0)
+  // (karena dua-duanya kehilangan x DAN y) tertangkap pengecekan "dua elemen di
+  // sel yang sama" di bawah, karena X(e)/Y(e) dua-duanya default ke 0.
   const hasXY = all.some(e => 'x' in e || 'y' in e);
   if (!hasXY && all.length > 1) return { ok: false, why: 'tanpa koordinat (Studio <= 1.56)' };
 
@@ -2035,7 +2046,16 @@ function exportProject(p, L) {
       prep.holes += s.rungs.length - exact;
     });
 
-    if (!secs.length) return;
+    // Program tanpa satu pun section ladder (semuanya ST, atau kosong) tidak
+    // punya berkas XML untuk ditulis - tapi harus tetap MUNCUL di laporan.
+    // Dulu di-`return` diam-diam di sini, dan program itu hilang total dari
+    // report.programs; orang yang mengaudit "program mana saja yang diproses"
+    // bisa salah kira program itu tidak terbaca sama sekali, padahal cuma tidak
+    // ada isi ladder untuk diekspor.
+    if (!secs.length) {
+      if (prep.sections.length) report.programs.push(prep);
+      return;
+    }
 
     // Variabel: yang ada di tabel global project dipakai APA ADANYA (tipe dan
     // komentarnya ikut). Yang tidak ada di tabel cuma boleh dianggap BOOL kalau

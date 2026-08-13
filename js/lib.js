@@ -1,5 +1,12 @@
 // ===== SG LIB : Susmax IEC61131-10 XML builder (shared, jangan diedit per-node) =====
-function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/[\u2013\u2014]/g,'-').replace(/\u2192/g,'->').replace(/[^\x00-\x7F]/g,'');}
+// Non-ASCII (di luar &<>) ditulis sebagai entitas numerik &#xNNNN;, BUKAN dibuang.
+// Dulu dibuang - aman selama input cuma yang diketik user di editor, tapi sejak
+// reader/ menyuntikkan fungsi ini buat menulis komentar rung/variabel dari
+// project SUNGGUHAN (reader/xml_out.js), komentar bermuatan '\u00b15mm', '80\u00b0C', atau
+// kutip pintar bekas tempel dari Word hilang diam-diam - tanpa error, tanpa tanda
+// di laporan. Entitas numerik tetap XML 1.0 yang sah apa pun deklarasi encoding-nya,
+// jadi tidak ada informasi yang hilang.
+function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/[\u2013\u2014]/g,'-').replace(/\u2192/g,'->').replace(/[^\x00-\x7F]/g,function(c){return '&#x'+c.codePointAt(0).toString(16).toUpperCase()+';';});}
 function Rung(o,c){this.o=o;this.c=c;this.a=[];this.n=1;}
 Rung.prototype.rail=function(){var i=this.n++;this.a.push('<LdObject xsi:type="LeftPowerRail"><ConnectionPointOut connectionPointOutId="'+i+'" /></LdObject>');return i;};
 Rung.prototype.ct=function(op,ref,neg,edge){var i=this.n++;this.a.push('<LdObject xsi:type="Contact"'+(neg?' negated="true"':'')+(edge?' edge="'+edge+'"':'')+' operand="'+op+'"><ConnectionPointIn><Connection refConnectionPointOutId="'+ref+'" /></ConnectionPointIn><ConnectionPointOut connectionPointOutId="'+i+'" /></LdObject>');return i;};

@@ -136,7 +136,16 @@ function exportProject(p, L) {
       prep.holes += s.rungs.length - exact;
     });
 
-    if (!secs.length) return;
+    // Program tanpa satu pun section ladder (semuanya ST, atau kosong) tidak
+    // punya berkas XML untuk ditulis - tapi harus tetap MUNCUL di laporan.
+    // Dulu di-`return` diam-diam di sini, dan program itu hilang total dari
+    // report.programs; orang yang mengaudit "program mana saja yang diproses"
+    // bisa salah kira program itu tidak terbaca sama sekali, padahal cuma tidak
+    // ada isi ladder untuk diekspor.
+    if (!secs.length) {
+      if (prep.sections.length) report.programs.push(prep);
+      return;
+    }
 
     // Variabel: yang ada di tabel global project dipakai APA ADANYA (tipe dan
     // komentarnya ikut). Yang tidak ada di tabel cuma boleh dianggap BOOL kalau

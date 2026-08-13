@@ -17,7 +17,8 @@ const { unzip } = require(path.join(ROOT, 'src', 'zip.js'));
 const { readProject } = require(path.join(ROOT, 'src', 'smc2.js'));
 const { xmlParse, xmlFindAll } = require(path.join(ROOT, 'src', 'xml.js'));
 const { rungNet } = require(path.join(ROOT, 'src', 'net.js'));
-const { exportProject } = require(path.join(ROOT, 'xml_out.js'));
+const { rungToXml } = require(path.join(ROOT, 'src', 'xmlout.js'));
+const { exportProject, loadLib } = require(path.join(ROOT, 'xml_out.js'));
 
 let bad = 0;
 const chk = (name, ok, info) => {
@@ -153,6 +154,65 @@ const proj = readProject(fs.readFileSync(fixture), unzip);
   const sets = els.filter(e => e.set || e.reset);
   chk('coil Set/Reset terbaca (JSON + DataContract)', sets.length === 3,
       sets.map(e => e.var + (e.set ? ':S' : ':R')).join(' '));
+
+  // ============================================ net.js: kasus tepi (unit murni)
+  // Rung buatan langsung, tanpa lewat pipeline .smc2 - lebih murah daripada
+  // menambah fixture bersama (indeksnya dipakai banyak tes lain di sini dan di
+  // fixture.test.js) dan lebih tepat sasaran: yang diuji cuma net.js/xmlout.js.
+  const L = loadLib();
+
+  // VL yang X-nya di luar rentang kolom rung. rungNet() harus MENOLAK, bukan
+  // diam-diam mengabaikan palang itu - palang yang diabaikan berarti cabang
+  // yang seharusnya nyambung malah lepas, dan itu lolos tanpa error import.
+  {
+    const rung = { comment: '', elements: [
+      { kind: 'Contact', var: 'A', x: 0, y: 0 }, { kind: 'Coil', var: 'B', x: 1, y: 0 },
+    ], vlinks: [{ Ix: 1, X: 9, Y: 0 }] };
+    const net = rungNet(rung);
+    chk('VL di luar rentang kolom rung ditolak', !net.ok && /luar rung/.test(net.why), JSON.stringify(net));
+  }
+
+  // Coil negated (bukan kontak negated) - jalur `neg` di rungToXml() belum
+  // pernah dilewati satu pun tes sebelum ini.
+  {
+    const rung = { comment: '', elements: [
+      { kind: 'Contact', var: 'A', x: 0, y: 0 }, { kind: 'Coil', var: 'B', x: 1, y: 0, neg: true },
+    ], vlinks: [] };
+    const net = rungNet(rung);
+    chk('coil negated: netlist diterima', net.ok, net.why);
+    if (net.ok) {
+      const out = rungToXml(L, 1, rung, net);
+      chk('coil negated: xml ditulis dan membawa negated="true"',
+          !!out.xml && /xsi:type="Coil"[^>]*negated="true"/.test(out.xml), out.xml || out.skip);
+    }
+  }
+
+  // Dua VL BERSARANG independen (bukan pola motion baku) dalam satu rung -
+  // (A OR B) AND (C OR D) -> E. Palang di batas kolom SETELAH tiap pasangan
+  // paralel - X=1 menggabung A/B (batas antara kolom 0 dan 1), X=2 menggabung
+  // C/D (batas antara kolom 1 dan 2, sebelum coil).
+  {
+    const rung = { comment: '', elements: [
+      { kind: 'Contact', var: 'A', x: 0, y: 0 }, { kind: 'Contact', var: 'B', x: 0, y: 1 },
+      { kind: 'Contact', var: 'C', x: 1, y: 0 }, { kind: 'Contact', var: 'D', x: 1, y: 1 },
+      { kind: 'Coil', var: 'E', x: 2, y: 0 },
+    ], vlinks: [{ Ix: 1, X: 1, Y: 0 }, { Ix: 2, X: 2, Y: 0 }] };
+    const net = rungNet(rung);
+    chk('dua VL bersarang independen: netlist diterima', net.ok, net.why);
+    if (net.ok) {
+      // VL pertama menjembatani baris SEBELUM C/D, jadi A dan B dua-duanya
+      // menyetir C dan D secara terpisah (bukan digabung jadi satu kontak "C OR
+      // D"). VL kedua menggabung KELUARAN C dan D di satu titik sebelum coil.
+      // Hasilnya secara ALJABAR sama dengan (A OR B) AND (C OR D), tapi
+      // reader.js membacanya APA ADANYA dari topologi - tidak menyederhanakan -
+      // dan itu yang justru dijaga: dua rangkaian yang secara elektrik sama
+      // tapi tersusun beda harus terbaca beda, bukan dipaksa jadi satu bentuk.
+      const out = rungToXml(L, 1, rung, net);
+      const got = out.xml ? readRung(rungsOf(out.xml)[0]).coils[0].expr : null;
+      chk('dua VL bersarang independen: ekspresi sesuai topologi (tidak disederhanakan)',
+          got === '((A OR B) AND C OR (A OR B) AND D)', got);
+    }
+  }
 
   // ================================================ project sungguhan (opsional)
   const sample = fs.existsSync(path.join(ROOT, 'sample.smc2'))

@@ -48,8 +48,12 @@ function rungNet(rung) {
   const odd = all.find(e => !NET_KINDS[e.kind]);
   if (odd) return { ok: false, why: 'blok fungsi / ST sisipan / jump', what: odd.func || odd.kind };
 
-  // Studio <= 1.56 tidak menyimpan koordinat sama sekali. Tata letaknya tidak bisa
-  // dipulihkan, jadi rangkaiannya juga tidak - kecuali rung sepele satu elemen.
+  // Studio <= 1.56 tidak menyimpan koordinat sama sekali (parseLadderXml tidak
+  // pernah mengisi .x/.y). Studio >= 1.66 (JSON) MENGHILANGKAN X atau Y saat
+  // nilainya nol - itu bukan tanda hilang, itu penghematan; cuma elemen di titik
+  // (0,0) yang kehilangan DUA-DUANYA. Dua elemen yang sama-sama jatuh ke (0,0)
+  // (karena dua-duanya kehilangan x DAN y) tertangkap pengecekan "dua elemen di
+  // sel yang sama" di bawah, karena X(e)/Y(e) dua-duanya default ke 0.
   const hasXY = all.some(e => 'x' in e || 'y' in e);
   if (!hasXY && all.length > 1) return { ok: false, why: 'tanpa koordinat (Studio <= 1.56)' };
 
