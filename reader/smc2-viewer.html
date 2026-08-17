@@ -302,12 +302,14 @@ Rung.prototype.src=function(v){var i=this.n++;this.a.push('<FbdObject xsi:type="
 Rung.prototype.sink=function(v,ref){var i=this.n++;this.a.push('<FbdObject xsi:type="DataSink" identifier="'+esc(String(v))+'"><ConnectionPointIn><Connection refConnectionPointOutId="'+ref+'" /></ConnectionPointIn></FbdObject>');return i;};
 // blk("MOVE", null, [["EN",enId],["In",srcId]], ["ENO","Out"]) -> { ENO:id, Out:id }
 //
-// Nama pin "" (kosong) itu SAH: pembanding dan Get**Clk memang punya pin hasil tanpa nama.
-// Hasilnya diambil dari outIds[""].
+// Nama pin "" (kosong) itu SAH dan memang dipakai: lihat contoh resmi Omron di
+// "Sysmac Studio/Sample/IEC 61131-10 XML/Controller/Sample.xml".
 //
-// inouts (opsional) = [["InOut", refId]] -> <InOutVariables>. BELUM TERBUKTI; dipakai probe
-// saja. Alternatifnya yang juga diuji: pin yang sama ditaruh di ins DAN outs sekaligus,
-// yang itu bentuk yang dipakai model internal Studio.
+// inouts (opsional) = [["InOut", refId]] -> <InOutVariables>, buat Inc/Dec/Clear.
+// URUTAN ELEMENNYA TERIKAT: <InOutVariables> HARUS pertama, baru <InputVariables>,
+// baru <OutputVariables>. Itu xsd:sequence, bukan selera. Menaruhnya terakhir ditolak:
+//   "The element 'FbdObject' ... has invalid child element 'InOutVariables'"
+// Nomor order dihitung MENYELURUH satu blok (EN=1, In=2, InOut=3), bukan per kelompok.
 Rung.prototype.blk=function(typeName,instanceName,ins,outs,inouts){
   var self=this, outIds={};
   var xin=ins.map(function(p,k){
@@ -329,9 +331,9 @@ Rung.prototype.blk=function(typeName,instanceName,ins,outs,inouts){
   }).join('');
   this.a.push('<FbdObject xsi:type="Block" typeName="'+esc(typeName)+'"'
    +(instanceName?' instanceName="'+instanceName+'"':'')+'>'
+   +(xio?'<InOutVariables>'+xio+'</InOutVariables>':'')
    +'<InputVariables>'+xin+'</InputVariables>'
-   +'<OutputVariables>'+xout+'</OutputVariables>'
-   +(xio?'<InOutVariables>'+xio+'</InOutVariables>':'')+'</FbdObject>');
+   +'<OutputVariables>'+xout+'</OutputVariables></FbdObject>');
   return outIds;
 };
 Rung.prototype.rr=function(refs){this.a.push('<LdObject xsi:type="RightPowerRail">'+refs.map(function(x){return '<ConnectionPointIn><Connection refConnectionPointOutId="'+x+'" /></ConnectionPointIn>';}).join('')+'</LdObject>');};

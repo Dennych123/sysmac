@@ -1512,7 +1512,9 @@ function buildProbe(){
         r.cl("PRB_LAMP", b[""]);
         r.rr([b.ENO]);
     });
-    P1("Inc - InOut lewat <InOutVariable>", function(r){
+    // <InOutVariables> - bentuk yang dipakai contoh resmi Omron (Sample.xml). Percobaan
+    // pertama ditolak XSD karena ditaruh di URUTAN TERAKHIR; tempatnya paling depan.
+    P1("Inc - InOut lewat <InOutVariables>", function(r){
         var e=r.ct("PRB_TRIG", r.rail());
         var b=r.blk("Inc",null,[["EN",e]],["ENO"],[["InOut",r.src("PRB_A")]]);
         r.sink("PRB_A", b.InOut);
@@ -1564,8 +1566,9 @@ function buildInitial(){
         G(gd,"BOOL","For machine design, spare "+(d-1));
         S1.push(series(o++,[["GSB001",false]],gd, d===2?"Design spare coils":null));
     }
-    // Clock pulse. Get1sClk() dan kawan-kawan itu instruksi, bukan kontak, jadi butuh bentuk XML
-    // blok fungsi yang belum terbukti - lihat catatan ADV_OK di bawah.
+    // Clock pulse. Get**Clk itu instruksi, bukan kontak. Bentuknya: EN masuk, SATU pin keluar
+    // TANPA NAMA - keluarga ini tidak punya ENO sama sekali (docs/SYSMAC_INSTRUCTIONS.md).
+    // Minta "ENO" di sini persis yang bikin Studio menjawab (DefinitionError)Get1sClk.
     var clocks=[["aP_1s","Get1sClk","1 second clock pulse"],
                 ["aP_0_1s","Get100msClk","0.1 second clock pulse"],
                 ["aP_0_01s","Get10msClk","0.01 second clock pulse"]];
@@ -1574,8 +1577,8 @@ function buildInitial(){
         if(ADV_OK){
             var r=new Rung(o++, i===0?"Clock pulses":null);
             var rail=r.rail();
-            var out=r.blk(c[1],null,[["EN",rail]],["ENO"]);
-            r.rr([r.cl(c[0],out.ENO)]);
+            var out=r.blk(c[1],null,[["EN",rail]],[""]);
+            r.rr([r.cl(c[0],out[""])]);
             S1.push(r.build());
         } else {
             S1.push(series(o++,[["GSB001",false]],c[0],
@@ -1653,10 +1656,11 @@ function buildHmi(){
     S1.push(series(o++,[[condSummary.PL031,false],[condSummary.PL032,false]],"PL_TP_AUTO_COND","Auto start condition established"));
 
     // 2. Counters
-    // Belum digenerate. Pola counter Denso butuh MOVE, pembanding (<, <=, <>) dan Inc(), dan
-    // lib.js baru bisa kontak/coil/TON. Bentuk XML tiga instruksi itu HARUS dibuktikan dulu lewat
-    // import satu rung ke Susmax Studio - XML yang ditebak akan ter-import tanpa keluhan dan salah
-    // waktu jalan, dan itu jenis kesalahan yang baru ketahuan pas mesin bergerak. Lihat TODO.md 5a.
+    // Pola counter Denso butuh pembanding (`<`, `<>`, `>=`) dan Inc() - di luar kontak/coil/TON.
+    // Susunan pin-nya sudah pasti (docs/SYSMAC_INSTRUCTIONS.md + `--probe-fb`), yang belum pasti
+    // cuma cara menulis pin tanpa nama di XML import. Karena itu tetap di balik ADV_OK sampai
+    // _Probe_Instructions.xml ter-import bersih: XML yang ditebak masuk tanpa keluhan lalu salah
+    // waktu jalan, dan itu baru ketahuan pas mesinnya bergerak. Lihat TODO.md 5a.
     var S2=[]; o=1;
     G("GCT","ARRAY[1.."+CNT_N+"] OF BOOL","Counter count trigger");
     G("CNT_ACT","ARRAY[1.."+CNT_N+"] OF UDINT","Counter present value");
@@ -1677,27 +1681,32 @@ function buildHmi(){
             if(!slot){ W("counter_lamp_full","","Counter "+(ci2+1)+" got no lamp slot, skipped."); continue; }
             var n1=ci2+1, act="CNT_ACT["+n1+"]", set="CNT_SET["+n1+"]", wrn="CNT_WARN["+n1+"]";
             var lw=slot.arr+"["+slot.warn+"]", lu=slot.arr+"["+slot.up+"]";
+            // Rantai power-flow murni: kontak -> pembanding -> Inc -> rail. Bentuk pin-nya
+            // BUKAN tebakan, diambil dari project mesin lewat `reader/cli.js --probe-fb`:
+            //   pembanding  EN,In1,In2 -> satu pin TANPA NAMA, TIDAK punya ENO
+            //   Inc         EN,InOut   -> ENO + InOut lagi di sisi keluar
+            // Nama instruksinya pakai simbol (`<`, `<>`, `>=`), sama seperti yang tersimpan di
+            // project nyata; lib.js yang meng-escape `<` jadi &lt; waktu menulis XML.
+            var ZERO="UDINT#0";   // literal bertipe - CNT_ACT itu UDINT, "0" telanjang ambigu
             // 1. hitung naik selama belum sampai target
-            // Rantai power-flow murni: kontak -> pembanding -> Inc -> rail. Tiap blok cuma
-            // mendeklarasi pin yang BENAR-BENAR disambung; pin output nganggur bikin XML-nya
-            // punya titik menggantung dan itu yang paling gampang ditolak waktu import.
             var r1=new Rung(o++, "Counter "+n1+" : count up while below target");
             var g1=r1.ct("GCT["+n1+"]", r1.rail());
-            var lt=r1.blk("LT",null,[["EN",g1],["In1",r1.src(act)],["In2",r1.src(set)]],["ENO"]);
-            var inc=r1.blk("Inc",null,[["EN",lt.ENO],["InOut",r1.src(act)]],["ENO"]);
+            var lt=r1.blk("<",null,[["EN",g1],["In1",r1.src(act)],["In2",r1.src(set)]],[""]);
+            var inc=r1.blk("Inc",null,[["EN",lt[""]],["InOut",r1.src(act)]],["ENO","InOut"]);
+            r1.sink(act, inc.InOut);
             r1.rr([inc.ENO]); S2.push(r1.build());
             // 2. lampu WARNING - padam begitu UP nyala, biar operator gak lihat dua lampu bareng
             var r2=new Rung(o++, "Counter "+n1+" : warning reached");
             var rl2=r2.rail();
-            var ne=r2.blk("NE",null,[["EN",rl2],["In1",r2.src(act)],["In2",r2.src("0")]],["ENO"]);
-            var ge=r2.blk("GE",null,[["EN",ne.ENO],["In1",r2.src(act)],["In2",r2.src(wrn)]],["ENO"]);
-            r2.rr([r2.cl(lw, r2.ct(lu, ge.ENO, true))]); S2.push(r2.build());
+            var ne=r2.blk("<>",null,[["EN",rl2],["In1",r2.src(act)],["In2",r2.src(ZERO)]],[""]);
+            var ge=r2.blk(">=",null,[["EN",ne[""]],["In1",r2.src(act)],["In2",r2.src(wrn)]],[""]);
+            r2.rr([r2.cl(lw, r2.ct(lu, ge[""], true))]); S2.push(r2.build());
             // 3. lampu UP
             var r3=new Rung(o++, "Counter "+n1+" : target reached");
             var rl3=r3.rail();
-            var ne3=r3.blk("NE",null,[["EN",rl3],["In1",r3.src(act)],["In2",r3.src("0")]],["ENO"]);
-            var ge3=r3.blk("GE",null,[["EN",ne3.ENO],["In1",r3.src(act)],["In2",r3.src(set)]],["ENO"]);
-            r3.rr([r3.cl(lu, ge3.ENO)]); S2.push(r3.build());
+            var ne3=r3.blk("<>",null,[["EN",rl3],["In1",r3.src(act)],["In2",r3.src(ZERO)]],[""]);
+            var ge3=r3.blk(">=",null,[["EN",ne3[""]],["In1",r3.src(act)],["In2",r3.src(set)]],[""]);
+            r3.rr([r3.cl(lu, ge3[""])]); S2.push(r3.build());
         }
     }
 

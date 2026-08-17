@@ -11,6 +11,7 @@ Daftar pekerjaan yang belum selesai ada di [TODO.md](TODO.md).
 python scripts/build_html.py           # js/*.js + template  ->  index.html
 node tests/run.js                      # SELURUH suite (pipeline + 6 harness)
 node scripts/core.js project.json out/ # generate dari CLI, tanpa browser
+pwsh scripts/validate_xml.ps1          # outputs/*.xml  ->  XSD resmi Sysmac
 ```
 
 `node tests/run.js` membaca `index.html`, jadi **build dulu baru test** kalau yang
@@ -54,6 +55,39 @@ di panel Confirm Mode.
 blok ke-3 walau ST1/ST2 kosong. Itu yang membuat nomor alarm tidak bergeser saat
 aktuator atau unit ditambah. Ukuran blok harus **seragam**; kalau satu station
 butuh lebih, semuanya dinaikkan.
+
+## XSD resminya ADA di komputer ini — pakai, jangan menebak
+
+Sysmac Studio memasang skema XML import-nya sendiri berikut satu berkas contoh:
+
+```
+C:\Program Files\OMRON\Sysmac Studio\Sample\IEC 61131-10 XML\Controller\
+    IEC61131_10_Ed1_0_Spc1_0.xsd          skema utama
+    IEC61131_10_Ed1_0_SmcExt1_0_Spc1_0.xsd  perluasan Omron (AddData/smcext)
+    Sample.xml                            contoh berisi Function, FB, Timer, R_TRIG
+```
+
+```bash
+pwsh scripts/validate_xml.ps1              # semua outputs/*.xml ke XSD di atas
+```
+
+**Jalankan ini sebelum membawa apa pun ke Studio.** Studio cuma bilang
+"(Import failed)" tanpa nomor baris; validator menyebut elemen dan barisnya. Yang
+XSD TIDAK periksa: nama instruksi yang tidak ada di library tetap lolos di sini
+dan baru ditolak Studio sebagai `(DefinitionError)`. Jadi dua-duanya perlu — XSD
+untuk bentuk, Studio untuk resolusi nama.
+
+`Sample.xml` itu jawaban untuk pertanyaan "bentuk yang benar seperti apa", ditulis
+Omron sendiri. Sudah terbukti berguna: dari situ ketahuan pin tanpa nama memang
+ditulis `parameterName=""`, dan `<InOutVariables>` itu sah asal urutannya benar.
+
+Yang sudah dibaca dari XSD dan belum tentu kepikiran dari kode:
+
+| | |
+|---|---|
+| urutan anak `FbdObject` | `InOutVariables` → `InputVariables` → `OutputVariables`, terikat `xsd:sequence` |
+| coil Set/Reset | atribut `latch="set"` / `latch="reset"` (default `none`) |
+| kontak/coil edge | atribut `edge`, default `none` |
 
 ## Instruksi di luar kontak/coil — FUN vs FB
 

@@ -112,9 +112,10 @@ lihat apakah bentuknya sama -> baru digeneralkan. Jangan dibalik. Instruksi yang
 bentuk XML-nya ditebak akan ter-import tanpa keluhan dan salah waktu jalan, dan
 itu jenis kesalahan yang tidak kelihatan sampai mesinnya bergerak.
 
-Yang juga masih ditolak dan butuh bukti yang sama: **coil Set/Reset** (atribut
-XML-nya belum diverifikasi) dan **kontak edge di titik gabungan** (`Rung.ct()`
-cuma menerima satu sambungan masuk).
+Yang juga masih ditolak: **coil Set/Reset** dan **kontak edge di titik gabungan**
+(`Rung.ct()` cuma menerima satu sambungan masuk). Atribut Set/Reset sekarang sudah
+diketahui dari XSD-nya — `latch="set"` / `latch="reset"` pada `<Coil>` — tinggal
+dipasang di `lib.js` dan divalidasi lewat `scripts/validate_xml.ps1`.
 
 ## 6. Panel warning bisa diklik
 

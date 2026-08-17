@@ -57,7 +57,7 @@ chk('Counters masih penanda',
     /COUNTER_NOP/.test(file(p, 'Prg003_HMI.xml').xml)
     && p.warnList.some(w => w.code === 'counters_not_generated'));
 chk('default: nol blok fungsi selain TON di program mesin',
-    !/typeName="(MOVE|LT|GE|NE|Inc|Get1sClk)"/.test(file(p, 'AllPrograms.xml').xml));
+    !/typeName="(MOVE|Inc|Get\w*Clk|&lt;|&gt;=|&lt;&gt;)"/.test(file(p, 'AllPrograms.xml').xml));
 
 // ---------------------------------------------------------------- instruksi lanjutan menyala
 let a = gen({ advancedInstructions: true });
@@ -65,8 +65,18 @@ const hx = file(a, 'Prg003_HMI.xml').xml;
 const cnt = hx.slice(hx.indexOf('name="Counters"'), hx.indexOf('name="Setup"'));
 chk('counter digenerate: 10 counter x 3 rung',
     (cnt.match(/<Rung /g) || []).length === 30, (cnt.match(/<Rung /g) || []).length + ' rung');
-chk('blok yang dipakai LT / Inc / NE / GE',
-    ['LT', 'Inc', 'NE', 'GE'].every(b => cnt.indexOf('typeName="' + b + '"') >= 0));
+// Pembandingnya pakai nama SIMBOL, bukan LT/NE/GE - itu yang tersimpan di project mesin
+// dan `<` `>` di atribut XML ditulis sebagai entitas. Kalau ini balik jadi nama kata,
+// Studio menjawab (DefinitionError) dan rung-nya hilang tanpa penjelasan.
+chk('pembanding pakai nama simbol + Inc',
+    ['&lt;', 'Inc', '&lt;&gt;', '&gt;='].every(b => cnt.indexOf('typeName="' + b + '"') >= 0));
+// Pembanding TIDAK punya ENO; pin hasilnya tanpa nama. Meminta ENO di sini adalah bug
+// yang pernah terjadi dan bentuk gagalnya tidak kelihatan dari jumlah rung.
+chk('pembanding tidak minta pin ENO',
+    !/typeName="&lt;[^"]*"><InputVariables>[\s\S]{0,600}?parameterName="ENO"/.test(cnt));
+chk('Inc bawa InOut di sisi masuk dan keluar',
+    (cnt.match(/<InputVariable parameterName="InOut"/g) || []).length === 10
+    && (cnt.match(/<OutputVariable parameterName="InOut"/g) || []).length === 10);
 chk('probe gak ikut keluar lagi', !file(a, '_Probe_Instructions.xml'));
 chk('clock pulse digenerate', /typeName="Get1sClk"/.test(file(a, 'P000_Initial.xml').xml));
 
