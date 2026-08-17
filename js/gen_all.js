@@ -768,6 +768,59 @@ function buildUnit(stKey, devs){
         S9.push(series(o++,[[pb,false],[il,false],["LB319",false]],oS,null));
     });
 
+    // Slot cadangan. Bit alamatnya sudah disisakan waktu jatah word dihitung, tapi jatah yang
+    // tidak diisi apa-apa itu cadangan tanpa wujud: tabel Global Variable berhenti di aktuator
+    // terakhir, dan yang menggambar screen NB tidak punya apa pun untuk ditempel di slot kosong.
+    // Jadi slotnya dibuat UTUH sekarang - tombol, lampu, interlock, bit command, berikut
+    // rung-nya - persis seperti slot terpakai, cuma belum ada solenoidnya. Menambah aktuator
+    // nanti tinggal menyambungkan output; alamatnya tidak bergeser sedikit pun.
+    var spareList=[];
+    (function planSpares(){
+        var used = actus.length + srvActus.length;
+        var want = hmiSlotsNeeded(used);
+        // Nomor LB LANJUT dari yang dipakai aktuator dan servo, jadi tidak ada yang bertabrakan.
+        var lbBase = actus.length*2 + srvActus.length;
+        for(var k=used; k<want; k++){
+            var slot=hmiSlot(SN,k);
+            if(slot.over){
+                W("hmi_spare_overflow",stKey,stKey+": spare slot "+(k-used+1)+" does not fit this station's HMI word budget.");
+                break;
+            }
+            var j=k-used, nm="4"+SN+slot.pg+"_"+slot.nn, tag=stLabel+" spare "+(j+1);
+            var s={ nm:nm, tag:tag, slot:slot, pg:slot.pg, nn:slot.nn,
+                    pbM:"PB"+nm+"M", pbR:"PB"+nm+"R", plM:"PL"+nm+"M", plR:"PL"+nm+"R",
+                    ilM:"LB"+pad(232+lbBase+j*2,3), ilR:"LB"+pad(233+lbBase+j*2,3),
+                    oM :"LB"+pad(340+lbBase+j*2,3), oR :"LB"+pad(341+lbBase+j*2,3) };
+            spareList.push(s);
+            G(s.pbM,"BOOL","Spare individual button, "+tag);
+            G(s.pbR,"BOOL","Spare individual button, "+tag);
+            G(s.plM,"BOOL","Spare lamp, "+tag);
+            G(s.plR,"BOOL","Spare lamp, "+tag);
+            P(s.ilM,"BOOL","Spare motion interlock, "+tag);
+            P(s.ilR,"BOOL","Spare return interlock, "+tag);
+            P(s.oM,"BOOL","Spare individual command, "+tag);
+            P(s.oR,"BOOL","Spare individual command, "+tag);
+            hmiClaim(s.pbM, atBit(HMI_CFG.btnArea,slot.word,slot.bit),   "HMI->PLC","04"+SN+slot.pg, tag);
+            hmiClaim(s.pbR, atBit(HMI_CFG.btnArea,slot.word,slot.bit+1), "HMI->PLC","04"+SN+slot.pg, tag);
+            var rw=slot.word+HMI_CFG.rdOfs;
+            hmiClaim(s.plM, atBit(HMI_CFG.btnArea,rw,slot.bit),   "PLC->HMI","04"+SN+slot.pg, tag);
+            hmiClaim(s.plR, atBit(HMI_CFG.btnArea,rw,slot.bit+1), "PLC->HMI","04"+SN+slot.pg, tag);
+        }
+    })();
+    spareList.forEach(function(s,j){
+        // Bentuk rungnya SAMA persis dengan slot terpakai - termasuk saling-kunci M/R dan
+        // LB339 (return all). Kalau bentuknya dibedakan, slot cadangan yang nanti dipakai harus
+        // ditulis ulang dari nol, dan itu justru yang mau dihindari.
+        S9.push(series(o++,[["GSB000",false]],s.ilM,
+            "Screen "+SN+s.pg+" actuator "+s.nn+" : "+s.tag+" / no actuator yet, interlock to be defined"));
+        S9.push(series(o++,[[s.pbM,false],[s.pbR,true],[s.ilM,false],["LB319",false]],s.oM,null));
+        S9.push(series(o++,[["GSB000",false]],s.ilR,null));
+        var sr=new Rung(o++,null); var srl=sr.rail();
+        var scur=sr.ctm(s.pbM,[sr.ct(s.pbR,srl),sr.ct("LB339",srl)],true);
+        scur=sr.ct(s.ilR,scur); scur=sr.ct("LB319",scur);
+        sr.rr([sr.cl(s.oR,scur)]); S9.push(sr.build());
+    });
+
     // 10. AutoRunning : unit menerima AUTO_RUN dari main lalu mengurut sendiri
     // Urutan gerak diambil dari flow.get("motionSequences")[stKey] (diisi di web UI index.html
     // sebelum generate ulang). Station yang belum dikonfigurasi tetap pakai placeholder lama.
@@ -1191,6 +1244,13 @@ function buildUnit(stKey, devs){
         var src=srvLscOf[sa.cmd.name]||sa.cmd.name;
         if(!slot.over) hmiClaim(pS, atBit(HMI_CFG.btnArea,slot.word+HMI_CFG.rdOfs,slot.bit), "PLC->HMI", "04"+SN+slot.pg, sa.cmd.komen);
         S12.push(series(o++,[[src,false]],pS,null));
+    });
+
+    // Lampu slot cadangan: sumbernya bit COMMAND, bukan sensor - belum ada sensornya. Sama
+    // seperti aktuator openloop, dan lebih baik daripada slot yang gelap di layar.
+    spareList.forEach(function(s,j){
+        S12.push(series(o++,[[s.oM,false]],s.plM, j===0?"Spare slot indication, follows the command until a sensor exists":null));
+        S12.push(series(o++,[[s.oR,false]],s.plR,null));
     });
 
     // 13. Device_Output

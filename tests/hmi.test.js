@@ -258,6 +258,55 @@ function stationWords(pp){
   });
   return w;
 }
+// Jatah yang dilebarkan tapi tidak diisi simbol = cadangan tanpa wujud: tabel Global Variable
+// berhenti di aktuator terakhir dan yang menggambar screen NB tidak punya apa pun untuk
+// ditempel di slot kosong. Jadi tombol DAN lampu cadangannya harus benar-benar ada, beralamat.
+function spares(pp,pre){
+  return (pp.files.find(f=>f.name==='GlobalVariables.tsv').xml.split('\n'))
+    .filter(l=>l.startsWith(pre) && /Spare/.test(l))
+    .map(l=>({ n:l.split('\t')[0], at:l.split('\t')[3] }));
+}
+const spBtn=spares(sp100,'PB4'), spLamp=spares(sp100,'PL4');
+chk('slot cadangan punya tombol PB4xx sungguhan', spBtn.length>0, spBtn.map(x=>x.n).join(' '));
+chk('tiap tombol cadangan beralamat', spBtn.every(x=>/^%W\d+\.\d\d$/.test(x.at)),
+    spBtn.map(x=>x.n+'='+(x.at||'kosong')).join(' '));
+chk('tiap tombol cadangan punya lampu cadangan', spLamp.length===spBtn.length,
+    spBtn.length+' tombol vs '+spLamp.length+' lampu');
+// Lampu cadangan harus di BIT yang sama dengan tombolnya, cuma beda word - aturan yang sama
+// dengan slot terpakai, kalau tidak switch NB di slot itu baca dan tulis device yang beda.
+const bitOf=s=>s.slice(s.indexOf('.'));
+chk('lampu cadangan sejajar bit dengan tombolnya',
+    spBtn.every((b,i)=>bitOf(b.at)===bitOf(spLamp[i].at)),
+    spBtn.map((b,i)=>b.at+'/'+spLamp[i].at).join(' '));
+chk('spare 0% tidak menyisakan slot sama sekali', spares(sp0,'PB4').length===0,
+    spares(sp0,'PB4').map(x=>x.n).join(' '));
+
+// Simbol saja belum cukup - slot cadangan harus punya RUNG-nya juga di Individual dan
+// HMI_Output. Tanpa itu tombolnya ada di tabel tapi tidak menggerakkan apa pun dan lampunya
+// tidak pernah menyala, jadi yang menambah aktuator nanti tetap harus menulis slot dari nol.
+const stXml=sp100.files.filter(f=>/^Prg0\d\d_ST/.test(f.name)).map(f=>f.xml).join('');
+function sectionOf(xml,name){
+  const i=xml.indexOf('name="'+name+'"'); if(i<0) return '';
+  const j=xml.indexOf('<BodyContent', i+10);
+  return xml.slice(i, j<0?xml.length:j);
+}
+const indAll=sp100.files.filter(f=>/^Prg0\d\d_ST/.test(f.name)).map(f=>sectionOf(f.xml,'Individual')).join('');
+const outAll=sp100.files.filter(f=>/^Prg0\d\d_ST/.test(f.name)).map(f=>sectionOf(f.xml,'HMI_Output')).join('');
+chk('tiap tombol cadangan dipakai di rung Individual',
+    spBtn.every(b=>indAll.indexOf('operand="'+b.n+'"')>=0),
+    spBtn.filter(b=>indAll.indexOf('operand="'+b.n+'"')<0).map(b=>b.n).join(' ') || 'semua ada');
+chk('tiap lampu cadangan punya coil di HMI_Output',
+    spLamp.every(l=>outAll.indexOf('xsi:type="Coil" operand="'+l.n+'"')>=0),
+    spLamp.filter(l=>outAll.indexOf('xsi:type="Coil" operand="'+l.n+'"')<0).map(l=>l.n).join(' ') || 'semua ada');
+// Bentuk rungnya harus SAMA dengan slot terpakai - termasuk saling-kunci M/R dan LB339.
+// Kalau dibedakan, slot cadangan yang nanti dipakai harus ditulis ulang dari nol.
+chk('rung cadangan pakai saling-kunci dan LB339 seperti slot terpakai',
+    spBtn.filter(b=>/R$/.test(b.n)).every(b=>
+      new RegExp('operand="'+b.n+'"[\\s\\S]{0,400}?operand="LB339"').test(indAll)),
+    'saling-kunci M/R + return-all');
+chk('lampu cadangan mengikuti bit command, bukan sensor',
+    /Spare slot indication/.test(outAll));
+
 const g0=stationWords(sp0), g100=stationWords(sp100);
 chk('jarak antar station = jatah word per station',
     (g0.ST2-g0.ST1)===sp0.hmiMap.cfg.stride && (g100.ST2-g100.ST1)===sp100.hmiMap.cfg.stride,

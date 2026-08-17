@@ -233,10 +233,14 @@ PB413_1M	BOOL			False	False	Do not publish	Individual button, ST1 PART FEEDER-1 
 PB413_1R	BOOL			False	False	Do not publish	Individual button, ST1 PART FEEDER-2 START
 PB421_1M	BOOL		%W462.00	False	False	Do not publish	Individual button, ST2  STOPPER-1 UP
 PB421_1R	BOOL		%W462.01	False	False	Do not publish	Individual button, ST2  STOPPER-1 DOWN
+PB421_2M	BOOL		%W462.02	False	False	Do not publish	Spare individual button, ST2 spare 1
+PB421_2R	BOOL		%W462.03	False	False	Do not publish	Spare individual button, ST2 spare 1
 PB431_1M	BOOL		%W463.00	False	False	Do not publish	Individual button, ST3  EJECTOR FORWARD
 PB431_1R	BOOL		%W463.01	False	False	Do not publish	Individual button, ST3  EJECTOR BACKWARD
 PB431_2M	BOOL		%W463.02	False	False	Do not publish	Individual button, ST3  PUSHER FORWARD
 PB431_2R	BOOL		%W463.03	False	False	Do not publish	Individual button, ST3  PUSHER BACKWARD
+PB431_3M	BOOL		%W463.04	False	False	Do not publish	Spare individual button, ST3 spare 1
+PB431_3R	BOOL		%W463.05	False	False	Do not publish	Spare individual button, ST3 spare 1
 PB_AUTO_RUN	BOOL			False	False	Do not publish	AUTO RUNNING
 PB_CYCL_STOP	BOOL			False	False	Do not publish	CYCLE STOP
 PB_DDR_LCKN	BOOL			False	False	Do not publish	DANDORI LOCK-UNLOCK
@@ -318,10 +322,14 @@ PL413_1M	BOOL			False	False	Do not publish	Lamp, ST1 PART FEEDER-1 START
 PL413_1R	BOOL			False	False	Do not publish	Lamp, ST1 PART FEEDER-2 START
 PL421_1M	BOOL		%W485.00	False	False	Do not publish	Lamp, ST2  STOPPER-1 UP
 PL421_1R	BOOL		%W485.01	False	False	Do not publish	Lamp, ST2  STOPPER-1 DOWN
+PL421_2M	BOOL		%W485.02	False	False	Do not publish	Spare lamp, ST2 spare 1
+PL421_2R	BOOL		%W485.03	False	False	Do not publish	Spare lamp, ST2 spare 1
 PL431_1M	BOOL		%W486.00	False	False	Do not publish	Lamp, ST3  EJECTOR FORWARD
 PL431_1R	BOOL		%W486.01	False	False	Do not publish	Lamp, ST3  EJECTOR BACKWARD
 PL431_2M	BOOL		%W486.02	False	False	Do not publish	Lamp, ST3  PUSHER FORWARD
 PL431_2R	BOOL		%W486.03	False	False	Do not publish	Lamp, ST3  PUSHER BACKWARD
+PL431_3M	BOOL		%W486.04	False	False	Do not publish	Spare lamp, ST3 spare 1
+PL431_3R	BOOL		%W486.05	False	False	Do not publish	Spare lamp, ST3 spare 1
 PL71	ARRAY[0..15] OF BOOL		%W494.00	False	False	Do not publish	Counter indication, screen 0071
 PL72	ARRAY[0..3] OF BOOL		%W495.00	False	False	Do not publish	Counter indication, screen 0072
 PLC_GOOD	BOOL			False	False	Do not publish	Machine status from main program
