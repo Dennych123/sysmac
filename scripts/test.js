@@ -96,8 +96,10 @@ CH6_08\tCR\tOUT\tST1 PART FEEDER-2 START`;
 // ---- cek silang + dangling-contact, dipakai buat kedua skenario (stub dan motion-sequence) ----
 function validate(label, files) {
     const xmlFiles = files.filter(f=>f.name.endsWith('.xml'));
+    // GlobalVariables.tsv TIDAK punya baris judul - Sysmac menempelkannya sebagai variabel.
+    // Jadi baris pertama itu data, bukan header; membuangnya bikin satu simbol hilang diam-diam.
     const glob = new Set(files.find(f=>f.name==='GlobalVariables.tsv').xml
-        .split('\n').slice(1).map(l=>l.split('\t')[0]).filter(Boolean));
+        .split('\n').map(l=>l.split('\t')[0]).filter(Boolean));
     let bad = 0;
     xmlFiles.forEach(f=>{
         const decl = new Set([...f.xml.matchAll(/<Variable name="([^"]+)"/g)].map(m=>m[1]));

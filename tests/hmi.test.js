@@ -54,7 +54,7 @@ chk('tombol dan lampu sejajar: bit sama, word +offset', slotOk && paired>0, slot
 // Satu bit satu pemilik. Ini persis cacat yang ada di project HMI produksi (tiga screen nulis
 // W465 yang sama), jadi wajib ada tes yang jaga generator gak mengulanginya.
 const own={}; let dup='';
-tsv.split('\n').slice(1).forEach(l=>{
+tsv.split('\n').forEach(l=>{
   const c=l.split('\t'); if(!c[3]||/\.\./.test(c[3])) return;
   if(own[c[3]] && !dup) dup=c[3]+' dipakai '+own[c[3]]+' dan '+c[0];
   own[c[3]]=c[0];
@@ -127,7 +127,7 @@ chk('peta bisa dimatikan', atOf(tsv4,'PB004_01M')==='' && p4.hmiMap.rows.length=
 
 // Tanda "%" itu yang membedakan AT diterima Sysmac atau baris jadi merah. Dibuktikan di Sysmac
 // Studio: "W485.01" ditolak, "%W485.01" diterima. Tes ini yang jaga tanda itu gak hilang lagi.
-const atCells=tsv.split('\n').slice(1).map(l=>l.split('\t')[3]).filter(Boolean);
+const atCells=tsv.split('\n').map(l=>l.split('\t')[3]).filter(Boolean);
 chk('semua AT diawali %', atCells.length>0 && atCells.every(v=>v.charAt(0)==='%'),
     atCells.length+' AT, contoh '+atCells.slice(0,2).join(' '));
 
@@ -137,6 +137,21 @@ const cmtOf=(t,n)=>((t.split('\n').find(l=>l.startsWith(n+'\t'))||'').split('\t'
 chk('AL/MF array-level tanpa komen', cmtOf(tsv,'AL')==='' && cmtOf(tsv,'MF')==='',
     '['+cmtOf(tsv,'AL')+'] ['+cmtOf(tsv,'MF')+']');
 chk('AL/MF array-level tetap dapat AT', atOf(tsv,'AL')==='%H300.00', atOf(tsv,'AL'));
+
+// GlobalVariables.tsv itu berkas TEMPEL. Baris judul mendarat sebagai variabel bernama "Name"
+// bertipe "Data type", dan baris elemen array (AL[61]) tidak bisa ditempel sebelum arraynya
+// di-expand - keduanya bikin blok yang ditempel tidak lagi sejajar dengan yang kebuka di layar.
+const gLines=tsv.split('\n');
+chk('GlobalVariables.tsv tanpa baris judul', !/^Name\tData type/.test(tsv), gLines[0].split('\t')[0]);
+chk('GlobalVariables.tsv tanpa elemen array',
+    !gLines.some(l=>/^(AL|MF)\[\d+\]\t/.test(l)),
+    (gLines.filter(l=>/^(AL|MF)\[\d+\]\t/.test(l))[0]||'').split('\t')[0]);
+chk('baris array-level AL dan MF tetap ada', gLines.some(l=>/^AL\t/.test(l)) && gLines.some(l=>/^MF\t/.test(l)));
+chk('tiap baris punya 8 kolom', gLines.every(l=>l.split('\t').length===8),
+    (gLines.find(l=>l.split('\t').length!==8)||'').slice(0,40));
+chk('globalRows ikut di payload buat panel UI',
+    Array.isArray(p.globalRows) && p.globalRows.length===gLines.length,
+    p.globalRows?p.globalRows.length+' baris vs '+gLines.length+' baris TSV':'kosong');
 
 // File terpisah buat paste ke tabel yang arraynya sudah di-expand
 const ac=p.files.find(f=>f.name==='ArrayComments.tsv');
@@ -306,6 +321,64 @@ chk('rung cadangan pakai saling-kunci dan LB339 seperti slot terpakai',
     'saling-kunci M/R + return-all');
 chk('lampu cadangan mengikuti bit command, bukan sensor',
     /Spare slot indication/.test(outAll));
+
+// ---- mode cadangan: jumlah tetap per station, bukan persen -------------------------------
+// Persen menskalakan diri ke ukuran station, dan itu justru salah arah buat station kecil:
+// 30% dari 1 aktuator cuma 1 slot, padahal station kecil yang paling sering ditambahi.
+const spN=gen({hmiMap:{mode:'generate',spareMode:'count',spareCount:3}});
+chk('mode count terbaca', spN.hmiMap.cfg.spareMode==='count' && spN.hmiMap.cfg.spareCount===3,
+    spN.hmiMap.cfg.spareMode+' '+spN.hmiMap.cfg.spareCount);
+function spareCountPerStation(pp){
+  const c={};
+  // PB4<station><page>_<slot><M|R> - digit station ada di posisi ke-4, bukan ke-3 ('4' itu
+  // awalan tetap buat blok tombol individual.
+  spares(pp,'PB4').forEach(x=>{ const st=x.n.slice(3,4); c[st]=(c[st]||0)+1; });
+  return c;   // 2 simbol (M dan R) per slot
+}
+const cnt=spareCountPerStation(spN);
+chk('tiap station dapat 3 slot cadangan, tidak peduli besarnya',
+    Object.keys(cnt).length>1 && Object.keys(cnt).every(k=>cnt[k]===6),
+    JSON.stringify(cnt));
+// Yang membedakan mode ini dari persen: station kecil ikut kebagian. Dengan persen, station
+// yang aktuatornya sedikit dapat cadangan sedikit pula - dan itu yang mau dihindari.
+const cntPct=spareCountPerStation(gen({hmiMap:{mode:'generate',spare:30}}));
+chk('mode persen memang tidak seragam (jadi mode count ada gunanya)',
+    Object.keys(cntPct).some(k=>cntPct[k]!==cntPct[Object.keys(cntPct)[0]]),
+    JSON.stringify(cntPct));
+chk('spareCount 0 tidak menyisakan slot',
+    spares(gen({hmiMap:{mode:'generate',spareMode:'count',spareCount:0}}),'PB4').length===0);
+
+// ---- slot cadangan itu slot UTUH, bukan cuma tombol -------------------------------------
+// Reed switch, kombinasi LS, alarm dual sensor, sampai baris output. Menambah aktuator nanti
+// berarti mengganti sumber sinyalnya, bukan menulis slotnya dari nol.
+const stN=spN.files.filter(f=>/^Prg0\d\d_ST/.test(f.name));
+const devIn=stN.map(f=>sectionOf(f.xml,'Device_Input')).join('');
+const lsAll=stN.map(f=>sectionOf(f.xml,'LS_Combination')).join('');
+const fltAll=stN.map(f=>sectionOf(f.xml,'Fault')).join('');
+const autoOut=stN.map(f=>sectionOf(f.xml,'Auto_Output')).join('');
+const spTsv=spN.files.find(f=>f.name==='GlobalVariables.tsv').xml.split('\n');
+const spAs=spTsv.filter(l=>/^AS4\d/.test(l)).map(l=>l.split('\t')[0]);
+const spSol=spTsv.filter(l=>/^SOL4\d/.test(l)).map(l=>l.split('\t')[0]);
+chk('slot cadangan punya reed switch sendiri', spAs.length===6*stN.length, spAs.length+' simbol AS');
+chk('reed switch cadangan disetir GSB001, bukan port',
+    spAs.every(n=>new RegExp('operand="GSB001"[\\s\\S]{0,300}?xsi:type="Coil" operand="'+n+'"').test(devIn)),
+    spAs.filter(n=>devIn.indexOf('operand="'+n+'"')<0).join(' ')||'semua ada');
+chk('slot cadangan punya kombinasi LS',
+    spAs.every(n=>lsAll.indexOf('operand="'+n+'"')>=0)
+    && /LSC4\d+_\dM/.test(lsAll) && /LSC4\d+_\dR/.test(lsAll));
+// LSC cadangan TIDAK boleh masuk syarat home position: sumbernya GSB001, jadi selamanya OFF -
+// station itu tidak akan pernah dinyatakan di home dan mesin tidak pernah bisa start.
+const prep=stN.map(f=>sectionOf(f.xml,'Preparation')).join('')
+          + stN.map(f=>sectionOf(f.xml,'Condition')).join('');
+chk('LSC cadangan TIDAK ikut syarat home position', !/LSC4\d+_\d[MR]/.test(prep),
+    (prep.match(/LSC4\d+_\d[MR]/g)||[]).slice(0,3).join(' '));
+chk('slot cadangan punya alarm ALL REED SWITCH ON',
+    /SPARE \d+ ALL REED SWITCH ON/i.test(fltAll),
+    (fltAll.match(/[A-Z0-9 _]+ALL REED SWITCH ON/g)||[]).slice(-2).join(' | '));
+chk('slot cadangan punya baris output ke coil placeholder',
+    spSol.length===6*stN.length
+    && spSol.every(n=>autoOut.indexOf('xsi:type="Coil" operand="'+n+'"')>=0),
+    spSol.length+' simbol SOL');
 
 const g0=stationWords(sp0), g100=stationWords(sp100);
 chk('jarak antar station = jatah word per station',

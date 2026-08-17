@@ -280,11 +280,21 @@ var HMI_CFG = (function(){
         // pernah bertabrakan dengan blok angka.
         numArea : area(c.numArea, "D", "data angka"),
         numBase : num(c.numBase,  100, "base word data angka", 0, 4095),
-        // Jatah cadangan per station, dalam persen dari jumlah aktuator yang ADA sekarang.
-        // Tanpa ini alamat dipaskan ke IO list hari ini, dan aktuator yang ditambah setelah
-        // mesin jalan menggeser alamat semua yang di belakangnya - tiap screen NB yang sudah
-        // jadi ikut salah tunjuk. Lebih murah menyisakan lubang sejak awal.
-        spare   : num(c.spare,     30, "spare aktuator (%)",   0, 300)
+        // Jatah cadangan per station. Tanpa ini alamat dipaskan ke IO list hari ini, dan aktuator
+        // yang ditambah setelah mesin jalan menggeser alamat semua yang di belakangnya - tiap
+        // screen NB yang sudah jadi ikut salah tunjuk. Lebih murah menyisakan lubang sejak awal.
+        //
+        // Dua cara menghitungnya, dan bedanya nyata:
+        //   percent - persen dari jumlah aktuator station itu. Station besar dapat cadangan
+        //             besar, station kecil sedikit. Cocok kalau penambahan diperkirakan
+        //             sebanding dengan ukuran station.
+        //   count   - jumlah TETAP per station, berapa aktuator yang mau ditambahkan. Station
+        //             satu aktuator tetap dapat jatah yang sama dengan station sepuluh - dan
+        //             station kecil justru yang paling sering ditambahi. 30% dari 1 aktuator
+        //             cuma 1 slot; "tambah 2" memang 2.
+        spareMode : (String(c.spareMode||"percent").toLowerCase()==="count" ? "count" : "percent"),
+        spare     : num(c.spare,      30, "spare aktuator (%)",        0, 300),
+        spareCount: num(c.spareCount,  2, "spare aktuator (per station)", 0, 32)
     };
 })();
 PER_PAGE = HMI_CFG.perPage;
@@ -300,7 +310,16 @@ PER_PAGE = HMI_CFG.perPage;
 //              Jadi jatah DIPERTAHANKAN, dan aktuator yang gak kebagian slot dilaporin satu-satu
 //              lewat hmi_slot_overflow - kurang tombol itu keliatan, salah alamat enggak.
 // Jatah dihitung dari jumlah aktuator PLUS spare, bukan dari yang ada sekarang saja.
-function hmiSlotsNeeded(n){ return n + Math.ceil(n*HMI_CFG.spare/100); }
+// Mode count berlaku juga buat station yang aktuatornya NOL - station yang belum diisi IO
+// tetap dapat slotnya, dan itu memang gunanya. Mode percent tidak bisa: 30% dari nol tetap nol.
+function hmiSlotsNeeded(n){
+    return HMI_CFG.spareMode==="count" ? n + HMI_CFG.spareCount
+                                       : n + Math.ceil(n*HMI_CFG.spare/100);
+}
+function spareLabel(){
+    return HMI_CFG.spareMode==="count" ? HMI_CFG.spareCount+" slot per station"
+                                       : HMI_CFG.spare+"%";
+}
 (function fitHmiStride(){
     if(!HMI_CFG.on) return;
     var maxWords = 0, worst = "";
@@ -319,7 +338,7 @@ function hmiSlotsNeeded(n){ return n + Math.ceil(n*HMI_CFG.spare/100); }
         HMI_CFG.stride = maxWords;
     } else {
         W("hmi_stride_fixed","","HMI map (manual mode): "+worst+" needs "+maxWords+" button words but only "+HMI_CFG.stride+" is allowed. "+
-          "Lower the spare percentage if you would rather keep one word per station. "+
+          "Lower the spare allowance ("+spareLabel()+") if you would rather keep one word per station. "+
           "The budget is NOT raised, so the existing NB screens keep pointing at the right bits - the actuators "+
           "that miss out are listed below. Raise 'Words per station' yourself if the screens are going to be "+
           "re-addressed, or switch to Generate mode.");
@@ -503,6 +522,61 @@ function buildUnit(stKey, devs){
     var allDevs=[]; Object.keys(groups).forEach(function(k){ allDevs=allDevs.concat(groups[k]); });
     allDevs.forEach(function(d){ G(portName(d.address),"BOOL",d.komen); G(d.name,"BOOL",d.komen); });
 
+    // Slot cadangan. Bit alamatnya sudah disisakan waktu jatah word dihitung, tapi jatah yang
+    // tidak diisi apa-apa itu cadangan tanpa wujud: tabel Global Variable berhenti di aktuator
+    // terakhir, dan yang menggambar screen NB tidak punya apa pun untuk ditempel di slot kosong.
+    // Jadi slotnya dibuat UTUH - tombol, lampu, interlock, reed switch, kombinasi LS, alarm dual
+    // sensor, sampai baris output - persis seperti slot terpakai, cuma belum ada barangnya.
+    // Menambah aktuator nanti tinggal mengganti sumber sinyalnya; alamatnya tidak bergeser.
+    //
+    // Direncanakan DI SINI, sebelum section mana pun ditulis, karena wujudnya nyebar: reed switch
+    // masuk Device_Input, LSC ke LS_Combination, alarmnya ke Fault, output ke Auto_Output. Dulu
+    // ini duduk di tengah section Individual dan cuma bisa menyentuh section itu.
+    var spareList=[];
+    (function planSpares(){
+        var used = actus.length + srvActus.length;
+        var want = hmiSlotsNeeded(used);
+        // Nomor LB LANJUT dari yang dipakai aktuator dan servo, jadi tidak ada yang bertabrakan.
+        var lbBase = actus.length*2 + srvActus.length;
+        for(var k=used; k<want; k++){
+            var slot=hmiSlot(SN,k);
+            if(slot.over){
+                W("hmi_spare_overflow",stKey,stKey+": spare slot "+(k-used+1)+" does not fit this station's HMI word budget.");
+                break;
+            }
+            var j=k-used, nm="4"+SN+slot.pg+"_"+slot.nn, tag=stLabel+" spare "+(j+1);
+            var s={ nm:nm, tag:tag, slot:slot, pg:slot.pg, nn:slot.nn,
+                    pbM:"PB"+nm+"M", pbR:"PB"+nm+"R", plM:"PL"+nm+"M", plR:"PL"+nm+"R",
+                    asM:"AS"+nm+"M", asR:"AS"+nm+"R", lscM:"LSC"+nm+"M", lscR:"LSC"+nm+"R",
+                    solM:"SOL"+nm+"M", solR:"SOL"+nm+"R",
+                    ilM:"LB"+pad(232+lbBase+j*2,3), ilR:"LB"+pad(233+lbBase+j*2,3),
+                    oM :"LB"+pad(340+lbBase+j*2,3), oR :"LB"+pad(341+lbBase+j*2,3) };
+            spareList.push(s);
+            // Sumber reed switch cadangan. Dideklarasi di sini, di tempat pemakaian - ExternalVars
+            // itu per-program, dan yang sudah ada di P000_Initial tetap tidak dikenal di sini.
+            G("GSB001","BOOL","Equipment design coil, constant OFF");
+            G(s.pbM,"BOOL","Spare individual button, "+tag);
+            G(s.pbR,"BOOL","Spare individual button, "+tag);
+            G(s.plM,"BOOL","Spare lamp, "+tag);
+            G(s.plR,"BOOL","Spare lamp, "+tag);
+            G(s.asM,"BOOL","Spare reed switch, "+tag+", motion side");
+            G(s.asR,"BOOL","Spare reed switch, "+tag+", return side");
+            G(s.lscM,"BOOL",tag+" motion position confirmed");
+            G(s.lscR,"BOOL",tag+" return position confirmed");
+            G(s.solM,"BOOL","Spare output, "+tag+", motion side");
+            G(s.solR,"BOOL","Spare output, "+tag+", return side");
+            P(s.ilM,"BOOL","Spare motion interlock, "+tag);
+            P(s.ilR,"BOOL","Spare return interlock, "+tag);
+            P(s.oM,"BOOL","Spare individual command, "+tag);
+            P(s.oR,"BOOL","Spare individual command, "+tag);
+            hmiClaim(s.pbM, atBit(HMI_CFG.btnArea,slot.word,slot.bit),   "HMI->PLC","04"+SN+slot.pg, tag);
+            hmiClaim(s.pbR, atBit(HMI_CFG.btnArea,slot.word,slot.bit+1), "HMI->PLC","04"+SN+slot.pg, tag);
+            var rw=slot.word+HMI_CFG.rdOfs;
+            hmiClaim(s.plM, atBit(HMI_CFG.btnArea,rw,slot.bit),   "PLC->HMI","04"+SN+slot.pg, tag);
+            hmiClaim(s.plR, atBit(HMI_CFG.btnArea,rw,slot.bit+1), "PLC->HMI","04"+SN+slot.pg, tag);
+        }
+    })();
+
     // 1. Station_Input : khusus komunikasi antar unit
     var S1=[],o=1;
     var others = ukeys.filter(function(k){ return k!==stKey; });
@@ -517,6 +591,14 @@ function buildUnit(stKey, devs){
     // 2. Device_Input
     var S2=[]; o=1;
     inputs.forEach(function(d,i){ S2.push(series(o++,[[portName(d.address),false]],d.name, i===0?"Physical input to symbol":null)); });
+    // Reed switch slot cadangan belum punya port, jadi sumbernya GSB001 - koil rangka yang
+    // selalu OFF. Sengaja OFF, bukan ON: dua reed switch yang sama-sama ON itu justru kondisi
+    // alarm "ALL REED SWITCH ON". Yang perlu diganti nanti cuma kontak di rung ini.
+    spareList.forEach(function(s,j){
+        S2.push(series(o++,[["GSB001",false]],s.asM,
+            j===0?"Spare reed switch, no port yet - replace GSB001 with the real input":null));
+        S2.push(series(o++,[["GSB001",false]],s.asR,null));
+    });
 
     // 3. HMI_Input
     // Tombol HMI gak butuh rung: NB nulis LANGSUNG ke word-nya, dan variabel PB station ini
@@ -548,6 +630,15 @@ function buildUnit(stKey, devs){
         S5.push(ls2(o,p[0].name,p[1].name,lf,lb, i===0?"Limit switch combination, one valid position at a time":null));
         o+=2; homeConds.push([lb,false]);
     });
+    // Slot cadangan dapat kombinasi yang sama persis. TAPI TIDAK ikut homeConds: reed switch-nya
+    // masih GSB001, jadi LSC sisi return-nya selamanya OFF - dimasukkan ke syarat home position,
+    // station itu tidak akan pernah dinyatakan di home dan mesin tidak pernah bisa start. Baru
+    // dimasukkan kalau sensornya sudah nyata, dan itu keputusan yang harus disengaja.
+    spareList.forEach(function(s,j){
+        S5.push(ls2(o,s.asM,s.asR,s.lscM,s.lscR,
+            j===0?"Spare slot limit switch combination, kept out of the home condition until a real sensor exists":null));
+        o+=2;
+    });
 
     // 6. Fault
     // AL/MF global buat semua program, tiap station dapat blok index dinamis (AL_BLOCK/MF_BLOCK,
@@ -561,6 +652,18 @@ function buildUnit(stKey, devs){
         var t=AL(alN,cmt);
         var r=new Rung(o++, cmt);
         var rail=r.rail(); var c=r.ct(p[1].name,r.ct(p[0].name,rail));
+        var x=r.clm(t,[c,r.ct(t,rail)]); r.rr([x]); S6.push(r.build());
+        fltList.push(t); alN++;
+    });
+    // Alarm dual sensor buat slot cadangan. Rungnya sama, dan slot AL-nya memang dipakai sekarang:
+    // kalau baru dialokasi waktu aktuatornya dipasang, nomor alarm semua yang di belakangnya
+    // bergeser - dan nomor alarm itu yang tercetak di layar NB dan di lembar troubleshooting.
+    spareList.forEach(function(s){
+        if(alN>alCap){ W("al_block_full",stKey,stKey+": AL alarm block full, dual sensor fault for "+s.tag+" skipped."); return; }
+        var cmt=s.tag.toUpperCase()+" ALL REED SWITCH ON";
+        var t=AL(alN,cmt);
+        var r=new Rung(o++, cmt);
+        var rail=r.rail(); var c=r.ct(s.asR,r.ct(s.asM,rail));
         var x=r.clm(t,[c,r.ct(t,rail)]); r.rr([x]); S6.push(r.build());
         fltList.push(t); alN++;
     });
@@ -768,45 +871,6 @@ function buildUnit(stKey, devs){
         S9.push(series(o++,[[pb,false],[il,false],["LB319",false]],oS,null));
     });
 
-    // Slot cadangan. Bit alamatnya sudah disisakan waktu jatah word dihitung, tapi jatah yang
-    // tidak diisi apa-apa itu cadangan tanpa wujud: tabel Global Variable berhenti di aktuator
-    // terakhir, dan yang menggambar screen NB tidak punya apa pun untuk ditempel di slot kosong.
-    // Jadi slotnya dibuat UTUH sekarang - tombol, lampu, interlock, bit command, berikut
-    // rung-nya - persis seperti slot terpakai, cuma belum ada solenoidnya. Menambah aktuator
-    // nanti tinggal menyambungkan output; alamatnya tidak bergeser sedikit pun.
-    var spareList=[];
-    (function planSpares(){
-        var used = actus.length + srvActus.length;
-        var want = hmiSlotsNeeded(used);
-        // Nomor LB LANJUT dari yang dipakai aktuator dan servo, jadi tidak ada yang bertabrakan.
-        var lbBase = actus.length*2 + srvActus.length;
-        for(var k=used; k<want; k++){
-            var slot=hmiSlot(SN,k);
-            if(slot.over){
-                W("hmi_spare_overflow",stKey,stKey+": spare slot "+(k-used+1)+" does not fit this station's HMI word budget.");
-                break;
-            }
-            var j=k-used, nm="4"+SN+slot.pg+"_"+slot.nn, tag=stLabel+" spare "+(j+1);
-            var s={ nm:nm, tag:tag, slot:slot, pg:slot.pg, nn:slot.nn,
-                    pbM:"PB"+nm+"M", pbR:"PB"+nm+"R", plM:"PL"+nm+"M", plR:"PL"+nm+"R",
-                    ilM:"LB"+pad(232+lbBase+j*2,3), ilR:"LB"+pad(233+lbBase+j*2,3),
-                    oM :"LB"+pad(340+lbBase+j*2,3), oR :"LB"+pad(341+lbBase+j*2,3) };
-            spareList.push(s);
-            G(s.pbM,"BOOL","Spare individual button, "+tag);
-            G(s.pbR,"BOOL","Spare individual button, "+tag);
-            G(s.plM,"BOOL","Spare lamp, "+tag);
-            G(s.plR,"BOOL","Spare lamp, "+tag);
-            P(s.ilM,"BOOL","Spare motion interlock, "+tag);
-            P(s.ilR,"BOOL","Spare return interlock, "+tag);
-            P(s.oM,"BOOL","Spare individual command, "+tag);
-            P(s.oR,"BOOL","Spare individual command, "+tag);
-            hmiClaim(s.pbM, atBit(HMI_CFG.btnArea,slot.word,slot.bit),   "HMI->PLC","04"+SN+slot.pg, tag);
-            hmiClaim(s.pbR, atBit(HMI_CFG.btnArea,slot.word,slot.bit+1), "HMI->PLC","04"+SN+slot.pg, tag);
-            var rw=slot.word+HMI_CFG.rdOfs;
-            hmiClaim(s.plM, atBit(HMI_CFG.btnArea,rw,slot.bit),   "PLC->HMI","04"+SN+slot.pg, tag);
-            hmiClaim(s.plR, atBit(HMI_CFG.btnArea,rw,slot.bit+1), "PLC->HMI","04"+SN+slot.pg, tag);
-        }
-    })();
     spareList.forEach(function(s,j){
         // Bentuk rungnya SAMA persis dengan slot terpakai - termasuk saling-kunci M/R dan
         // LB339 (return all). Kalau bentuknya dibedakan, slot cadangan yang nanti dipakai harus
@@ -1210,6 +1274,15 @@ function buildUnit(stKey, devs){
     outputs.filter(function(d){return !used[d.name];}).forEach(function(d,i){
         var ab="LB"+pad(480+i,3); P(ab,"BOOL","Automatic command, "+d.komen);
         S11.push(merge2(o++,ab,null,d.name,null));
+    });
+    // Slot cadangan belum punya solenoid, jadi barisnya berhenti di simbol output kosong -
+    // NOP yang tempatnya sudah benar. Sisi otomatisnya sengaja dikosongkan (merge2 argumen
+    // pertama null-nya diisi perintah individual): slot ini belum ada di urutan gerak mana pun.
+    // Yang diganti nanti cuma nama coil-nya, bentuk rungnya sudah betul.
+    spareList.forEach(function(s,j){
+        S11.push(merge2(o++,s.oM,null,s.solM,
+            j===0?"Spare slot command to output, no solenoid yet - point the coil at the real output when one is wired":null));
+        S11.push(merge2(o++,s.oR,null,s.solR,null));
     });
 
     // 12. HMI_Output
@@ -1955,8 +2028,6 @@ var elNames=Object.keys(ARRAY_ELEMENTS).sort(function(a,b){
     var ma=a.match(/^(\D+)\[(\d+)\]$/), mb=b.match(/^(\D+)\[(\d+)\]$/);
     return ma[1]===mb[1] ? (ma[2]-mb[2]) : ma[1]<mb[1]?-1:1;
 });
-// baris array-level (AL, MF) buat paste awal ke tabel Global Variable, baris per elemen (AL[61], ...) buat isi Comment
-// setelah array di-expand di Susmax Studio - lihat README bagian import
 var TSV_HEAD="Name\tData type\tInitial value\tAT\tRetain\tConstant\tNetwork Publish\tComment";
 // Retain menyala untuk apa pun yang duduk di H atau D. H itu Holding - alarm dan bit memori
 // tidak boleh hilang waktu power cycle, itu memang gunanya. D menampung angka yang diketik
@@ -1965,9 +2036,14 @@ var TSV_HEAD="Name\tData type\tInitial value\tAT\tRetain\tConstant\tNetwork Publ
 // W biarkan False: itu area kerja tombol/lampu, ditulis ulang tiap scan.
 function retainOf(at){ return /^%(H|D)/.test(String(at||"")) ? "True" : "False"; }
 function tsvRow(n,t,at,cmt){ return [n,t,"",at||"",retainOf(at),"False","Do not publish",cmt||""].join("\t"); }
-var tsv=TSV_HEAD+"\n"
-      + gnames.map(function(n){ var g=GLOBALS[n]; return tsvRow(n,g.t,HMI_AT[n],g.d); }).join("\n")
-      + (elNames.length ? "\n" + elNames.map(function(n){ return tsvRow(n,"BOOL","",ARRAY_ELEMENTS[n]); }).join("\n") : "");
+// GlobalVariables.tsv itu berkas TEMPEL, bukan berkas baca. Isinya baris saja:
+//   - tanpa baris judul. Sysmac menempelkan apa yang ada di clipboard mulai dari sel yang
+//     sedang dipilih; baris judul mendarat sebagai variabel bernama "Name" bertipe "Data type".
+//   - tanpa baris per elemen (AL[61], MF[7], ...). Elemen array baru bisa diisi SETELAH
+//     arraynya di-expand di Studio, jadi di tempelan pertama baris-baris itu tidak punya
+//     tujuan - dan ratusan di antaranya bikin blok variabel skalar tidak lagi sejajar dengan
+//     apa yang kebuka di layar. Tempatnya di panel AL/MF sendiri.
+var tsv=gnames.map(function(n){ var g=GLOBALS[n]; return tsvRow(n,g.t,HMI_AT[n],g.d); }).join("\n");
 
 // File TERPISAH khusus elemen array. Di tabel Global Variable Sysmac, komen elemen baru bisa diisi
 // SETELAH array-nya di-expand, dan waktu itu yang kelihatan cuma blok AL[1..n]/MF[1..n] berurutan.
@@ -1979,6 +2055,12 @@ var ARRAY_ROWS = elNames.map(function(n){
     var m=/^(\D+)\[(\d+)\]$/.exec(n);
     return { arr:m?m[1]:n, idx:m?parseInt(m[2],10):0, name:n, komen:ARRAY_ELEMENTS[n] };
 });
+// Baris global dalam bentuk terstruktur, buat panel Global variables di web UI. Kolomnya sama
+// persis dengan yang ditulis tsvRow, jadi yang di layar dan yang di berkas tidak bisa beda.
+var GLOBAL_ROWS = gnames.map(function(n){
+    var g=GLOBALS[n], at=HMI_AT[n]||"";
+    return { name:n, type:g.t, at:at, retain:retainOf(at), komen:g.d||"" };
+});
 // Peta blok dicetak di stats, bukan diulang-ulang di tiap komen spare: satu baris ini nggantiin
 // ratusan "reserved for ST1 alarm group" dan lebih gampang dibaca sekali lihat.
 var blockMap = "MAIN AL[1.."+AL_MAIN_RESERVED+"]  |  " + ukeys.map(function(k){
@@ -1988,7 +2070,7 @@ files.push({ name:"ArrayComments.tsv", xml:elemTsv,
              stats:"ARRAY COMMENT: "+elNames.length+" element (AL+MF), buat paste ke tabel yang arraynya sudah di-expand" });
 HMI_ROWS.sort(function(a,b){ return a.at<b.at?-1:a.at>b.at?1:0; });
 files.push({ name:"GlobalVariables.tsv", xml:tsv,
-             stats:"GLOBAL: "+gnames.length+" variable, "+elNames.length+" array element comment"
+             stats:"GLOBAL: "+gnames.length+" variable (tanpa header, tanpa elemen array)"
                   +"\nARRAY BLOCK ("+STATION_BLOCK+" slot/station): "+blockMap
                   +(HMI_CFG.on ? "\nHMI AT: "+HMI_ROWS.length+" symbol mapped, buttons "+HMI_CFG.btnArea+HMI_CFG.pbBase
                                  +"+, lamps +"+HMI_CFG.rdOfs+", AL "+HMI_CFG.alArea+HMI_CFG.alBase+", MF "+HMI_CFG.mfArea+HMI_CFG.mfBase
@@ -2012,5 +2094,7 @@ msg.payload={ files:files, warnings:warnings.join("\n"), warnList:warnList, unit
               hmiMap:{ cfg:HMI_CFG, rows:HMI_ROWS },
               // Elemen AL/MF buat panel spreadsheet - dipakai buat nyalin kolom Comment ke Sysmac
               arrayRows:ARRAY_ROWS,
+              // Baris tabel Global Variable buat panelnya sendiri di web UI
+              globalRows:GLOBAL_ROWS,
               lscAudit:lscAudit.join("\n") };
 return msg;

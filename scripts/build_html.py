@@ -410,9 +410,15 @@ HTML = '''<!doctype html>
   <label><span>MF base word</span> <input id="hmiMfBase" type="number" min="0" max="511" placeholder="320"></label>
   <label><span>Actuators per screen</span> <input id="hmiPerPage" type="number" min="1" max="8" placeholder="4"></label>
   <label><span>Words per station</span> <input id="hmiStride" type="number" min="1" max="16" placeholder="1"></label>
-  <label><span>Spare slots (%)</span>
-    <span class="help" data-tip="Extra button slots kept free in every station, as a percentage of the actuators it has today. Without it the addresses fit the current I/O list exactly, and the first actuator added after the machine is running pushes every address behind it - every NB screen already drawn then points at the wrong bit. 30% means a station with 6 actuators reserves room for 8.">?</span>
+  <label><span>Spare slots</span>
+    <span class="help" data-tip="Extra actuator slots kept free in every station. Without them the addresses fit the current I/O list exactly, and the first actuator added after the machine is running pushes every address behind it - every NB screen already drawn then points at the wrong bit. Percent scales with the station: 30% of 6 actuators reserves room for 8, but 30% of 1 reserves only 1. Fixed count gives every station the same room, which is usually what a small station needs.">?</span>
+    <select id="hmiSpareMode">
+    <option value="percent">percent of actuators</option><option value="count">fixed count per station</option>
+  </select></label>
+  <label><span>Spare (%)</span>
     <input id="hmiSpare" type="number" min="0" max="300" placeholder="30"></label>
+  <label><span>Spare (slots/station)</span>
+    <input id="hmiSpareCount" type="number" min="0" max="32" placeholder="2"></label>
   <label><span>Number area</span>
     <span class="help" data-tip="Where counter targets, timer presets and running values live. These are numbers, not bits - one UDINT takes two words - so they get their own area and can never collide with the button and lamp blocks.">?</span>
     <select id="hmiNumArea">
@@ -770,7 +776,16 @@ function sortStations(keys) {
 
 var errEl, resEl, statsEl, warnEl, warnBoxEl, motionPanelEl, conditionPanelEl, stationNamesPanelEl, timerPhpxEl, timerMotionEl, confirmModePanelEl, alSizeEl, mfSizeEl, stationBlockEl, arraySizeHintEl, navFileCountEl;
 var advInstrEl;
-var hmiModeEl, hmiBtnAreaEl, hmiAlAreaEl, hmiPbBaseEl, hmiRdOffsetEl, hmiAlBaseEl, hmiMfBaseEl, hmiPerPageEl, hmiStrideEl, hmiEnabledEl, hmiMapPanelEl, hmiSummaryEl, hmiNumAreaEl, hmiNumBaseEl, hmiSpareEl;
+var hmiModeEl, hmiBtnAreaEl, hmiAlAreaEl, hmiPbBaseEl, hmiRdOffsetEl, hmiAlBaseEl, hmiMfBaseEl, hmiPerPageEl, hmiStrideEl, hmiEnabledEl, hmiMapPanelEl, hmiSummaryEl, hmiNumAreaEl, hmiNumBaseEl, hmiSpareEl, hmiSpareModeEl, hmiSpareCountEl;
+// Dua kotak angka spare, cuma satu yang berlaku. Yang tidak berlaku disembunyikan, bukan
+// dibiarkan aktif: dua kotak yang sama-sama bisa diisi bikin orang mengisi yang salah lalu
+// bingung kenapa jumlah slotnya tidak berubah.
+function spareModeSync() {
+  if (!hmiSpareModeEl) return;
+  var byCount = hmiSpareModeEl.value === 'count';
+  if (hmiSpareEl && hmiSpareEl.parentNode) hmiSpareEl.parentNode.style.display = byCount ? 'none' : '';
+  if (hmiSpareCountEl && hmiSpareCountEl.parentNode) hmiSpareCountEl.parentNode.style.display = byCount ? '' : 'none';
+}
 // Setelan peta HMI dikumpulin di satu tempat - dipakai regenerate(), export project JSON, dan import.
 // Tiga pemanggil yang harus setuju bentuknya; dulu pola begini kelewat satu tempat dan setelan
 // diam-diam gak ikut ke-export.
@@ -789,7 +804,9 @@ function hmiSettings() {
     stride: hmiStrideEl ? hmiStrideEl.value : '',
     numArea: hmiNumAreaEl ? hmiNumAreaEl.value : 'D',
     numBase: hmiNumBaseEl ? hmiNumBaseEl.value : '',
-    spare: hmiSpareEl ? hmiSpareEl.value : ''
+    spareMode: hmiSpareModeEl ? hmiSpareModeEl.value : 'percent',
+    spare: hmiSpareEl ? hmiSpareEl.value : '',
+    spareCount: hmiSpareCountEl ? hmiSpareCountEl.value : ''
   };
 }
 // Spreadsheet komen elemen AL/MF. Ditaruh di PANEL HASIL, bukan di dalam fold Pengaturan:
@@ -798,10 +815,13 @@ function hmiSettings() {
 // seluruh blok ini hidup-mati bareng datanya - kalau tidak ada elemen array, tidak ada sisa
 // tombol yatim yang menempel di halaman.
 var lastArrayRows = [];
-var arrayFilter = 'all', arrayHideSpare = false, arraySheetBodyEl = null, arrayMsgEl = null;
+// Cuma AL saja atau MF saja - gabungan AL+MF sengaja tidak ada. Kolom Comment ditempel ke
+// SATU array yang sedang kebuka di Sysmac; daftar gabungan berarti separuh barisnya meleset
+// satu blok penuh, dan itu tidak kelihatan sampai alarm salah nomor muncul di layar NB.
+var arrayFilter = 'AL', arrayHideSpare = false, arraySheetBodyEl = null, arrayMsgEl = null;
 function arrayRowsShown() {
   return lastArrayRows.filter(function (r) {
-    if (arrayFilter !== 'all' && r.arr !== arrayFilter) return false;
+    if (r.arr !== arrayFilter) return false;
     if (arrayHideSpare && / Spare$/.test(r.komen || '')) return false;
     return true;
   });
@@ -841,7 +861,7 @@ function buildArraySheet() {
   row.appendChild(b);
 
   var sel = document.createElement('select'); sel.className = 'sheet-ctl';
-  [['all', 'AL + MF'], ['AL', 'AL saja'], ['MF', 'MF saja']].forEach(function (o) {
+  [['AL', 'AL saja'], ['MF', 'MF saja']].forEach(function (o) {
     var op = document.createElement('option'); op.value = o[0]; op.textContent = o[1]; sel.appendChild(op);
   });
   sel.value = arrayFilter;
@@ -870,6 +890,98 @@ function buildArraySheet() {
   arraySheetBodyEl.appendChild(arraySheetTable());
   box.appendChild(row); box.appendChild(hint); box.appendChild(arraySheetBodyEl);
   return box;
+}
+// Panel tabel Global Variable, berdiri sendiri di panel hasil. Sebelumnya GlobalVariables.tsv
+// cuma satu textarea di dalam fold "Files" bareng delapan berkas XML - padahal ini berkas yang
+// paling sering dipakai, dan yang dilakukan orang dengannya bukan membaca melainkan MENYALIN.
+// Kolomnya persis kolom tabel Global Variable Sysmac, urutannya sama, jadi hasil paste sejajar.
+var lastGlobalRows = [];
+var globalQuery = '', globalSheetBodyEl = null, globalMsgEl = null, globalCountEl = null;
+function globalRowsShown() {
+  var q = globalQuery.trim().toUpperCase();
+  if (!q) return lastGlobalRows;
+  return lastGlobalRows.filter(function (r) {
+    return (r.name + ' ' + (r.at || '') + ' ' + (r.komen || '')).toUpperCase().indexOf(q) >= 0;
+  });
+}
+function globalSheetTable() {
+  var rows = globalRowsShown();
+  var t = document.createElement('table');
+  t.className = 'sheet';
+  var hd = document.createElement('tr');
+  ['#', 'Name', 'Data Type', 'AT', 'Retain', 'Comment'].forEach(function (h) {
+    var th = document.createElement('th'); th.textContent = h; hd.appendChild(th);
+  });
+  t.appendChild(hd);
+  rows.forEach(function (r, i) {
+    var rowEl = document.createElement('tr');
+    [[String(i + 1), 'n'], [r.name, 'k'], [r.type || 'BOOL', ''], [r.at || '', 'k'],
+     [r.retain === 'True' ? 'True' : '', ''], [r.komen || '', 'c']].forEach(function (c) {
+      var td = document.createElement('td'); td.textContent = c[0]; if (c[1]) td.className = c[1];
+      rowEl.appendChild(td);
+    });
+    t.appendChild(rowEl);
+  });
+  return t;
+}
+function globalSheetRefresh() {
+  if (!globalSheetBodyEl) return;
+  globalSheetBodyEl.textContent = '';
+  globalSheetBodyEl.appendChild(globalSheetTable());
+  if (globalCountEl) globalCountEl.textContent = globalRowsShown().length + ' / ' + lastGlobalRows.length + ' baris';
+}
+function globalTsvText() {
+  return globalRowsShown().map(function (r) {
+    return [r.name, r.type || 'BOOL', '', r.at || '', r.retain || 'False', 'False', 'Do not publish', r.komen || ''].join('\\t');
+  }).join('\\n');
+}
+function buildGlobalSheet() {
+  if (!lastGlobalRows.length) return null;
+  var box = document.createElement('div');
+  box.className = 'file array-sheet';
+  var row = document.createElement('div'); row.className = 'row';
+  var b = document.createElement('b');
+  b.textContent = 'Global variables (' + lastGlobalRows.length + ')';
+  row.appendChild(b);
+
+  var q = document.createElement('input'); q.type = 'text'; q.className = 'sheet-ctl';
+  q.placeholder = 'cari nama / alamat / komen';
+  q.value = globalQuery;
+  q.addEventListener('input', function () { globalQuery = q.value; globalSheetRefresh(); });
+  row.appendChild(q);
+
+  var cp = document.createElement('button'); cp.className = 'dl'; cp.textContent = 'Salin semua kolom';
+  cp.addEventListener('click', function () { globalCopy(); });
+  row.appendChild(cp);
+  var dl = document.createElement('button'); dl.className = 'dl'; dl.textContent = 'Download TSV';
+  dl.addEventListener('click', function () { downloadFile('GlobalVariables.tsv', globalTsvText()); });
+  row.appendChild(dl);
+  globalCountEl = document.createElement('span'); globalCountEl.className = 'sheet-msg';
+  row.appendChild(globalCountEl);
+  globalMsgEl = document.createElement('span'); globalMsgEl.className = 'sheet-msg';
+  row.appendChild(globalMsgEl);
+
+  var hint = document.createElement('div'); hint.className = 'hint';
+  hint.textContent = 'Tanpa baris judul dan tanpa elemen array - keduanya bikin tempelan meleset. '
+    + 'Komen per elemen AL/MF ada di panel di bawahnya, ditempel setelah arraynya di-expand.';
+
+  globalSheetBodyEl = document.createElement('div'); globalSheetBodyEl.className = 'sheet-wrap';
+  box.appendChild(row); box.appendChild(hint); box.appendChild(globalSheetBodyEl);
+  globalSheetRefresh();
+  return box;
+}
+function globalCopy() {
+  var text = globalTsvText(), n = globalRowsShown().length;
+  function done(ok) {
+    if (!globalMsgEl) return;
+    globalMsgEl.textContent = ok ? (n + ' baris disalin') : 'gagal menyalin, blok manual dari tabel';
+    setTimeout(function () { if (globalMsgEl) globalMsgEl.textContent = ''; }, 4000);
+  }
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(function () { done(true); }, function () { done(fallbackCopy(text)); });
+  } else {
+    done(fallbackCopy(text));
+  }
 }
 function arrayCopy(commentOnly) {
   var rows = arrayRowsShown();
@@ -1551,6 +1663,7 @@ function renderResults(payload) {
       : '';
   }
   lastArrayRows = payload.arrayRows || [];
+  lastGlobalRows = payload.globalRows || [];
   renderHmiMap(payload.hmiMap);
   lastWarnings = payload.warnings || '';
   lastWarnList = payload.warnList || [];
@@ -1581,6 +1694,8 @@ function renderResults(payload) {
   // Spreadsheet AL/MF ditaruh SEBELUM fold "Download per program" dan di luar fold itu. Waktu masih
   // di dalam fold, tabelnya cuma kelihatan sebagai textarea mentah yang ke-scroll - persis yang mau
   // dihindari, karena yang dibutuhkan itu menyalin satu kolom, bukan membaca TSV.
+  var gsheet = buildGlobalSheet();
+  if (gsheet) resEl.appendChild(gsheet);
   var sheet = buildArraySheet();
   if (sheet) resEl.appendChild(sheet);
 
@@ -2489,7 +2604,10 @@ function importProjectJSON(jsonText) {
   if (hmiStrideEl) hmiStrideEl.value = hm.stride || '';
   if (hmiNumAreaEl) hmiNumAreaEl.value = hm.numArea || 'D';
   if (hmiNumBaseEl) hmiNumBaseEl.value = hm.numBase || '';
+  if (hmiSpareModeEl) hmiSpareModeEl.value = hm.spareMode === 'count' ? 'count' : 'percent';
   if (hmiSpareEl) hmiSpareEl.value = hm.spare || '';
+  if (hmiSpareCountEl) hmiSpareCountEl.value = hm.spareCount || '';
+  spareModeSync();
   // Project lama gak punya blok hmiMap sama sekali - default-nya AKTIF, bukan mati, biar import
   // project lama tetap keluar kolom AT tanpa harus dicentang manual.
   if (hmiEnabledEl) hmiEnabledEl.checked = hm.enabled === undefined ? true : !!hm.enabled;
@@ -2580,10 +2698,15 @@ hmiEnabledEl = document.getElementById('hmiEnabled');
 hmiNumAreaEl = document.getElementById('hmiNumArea');
 hmiNumBaseEl = document.getElementById('hmiNumBase');
 hmiSpareEl = document.getElementById('hmiSpare');
+hmiSpareModeEl = document.getElementById('hmiSpareMode');
+hmiSpareCountEl = document.getElementById('hmiSpareCount');
+if (hmiSpareModeEl) hmiSpareModeEl.addEventListener('change', spareModeSync);
+spareModeSync();
 hmiMapPanelEl = document.getElementById('hmiMapPanel');
 hmiSummaryEl = document.getElementById('hmiSummary');
 [alSizeEl, mfSizeEl, stationBlockEl, hmiModeEl, hmiBtnAreaEl, hmiAlAreaEl, hmiPbBaseEl, hmiRdOffsetEl, hmiAlBaseEl, hmiMfBaseEl,
- hmiPerPageEl, hmiStrideEl, hmiEnabledEl, hmiNumAreaEl, hmiNumBaseEl, hmiSpareEl].forEach(function (el) {
+ hmiPerPageEl, hmiStrideEl, hmiEnabledEl, hmiNumAreaEl, hmiNumBaseEl, hmiSpareEl,
+ hmiSpareModeEl, hmiSpareCountEl].forEach(function (el) {
   el.addEventListener('change', function () { if (lastSplitMsg) regenerate(); });
 });
 timerPhpxEl = document.getElementById('timerPhpx');

@@ -40,7 +40,7 @@ AL[38]	BOOL			False	False	Do not publish	AL038_ Spare
 AL[39]	BOOL			False	False	Do not publish	AL039_ Spare
 AL[40]	BOOL			False	False	Do not publish	AL040_ Spare
 AL[41]	BOOL			False	False	Do not publish	AL041_ ST2 STOPPER-1 ALL REED SWITCH ON
-AL[42]	BOOL			False	False	Do not publish	AL042_ Spare
+AL[42]	BOOL			False	False	Do not publish	AL042_ ST2 SPARE 1 ALL REED SWITCH ON
 AL[43]	BOOL			False	False	Do not publish	AL043_ Spare
 AL[44]	BOOL			False	False	Do not publish	AL044_ Spare
 AL[45]	BOOL			False	False	Do not publish	AL045_ Spare
@@ -71,7 +71,7 @@ AL[69]	BOOL			False	False	Do not publish	AL069_ Spare
 AL[70]	BOOL			False	False	Do not publish	AL070_ Spare
 AL[71]	BOOL			False	False	Do not publish	AL071_ ST3 EJECTOR ALL REED SWITCH ON
 AL[72]	BOOL			False	False	Do not publish	AL072_ ST3 PUSHER ALL REED SWITCH ON
-AL[73]	BOOL			False	False	Do not publish	AL073_ Spare
+AL[73]	BOOL			False	False	Do not publish	AL073_ ST3 SPARE 1 ALL REED SWITCH ON
 AL[74]	BOOL			False	False	Do not publish	AL074_ Spare
 AL[75]	BOOL			False	False	Do not publish	AL075_ Spare
 AL[76]	BOOL			False	False	Do not publish	AL076_ Spare
