@@ -162,9 +162,58 @@ function judgeBranch(o,prevBit,condBit,condNeg,bit,otherBit,cmt){
   return r.build();
 }
 function vr(n,t,d){return '<Variable name="'+n+'"><Documentation xsi:type="SimpleText">'+esc(d||'')+'</Documentation><Type><TypeName>'+(t||'BOOL')+'</TypeName></Type></Variable>';}
+// ===== Tabel Global Variable di dalam XML =====
+// Kolom-kolom yang selama ini ditempel tangan dari TSV ternyata semuanya punya tempat di XML
+// import - dibaca dari XSD resmi DAN dari Sample.xml milik Omron sendiri:
+//
+//   AT          <Address address="%W461.00" />   anak VariableDecl, SESUDAH Type
+//   Retain      <GlobalVars retain="true">       atribut KONTAINER, bukan per variabel -
+//                                                makanya kontainernya dipisah dua
+//   Komen       <Documentation>                  sudah dipakai
+//   Komen elemen <smcext:ElementComment element="[11]">   buat AL[11], MF[7], dst
+//   Publish     <smcext:GlobalVariableAdditionalProperties networkPublish="..." />
+//
+// `GlobalVars` boleh maxOccurs="unbounded", itu yang membuat retain per-variabel bisa: yang
+// retain masuk kontainer retain="true", sisanya kontainer polos. Sample.xml Omron memakai
+// EMPAT kontainer buat kombinasi constant x retain, jadi ini bentuk yang mereka niatkan.
+var SMC_DATA='<Data name="https://www.ia.omron.com/Smc IEC61131_10_Ed1_0_SmcExt1_0_Spc1_0.xsd" handleUnknown="discard">';
+// Urutan anak WAJIB: Documentation, AddData, Type, Address (xsd:sequence, lihat
+// IdentifiedObjectBase -> TextualObjectBase -> VariableDeclPlain -> VariableDecl).
+function gvr(e){
+  var add='';
+  var els=e.elems||null, keys=els?Object.keys(els):[];
+  if(keys.length){
+    add+=SMC_DATA+'<smcext:VariableComment>'
+       + keys.map(function(k){ return '<smcext:ElementComment element="'+esc(k)+'">'
+           + '<smcext:Text id="1">'+esc(els[k])+'</smcext:Text></smcext:ElementComment>'; }).join('')
+       + '</smcext:VariableComment></Data>';
+  }
+  if(e.publish) add+=SMC_DATA+'<smcext:GlobalVariableAdditionalProperties networkPublish="'+esc(e.publish)+'" /></Data>';
+  return '<Variable name="'+e.name+'">'
+       + '<Documentation xsi:type="SimpleText">'+esc(e.doc||'')+'</Documentation>'
+       + (add?'<AddData>'+add+'</AddData>':'')
+       + '<Type><TypeName>'+(e.type||'BOOL')+'</TypeName></Type>'
+       + (e.at?'<Address address="'+esc(e.at)+'" />':'')
+       + '</Variable>';
+}
+function globalVarBlocks(list){
+  var ret=[], pln=[];
+  list.forEach(function(e){ (e.retain?ret:pln).push('      '+gvr(e)); });
+  var out='';
+  if(ret.length) out+='    <GlobalVars retain="true">\n'+ret.join('\n')+'\n    </GlobalVars>\n';
+  out+='    <GlobalVars>\n'+pln.join('\n')+'\n    </GlobalVars>';
+  return out;
+}
 function sect(n,o,rungs){return '<BodyContent xsi:type="smcext:LdSection" name="'+esc(n)+'" evaluationOrder="'+o+'">'+rungs.join('')+'</BodyContent>';}
 function prog(name,ext,priv,sections,glob){
-return '<?xml version="1.0"?>\n<Project xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"\n         xmlns:smcext="https://www.ia.omron.com/Smc"\n         xsi:schemaLocation="https://www.ia.omron.com/Smc IEC61131_10_Ed1_0_SmcExt1_0_Spc1_0.xsd"\n         schemaVersion="1"\n         xmlns="www.iec.ch/public/TC65SC65BWG7TF10">\n  <FileHeader companyName="PT. Ndeso Indonesia" productName="Susmax Studio" productVersion="1.30.0.0" />\n  <ContentHeader name="'+name+'" creationDateTime="2026-07-30T00:00:00">\n    <AddData><Data name="https://www.ia.omron.com/Smc IEC61131_10_Ed1_0_SmcExt1_0_Spc1_0.xsd" handleUnknown="discard"><smcext:DeviceInfo modelName="NX1P2" version="1.40" /></Data></AddData>\n  </ContentHeader>\n  <Types><GlobalNamespace><Program name="'+name+'">\n    <ExternalVars>\n'+ext.join('\n')+'\n    </ExternalVars>\n    <Vars accessSpecifier="private">\n'+priv.join('\n')+'\n    </Vars>\n    <MainBody>\n'+sections.join('\n')+'\n    </MainBody>\n  </Program></GlobalNamespace></Types>\n  <Instances><Configuration name="CE_Feeder_Machine"><Resource name="MainResource" resourceTypeName="">\n    <GlobalVars>\n'+glob.join('\n')+'\n    </GlobalVars>\n  </Resource></Configuration></Instances>\n</Project>\n';}
+return '<?xml version="1.0"?>\n<Project xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"\n         xmlns:smcext="https://www.ia.omron.com/Smc"\n         xsi:schemaLocation="https://www.ia.omron.com/Smc IEC61131_10_Ed1_0_SmcExt1_0_Spc1_0.xsd"\n         schemaVersion="1"\n         xmlns="www.iec.ch/public/TC65SC65BWG7TF10">\n  <FileHeader companyName="PT. Ndeso Indonesia" productName="Susmax Studio" productVersion="1.30.0.0" />\n  <ContentHeader name="'+name+'" creationDateTime="2026-07-30T00:00:00">\n    <AddData><Data name="https://www.ia.omron.com/Smc IEC61131_10_Ed1_0_SmcExt1_0_Spc1_0.xsd" handleUnknown="discard"><smcext:DeviceInfo modelName="NX1P2" version="1.40" /></Data></AddData>\n  </ContentHeader>\n  <Types><GlobalNamespace><Program name="'+name+'">\n    <ExternalVars>\n'+ext.join('\n')+'\n    </ExternalVars>\n    <Vars accessSpecifier="private">\n'+priv.join('\n')+'\n    </Vars>\n    <MainBody>\n'+sections.join('\n')+'\n    </MainBody>\n  </Program></GlobalNamespace></Types>\n  <Instances><Configuration name="CE_Feeder_Machine"><Resource name="MainResource" resourceTypeName="">\n'+globSection(glob)+'\n  </Resource></Configuration></Instances>\n</Project>\n';}
+// glob boleh dua bentuk. Array objek -> tabel penuh (AT, retain, komen elemen). Array string ->
+// markup <Variable> yang sudah jadi, dibungkus satu kontainer polos: itu yang dipakai exporter
+// reader, yang memang tidak punya alamat maupun retain buat dilaporkan.
+function globSection(glob){
+  if(glob.length && typeof glob[0]==='object') return globalVarBlocks(glob);
+  return '    <GlobalVars>\n'+glob.join('\n')+'\n    </GlobalVars>';
+}
 
 // ===== TON timer rung (Block typeName=TON + instanceName, Q -> coil) =====
 function ton(o,gate,preset,tmrInst,doneBit,cmt,alwaysOn){

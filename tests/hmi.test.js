@@ -153,6 +153,54 @@ chk('globalRows ikut di payload buat panel UI',
     Array.isArray(p.globalRows) && p.globalRows.length===gLines.length,
     p.globalRows?p.globalRows.length+' baris vs '+gLines.length+' baris TSV':'kosong');
 
+// ---- tabel Global Variable ikut di AllPrograms.xml ---------------------------------------
+// Semua kolom yang selama ini ditempel tangan punya tempatnya di XML import: AT lewat
+// <Address>, retain lewat atribut KONTAINER (makanya kontainernya dua), komen elemen lewat
+// smcext:ElementComment. Dibaca dari XSD resmi dan dari Sample.xml milik Omron.
+const allx=p.files.find(f=>f.name==='AllPrograms.xml').xml;
+const gvBlocks=allx.match(/<GlobalVars[^>]*>/g)||[];
+chk('AllPrograms.xml punya dua kontainer GlobalVars', gvBlocks.length===2, gvBlocks.join(' '));
+chk('satu kontainer retain="true"', gvBlocks.filter(b=>/retain="true"/.test(b)).length===1, gvBlocks.join(' '));
+const gvRet=(/<GlobalVars retain="true">([\s\S]*?)<\/GlobalVars>/.exec(allx)||['',''])[1];
+const gvPln=(/<GlobalVars>([\s\S]*?)<\/GlobalVars>/.exec(allx)||['',''])[1];
+const namesIn=s=>(s.match(/<Variable name="([^"]+)"/g)||[]).map(v=>/name="([^"]+)"/.exec(v)[1]);
+const retNames=namesIn(gvRet), plnNames=namesIn(gvPln);
+// Aturannya sama dengan kolom Retain di TSV: apa pun yang duduk di H atau D.
+const atOfName={}; tsv.split('\n').forEach(l=>{const c=l.split('\t'); atOfName[c[0]]=c[3]||'';});
+const mestiRetain=Object.keys(atOfName).filter(n=>/^%(H|D)/.test(atOfName[n]));
+chk('semua simbol H/D masuk kontainer retain',
+    mestiRetain.length>0 && mestiRetain.every(n=>retNames.indexOf(n)>=0),
+    mestiRetain.filter(n=>retNames.indexOf(n)<0).join(' ')||mestiRetain.join(' '));
+chk('tidak ada simbol W yang ikut kena retain',
+    !retNames.some(n=>/^%W/.test(atOfName[n]||'')),
+    retNames.filter(n=>/^%W/.test(atOfName[n]||'')).join(' '));
+chk('semua simbol ada di salah satu kontainer',
+    retNames.length+plnNames.length===tsv.split('\n').length,
+    (retNames.length+plnNames.length)+' vs '+tsv.split('\n').length+' baris TSV');
+// Satu AT di TSV = satu <Address> di XML. Kalau meleset, ada kolom yang cuma ada di satu jalur.
+const atCount=(allx.match(/<Address address="/g)||[]).length;
+chk('tiap AT punya <Address> di XML', atCount===p.hmiMap.rows.length,
+    atCount+' Address vs '+p.hmiMap.rows.length+' baris peta HMI');
+// Urutan anak terikat xsd:sequence - Documentation, AddData, Type, Address. Ketuker = ditolak XSD.
+const alVar=(/<Variable name="AL">([\s\S]*?)<\/Variable>/.exec(gvRet)||['',''])[1];
+chk('urutan anak Variable sesuai xsd:sequence',
+    (alVar.match(/<(Documentation|AddData|Type|Address)\b/g)||[]).join(' ')
+      === '<Documentation <AddData <Type <Address',
+    (alVar.match(/<(Documentation|AddData|Type|Address)\b/g)||[]).join(' '));
+chk('AL bawa komen tiap elemennya',
+    (alVar.match(/<smcext:ElementComment /g)||[]).length===p.arrayInfo.alSize,
+    (alVar.match(/<smcext:ElementComment /g)||[]).length+' / '+p.arrayInfo.alSize);
+chk('komen elemen isinya sama dengan ArrayComments.tsv',
+    new RegExp('<smcext:ElementComment element="\\[11\\]"><smcext:Text id="1">AL011_').test(alVar),
+    (alVar.match(/element="\[11\]"[^<]*<smcext:Text[^>]*>([^<]*)/)||[])[1]);
+// Berkas per-program tetap bentuk lama: tabelnya baru LENGKAP di AllPrograms, dan dua berkas
+// yang membawa versi setengah jadi bakal saling menimpa waktu di-import.
+const one=p.files.find(f=>/^Prg0\d\d_ST/.test(f.name)).xml;
+chk('berkas per-program tetap satu kontainer polos',
+    (one.match(/<GlobalVars[^>]*>/g)||[]).join('')==='<GlobalVars>',
+    (one.match(/<GlobalVars[^>]*>/g)||[]).join(' '));
+chk('berkas per-program tidak membawa Address', !/<Address /.test(one));
+
 // File terpisah buat paste ke tabel yang arraynya sudah di-expand
 const ac=p.files.find(f=>f.name==='ArrayComments.tsv');
 chk('ArrayComments.tsv ada', !!ac);

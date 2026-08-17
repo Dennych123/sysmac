@@ -1716,7 +1716,7 @@ function progMulti(title,blocks,globVars){
      +'<smcext:DeviceInfo modelName="NX1P2" version="1.40" /></Data></AddData>\n  </ContentHeader>\n'
      +'  <Types><GlobalNamespace>\n'+blocks.join("\n")+'\n  </GlobalNamespace></Types>\n'
      +'  <Instances><Configuration name="Machine"><Resource name="MainResource" resourceTypeName="">\n'
-     +'    <GlobalVars>\n'+globVars.join("\n")+'\n    </GlobalVars>\n'
+     +globSection(globVars)+'\n'
      +'  </Resource></Configuration></Instances>\n</Project>\n';
 }
 
@@ -2173,7 +2173,33 @@ files.push({ name:"GlobalVariables.tsv", xml:tsv,
                                  +", "+PER_PAGE+" actuators/screen, "+HMI_CFG.stride+" word/station"
                                : "\nHMI AT: disabled") });
 
-var globVars=gnames.map(function(n){ return "      "+vr(n,GLOBALS[n].t,GLOBALS[n].d); });
+// Tabel Global Variable LENGKAP ikut ke AllPrograms.xml: nama, tipe, komen, AT, retain, dan
+// komen tiap elemen AL/MF. Semua kolom yang selama ini ditempel tangan dari TSV punya
+// tempatnya sendiri di XML import - lihat globalVarBlocks() di lib.js.
+//
+// Kenapa cuma di sini dan tidak di berkas per-program: tabelnya baru LENGKAP di titik ini.
+// AT untuk AL/MF diklaim beberapa baris di atas, dan komen alarm station terakhir baru ada
+// setelah builder terakhir jalan - jadi Prg010 yang dirender lebih dulu akan membawa versi
+// setengah jadi, dan dua berkas yang saling menimpa waktu di-import itu lebih buruk daripada
+// satu berkas yang benar. Berkas per-program tetap membawa daftar nama saja, seperti dulu.
+//
+// TSV-nya TIDAK dihapus. Ini jalur baru yang belum dibuktikan Studio menerimanya - XSD lolos
+// bukan jaminan, itu pelajaran dari (DefinitionError). TSV tetap jalur yang sudah terbukti.
+function elemsOf(n){
+    var out=null;
+    elNames.forEach(function(e){
+        var m=/^(\D+)\[(\d+)\]$/.exec(e);
+        if(!m || m[1]!==n) return;
+        (out=out||{})["["+m[2]+"]"]=ARRAY_ELEMENTS[e];
+    });
+    return out;
+}
+var globVars=gnames.map(function(n){
+    var g=GLOBALS[n], at=HMI_AT[n]||"";
+    var e={ name:n, type:g.t, doc:g.d, at:at, retain:retainOf(at)==="True" };
+    var els=elemsOf(n); if(els) e.elems=els;
+    return e;
+});
 // Probe SENGAJA tidak ikut ke AllPrograms.xml. Dia alat uji buat project KOSONG; kalau ikut
 // masuk file gabungan, program uji itu ikut ke-import ke project mesin.
 var blocks=files.filter(function(f){ return f.name.slice(-4)===".xml" && f.name.indexOf("_Probe")!==0; })
