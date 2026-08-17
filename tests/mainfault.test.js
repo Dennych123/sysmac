@@ -91,8 +91,8 @@ chk('tidak ada lagi rung terpisah yang nge-drive LB009',
 // ditangkap yang pertama: switch yang mati nyangkut di "angin ada" tidak pernah memicu AL[3],
 // jadi alarmnya diam selamanya dan mesin jalan tanpa penjaga tekanan.
 // AL[3] hanya dinilai saat angin memang seharusnya ada: (master off complete AND safety AND
-// E-stop OK) ATAU master on delay sudah lewat. Gerbang lamanya cuma LB001 dan itu ikut menilai
-// saat E-stop ditekan - keadaan yang anginnya memang sengaja dibuang.
+// grup emergency bersih) ATAU master on delay sudah lewat. Gerbang lamanya cuma LB001 dan itu
+// ikut menilai saat E-stop ditekan - keadaan yang anginnya memang sengaja dibuang.
 const aI = main.indexOf('Air source pressure lost');
 chk('rung tekanan angin ada', aI >= 0);
 if (aI >= 0) {
@@ -100,8 +100,11 @@ if (aI >= 0) {
   const ac = (ar.match(/<LdObject xsi:type="Contact"[^>]*>/g) || [])
     .map(o => ((/operand="([^"]+)"/.exec(o) || [])[1] || '') + (/negated="true"/.test(o) ? '/' : ''));
   chk('AL[3] tidak lagi digerbang LB001 saja', ac.indexOf('LB001') < 0, ac.join(' '));
-  chk('cabang 1: master off complete + safety + E-stop',
-      ac.indexOf('LB009') >= 0 && ac.indexOf('SAFE_CONF') >= 0 && ac.indexOf('NOT_EMG_STOP') >= 0, ac.join(' '));
+  chk('cabang 1: master off complete + safety + grup emergency bersih',
+      ac.indexOf('LB009') >= 0 && ac.indexOf('SAFE_CONF') >= 0 && ac.indexOf('LB019') >= 0, ac.join(' '));
+  // Tombol E-stop cuma satu dari lima sebab grup emergency menyala. Dipakai langsung, angin
+  // tetap dinilai padahal fuse masih putus atau safety masih terbuka.
+  chk('bukan kontak tombol E-stop langsung', ac.indexOf('NOT_EMG_STOP') < 0, ac.join(' '));
   chk('cabang 2: master on delay', ac.indexOf('LB002') >= 0, ac.join(' '));
   // Dua cabang bertemu DI kontak AIR_SC_CONF - satu kontak, dua sambungan masuk.
   const airC = /<LdObject xsi:type="Contact" negated="true" operand="AIR_SC_CONF"><ConnectionPointIn>([\s\S]*?)<\/ConnectionPointIn>/.exec(ar);
@@ -146,6 +149,20 @@ chk('tanpa AIR_SC_CONF, rung PS fault tidak dibuat', mNoAir.indexOf('pressure sw
 chk('dan tidak dibuang diam-diam - ada warningnya',
     rNoAir.warnList.some(w => w.code === 'air_ps_fault_skipped'),
     rNoAir.warnList.map(w => w.code).join(', '));
+
+// ---------------------------------------------------------------- interlock E-stop
+// Tombol E-stop cuma SATU dari lima sebab grup emergency menyala. Interlock yang mengikuti
+// tombolnya langsung akan lepas begitu tombol ditarik walau fuse masih putus, angin masih
+// hilang, atau safety masih terbuka - dan itu bukan interlock, itu cuma salinan tombol.
+const eiI = main.indexOf('Emergency stop interlock');
+chk('rung interlock E-stop ada', eiI >= 0);
+if (eiI >= 0) {
+  const er = main.slice(main.lastIndexOf('<Rung', eiI), main.indexOf('</Rung>', eiI));
+  chk('interlock digerakkan dari LB019, bukan tombolnya',
+      /xsi:type="Contact"[^>]*operand="LB019"/.test(er) && !/operand="NOT_EMG_STOP"/.test(er),
+      (er.match(/operand="[^"]+"/g) || []).join(' '));
+  chk('coil-nya tetap EMER_INTLK', /xsi:type="Coil"[^>]*operand="EMER_INTLK"/.test(er));
+}
 
 // ---------------------------------------------------------------- silence buzzer: PB_ALM_RST
 // Tombolnya membungkam alarm, bukan me-reset fault, dan nama standarnya PB_ALM_RST.

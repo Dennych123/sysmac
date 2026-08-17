@@ -1483,12 +1483,20 @@ function buildMain(devs){
             // Angin dinilai HANYA saat angin memang seharusnya ada, bukan sepanjang PLC hidup.
             // Bentuknya diambil dari program mesin:
             //
-            //   LB009 -- SAFE_CONF -- NOT_EMG_STOP --+-- /AIR_SC_CONF --+-- ( AL[3] )
-            //   LB002 ------------------------------+                  |
-            //   AL[3] -------------------------------------------------+
+            //   LB009 -- SAFE_CONF -- LB019 --+-- /AIR_SC_CONF --+-- ( AL[3] )
+            //   LB002 ------------------------+                  |
+            //   AL[3] --------------------------------------------+
             //
             // Dua cabang, dua keadaan yang sah-sah saja punya angin: mesin sudah selesai
             // dimatikan tapi tetap aman dan bertegangan, atau master sudah hidup cukup lama.
+            //
+            // LB019 itu hasil SELURUH grup emergency yang sudah bersih, bukan kontak tombol
+            // E-stop. Tombolnya cuma satu dari lima sebab grup itu menyala; dipakai langsung,
+            // angin tetap dinilai padahal fuse masih putus atau safety masih terbuka. LB019
+            // memang memuat /AL[3] di dalamnya, tapi itu bukan lingkaran: coil LB019 ada jauh
+            // di bawah rung ini, jadi yang terbaca hasil scan sebelumnya. Efeknya justru benar -
+            // begitu satu alarm emergency menyala, alarm angin tidak ikut menumpuk, dan yang
+            // sudah menyala tetap ditahan seal-nya.
             // Gerbang lamanya cuma LB001 (jeda power-on 5 detik) dan itu terlalu kasar - dengan
             // itu, E-stop ditekan atau pintu safety dibuka pun tetap dinilai, padahal di situ
             // anginnya memang SENGAJA dibuang. Alarm yang menyala karena mesin bekerja sesuai
@@ -1498,7 +1506,7 @@ function buildMain(devs){
             // Sebelum master pernah dinyalakan sekali pun, LB009 masih OFF dan LB002 belum
             // pernah jalan - jadi tidak ada yang dinilai. Itu benar: belum ada yang mencoba
             // menghidupkan mesin, belum ada yang perlu dikeluhkan soal angin.
-            var b1=r.ct(sEmg, r.ct(sSafe, r.ct("LB009", rail)));
+            var b1=r.ct("LB019", r.ct(sSafe, r.ct("LB009", rail)));
             var b2=r.ct("LB002", rail);
             c=r.ctm(x[1],[b1,b2],true);
         } else {
@@ -1625,7 +1633,12 @@ function buildMain(devs){
     outputs.forEach(function(d){
         var k=(d.komen||"").toUpperCase(), src=null, cmt=null;
         if(d.jenis==="BZ"||/BUZZER/.test(k)){ src="LB069"; cmt="Buzzer driven by buzzer silence logic"; }
-        else if(/EMERGENCY|EMER/.test(k)){ src=sEmg; cmt="Emergency stop interlock follows the emergency stop input"; }
+        // Interlock E-stop mengikuti LB019 - hasil SELURUH grup emergency yang sudah bersih -
+        // bukan kontak tombolnya langsung. Tombolnya cuma satu dari lima sebab grup itu menyala;
+        // dari NOT_EMG_STOP, interlock lepas begitu tombol dilepas walau fuse masih putus, angin
+        // masih hilang, atau safety masih terbuka. Lewat LB019 interlock baru lepas setelah semua
+        // sebabnya hilang DAN alarmnya di-reset - dan itu memang arti "interlock".
+        else if(/EMERGENCY|EMER/.test(k)){ src="LB019"; cmt="Emergency stop interlock follows the emergency group result, not the button alone"; }
         else if(/AUTO RUN/.test(k)){ src="LB120"; }
         else if(/MASTER ON/.test(k)){ src=sMstr; }
         else if(/CYCLE STOP/.test(k)){ src="LB121"; }
