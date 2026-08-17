@@ -1498,40 +1498,37 @@ function buildProbe(){
         r.rr([r.cl("PRB_LAMP", b[""])]);
     });
 
-    // ---- Inc: pin InOut ada di sisi masuk DAN sisi keluar sekaligus ----
-    P1("Inc - InOut di dua sisi (masuk + keluar)", function(r){
+    // ---- Inc: TIGA pin keluar (ENO, InOut, nilai balik tanpa nama), yang diisi cuma InOut ----
+    // Yang dipakai generator sekarang: semua pin dideklarasi lengkap dengan titik sambungnya,
+    // nilai baliknya cukup tidak dirujuk siapa pun.
+    P1("Inc - 3 pin keluar, nilai balik tidak dirujuk", function(r){
         var e=r.ct("PRB_TRIG", r.rail());
-        var b=r.blk("Inc",null,[["EN",e],["InOut",r.src("PRB_A")]],["ENO","InOut"]);
+        var b=r.blk("Inc",null,[["EN",e],["InOut",r.src("PRB_A")]],["ENO","InOut",""]);
         r.sink("PRB_A", b.InOut);
         r.rr([b.ENO]);
     });
-    P1("Inc - InOut dua sisi + pin hasil tanpa nama", function(r){
+    // Kalau ternyata Studio menuntut tiap pin ada yang memakai: nilai balik dibuang ke coil.
+    P1("Inc - nilai balik disambung ke coil", function(r){
         var e=r.ct("PRB_TRIG", r.rail());
         var b=r.blk("Inc",null,[["EN",e],["InOut",r.src("PRB_A")]],["ENO","InOut",""]);
         r.sink("PRB_A", b.InOut);
         r.cl("PRB_LAMP", b[""]);
         r.rr([b.ENO]);
     });
-    // Nilai balik dideklarasi TAPI tidak disambung - ini yang dipakai generator sekarang.
-    P1("Inc - InOut dua sisi + nilai balik dideklarasi tanpa disambung", function(r){
-        var e=r.ct("PRB_TRIG", r.rail());
-        var b=r.blk("Inc",null,[["EN",e],["InOut",r.src("PRB_A")]],["ENO","InOut",[""]]);
-        r.sink("PRB_A", b.InOut);
-        r.rr([b.ENO]);
-    });
-    // Nilai baliknya dinamai "Out" seperti di manual, bukan dikosongkan seperti di Studio.
-    P1("Inc - InOut dua sisi + nilai balik bernama Out", function(r){
-        var e=r.ct("PRB_TRIG", r.rail());
-        var b=r.blk("Inc",null,[["EN",e],["InOut",r.src("PRB_A")]],["ENO","InOut",["Out"]]);
-        r.sink("PRB_A", b.InOut);
-        r.rr([b.ENO]);
-    });
     // <InOutVariables> - bentuk yang dipakai contoh resmi Omron (Sample.xml). Percobaan
     // pertama ditolak XSD karena ditaruh di URUTAN TERAKHIR; tempatnya paling depan.
     P1("Inc - InOut lewat <InOutVariables>", function(r){
         var e=r.ct("PRB_TRIG", r.rail());
-        var b=r.blk("Inc",null,[["EN",e]],["ENO",[""]],[["InOut",r.src("PRB_A")]]);
+        var b=r.blk("Inc",null,[["EN",e]],["ENO",""],[["InOut",r.src("PRB_A")]]);
         r.sink("PRB_A", b.InOut);
+        r.rr([b.ENO]);
+    });
+    // Jalan memutar kalau Inc tetap tidak mau: hasil hitungnya sama persis, dan `+` sudah
+    // dipakai di project mesin. Tidak ada pin in-out sama sekali, semua pin ada yang memakai.
+    P1("tanpa Inc - pakai + : CNT := CNT + 1", function(r){
+        var e=r.ct("PRB_TRIG", r.rail());
+        var b=r.blk("+",null,[["EN",e],["In1",r.src("PRB_A")],["In2",r.src("UDINT#1")]],["ENO",""]);
+        r.sink("PRB_A", b[""]);
         r.rr([b.ENO]);
     });
 
@@ -1706,11 +1703,13 @@ function buildHmi(){
             var r1=new Rung(o++, "Counter "+n1+" : count up while below target");
             var g1=r1.ct("GCT["+n1+"]", r1.rail());
             var lt=r1.blk("<",null,[["EN",g1],["In1",r1.src(act)],["In2",r1.src(set)]],[""]);
-            // Inc punya EMPAT pin keluar, bukan dua: ENO, InOut, dan nilai balik tanpa nama
-            // yang selalu TRUE. Nilai baliknya tidak dipakai, tapi kalau pin-nya tidak
-            // dideklarasi susunannya tidak cocok dan Studio bilang "The function name is not
-            // defined" - persis yang kejadian. Dibungkus array = dideklarasi tanpa disambung.
-            var inc=r1.blk("Inc",null,[["EN",lt[""]],["InOut",r1.src(act)]],["ENO","InOut",[""]]);
+            // Inc punya TIGA pin keluar: ENO, InOut, dan nilai balik tanpa nama. Terlihat
+            // langsung waktu kotaknya digambar tangan di Studio, dan yang diisi operand cuma
+            // InOut. Pin nilai balik tetap harus DIDEKLARASI lengkap dengan titik sambungnya
+            // - kalau pin-nya dibuang, Studio bilang "The function name is not defined";
+            // kalau titik sambungnya yang dibuang, "invalid connection" dan rung-nya kosong.
+            // Cukup tidak ada yang merujuk id-nya.
+            var inc=r1.blk("Inc",null,[["EN",lt[""]],["InOut",r1.src(act)]],["ENO","InOut",""]);
             r1.sink(act, inc.InOut);
             r1.rr([inc.ENO]); S2.push(r1.build());
             // 2. lampu WARNING - padam begitu UP nyala, biar operator gak lihat dua lampu bareng

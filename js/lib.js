@@ -52,14 +52,12 @@ Rung.prototype.blk=function(typeName,instanceName,ins,outs,inouts){
     return '<InputVariable parameterName="'+esc(p[0])+'"><ConnectionPointIn>'+self.ad('ConnectionPointInOrder',k+1)
          + '<Connection refConnectionPointOutId="'+p[1]+'" /></ConnectionPointIn></InputVariable>';
   }).join('');
-  var xout=outs.map(function(o,k){
-    // "Nama"   -> pin disambung, id-nya dikembalikan
-    // ["Nama"] -> pin cuma DIDEKLARASI, tanpa titik sambung. Perlu buat pin yang memang
-    //            tidak dipakai (nilai balik Inc/Dec) - kalau pin-nya dihilangkan sama
-    //            sekali, susunannya tidak cocok lagi dan Studio bilang "The function name
-    //            is not defined". ConnectionPointOut-nya minOccurs="0" di XSD.
-    var bare=Array.isArray(o), nm=bare?o[0]:o;
-    if(bare) return '<OutputVariable parameterName="'+esc(nm)+'" />';
+  // Tiap pin keluar SELALU dapat <ConnectionPointOut>, dipakai atau tidak. Menghilangkan
+  // titik sambungnya memang sah menurut XSD (minOccurs="0") tapi ditolak Studio waktu
+  // konversi: "The function or the function block has invalid connection. Imported as an
+  // empty rung." - rung-nya hilang sama sekali, lebih parah daripada sekadar DefinitionError.
+  // Pin yang tidak dipakai cukup dibiarkan tanpa ada yang merujuk id-nya.
+  var xout=outs.map(function(nm,k){
     var id=self.n++; outIds[nm]=id;
     return '<OutputVariable parameterName="'+esc(nm)+'"><ConnectionPointOut connectionPointOutId="'+id+'">'
          + self.ad('ConnectionPointOutOrder',k+1)+'</ConnectionPointOut></OutputVariable>';

@@ -25,10 +25,17 @@ const chk = (l, c, x) => { if (!c) fail++; console.log((c ? '  OK  ' : '>>BAD ')
 const file = (p, n) => p.files.find(f => f.name === n);
 const secList = (x) => (x.match(/name="([A-Za-z_]+)" evaluationOrder="\d+"/g) || [])
   .map(m => /name="([A-Za-z_]+)"/.exec(m)[1]);
+// Titik keluar yang tidak dirujuk siapa pun = kesalahan, KECUALI satu hal: pin nilai balik
+// sebuah fungsi (parameterName kosong) yang memang tidak dipakai - Inc dan Dec punya itu.
+// Pin-nya wajib tetap ditulis lengkap dengan titik sambungnya: dibuang -> "The function name
+// is not defined", titik sambungnya dibuang -> "invalid connection" dan rung jadi kosong.
 const dangling = (x) => (x.match(/<Rung [\s\S]*?<\/Rung>/g) || []).filter(rg => {
+  const spare = new Set([...rg.matchAll(
+    /<OutputVariable parameterName=""><ConnectionPointOut connectionPointOutId="(\d+)"/g)]
+    .map(a => a[1]));
   const outs = [...rg.matchAll(/connectionPointOutId="(\d+)"/g)].map(a => a[1]);
   const refs = new Set([...rg.matchAll(/refConnectionPointOutId="(\d+)"/g)].map(a => a[1]));
-  return outs.some(i => !refs.has(i));
+  return outs.some(i => !refs.has(i) && !spare.has(i));
 }).length;
 
 // ---------------------------------------------------------------- default: aman
@@ -77,10 +84,19 @@ chk('pembanding tidak minta pin ENO',
 chk('Inc bawa InOut di sisi masuk dan keluar',
     (cnt.match(/<InputVariable parameterName="InOut"/g) || []).length === 10
     && (cnt.match(/<OutputVariable parameterName="InOut"/g) || []).length === 10);
-// Nilai balik Inc tidak dipakai, tapi pin-nya HARUS tetap ada. Menghilangkannya bikin
-// susunan pin tidak cocok dan Studio menolak dengan "The function name is not defined".
-chk('Inc tetap mendeklarasi pin nilai balik yang tidak disambung',
-    (cnt.match(/<OutputVariable parameterName="" \/>/g) || []).length === 10);
+// Nilai balik Inc tidak dipakai, tapi pin-nya HARUS tetap ada LENGKAP dengan titik
+// sambungnya. Dua bentuk gagalnya beda dan dua-duanya pernah kejadian: pin dibuang ->
+// "The function name is not defined"; titik sambungnya dibuang -> "invalid connection"
+// dan rung-nya ter-import kosong.
+// Diperiksa DI DALAM kotak Inc-nya: pembanding juga punya pin tanpa nama, jadi menghitung
+// parameterName="" di seluruh section akan lulus walau Inc-nya sendiri kehilangan pin itu.
+const incBoxes = cnt.match(/<FbdObject xsi:type="Block" typeName="Inc"[\s\S]*?<\/FbdObject>/g) || [];
+chk('10 kotak Inc, tiap kotak 3 pin keluar', incBoxes.length === 10
+    && incBoxes.every(b => (b.match(/<OutputVariable /g) || []).length === 3), incBoxes.length + ' kotak');
+chk('Inc mendeklarasi pin nilai balik berikut titik sambungnya',
+    incBoxes.every(b => /<OutputVariable parameterName=""><ConnectionPointOut /.test(b)));
+chk('tidak ada pin yang ditulis tanpa titik sambung',
+    !/<OutputVariable parameterName="[^"]*" \/>/.test(cnt));
 chk('probe gak ikut keluar lagi', !file(a, '_Probe_Instructions.xml'));
 chk('clock pulse digenerate', /typeName="Get1sClk"/.test(file(a, 'P000_Initial.xml').xml));
 
