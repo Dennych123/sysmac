@@ -9,7 +9,7 @@ Daftar pekerjaan yang belum selesai ada di [TODO.md](TODO.md).
 
 ```bash
 python scripts/build_html.py           # js/*.js + template  ->  index.html
-node tests/run.js                      # SELURUH suite (pipeline + 6 harness)
+node tests/run.js                      # SELURUH suite (pipeline + 15 harness)
 node scripts/core.js project.json out/ # generate dari CLI, tanpa browser
 pwsh scripts/validate_xml.ps1          # outputs/*.xml  ->  XSD resmi Sysmac
 ```
@@ -17,6 +17,26 @@ pwsh scripts/validate_xml.ps1          # outputs/*.xml  ->  XSD resmi Sysmac
 `node tests/run.js` membaca `index.html`, jadi **build dulu baru test** kalau yang
 diubah ada di `scripts/build_html.py`. Kalau tidak, yang diuji versi lama dan
 hasil lulus/gagalnya menyesatkan.
+
+### Empat gerbang sebelum XML dibawa ke Studio
+
+Studio menolak dengan pesan yang tidak menyebut sebab, jadi tiap kelas kesalahan
+punya penjaganya sendiri. Semuanya sudah ikut `node tests/run.js`:
+
+| Suite | Menangkap | Kalau lolos, Studio bilang |
+|---|---|---|
+| `xsd` | bentuk elemen salah | `(Import failed)`, tanpa baris |
+| `instr` | FUN dikasih instance / FB tanpa instance / minta ENO yang tidak ada | `(DefinitionError)<nama>` |
+| `rungwire` | ref ke id yang tidak ada, titik keluar nganggur, rel kanan putus | "invalid connection" atau **rung kosong tanpa keluhan** |
+| `declared` | operand dipakai tapi tidak ada di ExternalVars program itu | tidak bilang apa-apa; variabelnya merah setelah semua masuk |
+
+Suite `xsd` **SKIP** kalau Sysmac atau `pwsh` tidak ada di mesin — XSD-nya milik
+Studio, tidak boleh disalin ke repo. SKIP selalu mencetak alasannya; kalau lewat
+diam-diam berarti ada yang rusak.
+
+Tiap gerbang menguji dirinya sendiri: satu berkas/rung/kotak yang sengaja dirusak
+harus tertangkap. Validator yang berhenti memvalidasi kelihatannya persis sama
+dengan yang lulus.
 
 ## Aturan yang tidak boleh dilanggar
 
@@ -46,6 +66,13 @@ Lihat PATTERN 4 di `js/lib.js`. Salah di sini tetap ter-import Sysmac tanpa
 keluhan, tapi bit-nya nyangkut selamanya. `judgeBranch()` dan `motionStep()`
 sama-sama bergantung pada ini, dan ada tes yang memeriksa titik sambungnya.
 
+**`ExternalVars` itu per-program, bukan warisan.** Simbol yang sudah dibangun di
+`P000_Initial` dan sudah ada di `GlobalVariables.tsv` TETAP tidak dikenal di
+program lain kalau program itu tidak mendeklarasikannya sendiri. Pakai `G()`
+milik builder yang bersangkutan di tempat simbolnya dipakai. Yang lupa lolos
+XSD, lolos import, dan baru kelihatan sebagai variabel merah di Studio —
+`aP_0_1s` di section Timers kena persis begini. Suite `declared` menjaganya.
+
 **Kode warning adalah kontrak.** `W(code, station, message, {device})` di
 `js/gen_all.js`. UI dan konsumen luar menyantol ke `code` dan `device`, bukan ke
 teks pesan. Mengganti kalimat aman; mengganti kode memutus penyorotan blok merah
@@ -70,6 +97,10 @@ C:\Program Files\OMRON\Sysmac Studio\Sample\IEC 61131-10 XML\Controller\
 ```bash
 pwsh scripts/validate_xml.ps1              # semua outputs/*.xml ke XSD di atas
 ```
+
+Sekarang ini sudah otomatis lewat `tests/xsd.test.js`; perintah di atas untuk
+memeriksa berkas yang sudah ditulis ke `outputs/` atau ke mana pun. Daftar berkas
+boleh ditulis polos setelah nama skrip, sebanyak apa pun.
 
 **Jalankan ini sebelum membawa apa pun ke Studio.** Studio cuma bilang
 "(Import failed)" tanpa nomor baris; validator menyebut elemen dan barisnya. Yang
@@ -215,7 +246,7 @@ digabung balik supaya lingkarannya tertutup: **baca → sunting → import**).
 Punya suite sendiri, jalankan terpisah:
 
 ```bash
-cd reader && node tests/run.js     # 5 suite; build dulu kalau src/ berubah
+cd reader && node tests/run.js     # 6 suite; build dulu kalau src/ berubah
 cd reader && node build.js         # src/ + viewer/  ->  smc2-viewer.html
 ```
 
