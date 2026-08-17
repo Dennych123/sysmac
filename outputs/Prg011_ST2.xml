@@ -46,7 +46,7 @@
       <Variable name="CH0_11"><Documentation xsi:type="SimpleText">SCAN ENABLE</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
       <Variable name="PB_SCN_ENB"><Documentation xsi:type="SimpleText">SCAN ENABLE</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
       <Variable name="CH0_12"><Documentation xsi:type="SimpleText">FAULT RESET</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
-      <Variable name="PB_FLT_RST"><Documentation xsi:type="SimpleText">FAULT RESET</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
+      <Variable name="PB_ALM_RST"><Documentation xsi:type="SimpleText">FAULT RESET</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
       <Variable name="CH1_00"><Documentation xsi:type="SimpleText">EMERGENCY STOP INTERLOCK</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
       <Variable name="EMER_INTLK"><Documentation xsi:type="SimpleText">EMERGENCY STOP INTERLOCK</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
       <Variable name="CH1_01"><Documentation xsi:type="SimpleText">AUTO RUNNING</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
@@ -334,7 +334,7 @@
       <Variable name="CH0_11"><Documentation xsi:type="SimpleText">SCAN ENABLE</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
       <Variable name="PB_SCN_ENB"><Documentation xsi:type="SimpleText">SCAN ENABLE</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
       <Variable name="CH0_12"><Documentation xsi:type="SimpleText">FAULT RESET</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
-      <Variable name="PB_FLT_RST"><Documentation xsi:type="SimpleText">FAULT RESET</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
+      <Variable name="PB_ALM_RST"><Documentation xsi:type="SimpleText">FAULT RESET</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
       <Variable name="CH1_00"><Documentation xsi:type="SimpleText">EMERGENCY STOP INTERLOCK</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
       <Variable name="EMER_INTLK"><Documentation xsi:type="SimpleText">EMERGENCY STOP INTERLOCK</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
       <Variable name="CH1_01"><Documentation xsi:type="SimpleText">AUTO RUNNING</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>

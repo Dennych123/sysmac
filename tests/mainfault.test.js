@@ -86,5 +86,57 @@ chk('tidak ada lagi rung terpisah yang nge-drive LB009',
     !/xsi:type="Coil"[^>]*operand="LB009"/.test(main.slice(0, s)),
     'LB009 cuma di-drive dari rung gabungan');
 
+// ---------------------------------------------------------------- angin punya DUA alarm
+// AL[3] tekanan jatuh, AL[5] pressure switch rusak. Yang kedua menangkap apa yang tidak bisa
+// ditangkap yang pertama: switch yang mati nyangkut di "angin ada" tidak pernah memicu AL[3],
+// jadi alarmnya diam selamanya dan mesin jalan tanpa penjaga tekanan.
+const airFall = /operand="AL\[3\]"/.test(main);
+const airPs   = /operand="AL\[5\]"/.test(main);
+chk('alarm tekanan angin jatuh tetap ada (AL[3])', airFall);
+chk('alarm pressure switch angin ada (AL[5])', airPs);
+const psI = main.indexOf('Air source pressure switch fault');
+chk('rung PS fault ada', psI >= 0);
+if (psI >= 0) {
+  const ps = main.slice(main.lastIndexOf('<Rung', psI), main.indexOf('</Rung>', psI));
+  const c = (main.slice(main.lastIndexOf('<Rung', psI), main.indexOf('</Rung>', psI))
+    .match(/<LdObject xsi:type="Contact"[^>]*>/g) || [])
+    .map(o => ((/operand="([^"]+)"/.exec(o) || [])[1] || '') + (/negated="true"/.test(o) ? '/' : ''));
+  // Dua cabang simetris: master hidup tapi tidak ada angin, DAN master mati tapi angin masih ada.
+  chk('dua cabang, masing-masing satu kontak dibalik',
+      c.length === 4 && c.filter(x => /\/$/.test(x)).length === 2, c.join(' '));
+  chk('cabangnya membandingkan MSTR_RDY dengan AIR_SC_CONF',
+      c.filter(x => x.indexOf('MSTR_RDY') === 0).length === 2
+      && c.filter(x => x.indexOf('AIR_SC_CONF') === 0).length === 2, c.join(' '));
+  // Lewat timer, bukan langsung: selisih sesaat itu normal (tangki mengisi), yang tidak normal
+  // itu selisih yang bertahan. Langsung ke coil, alarmnya nyala tiap master di-ON.
+  chk('lewat TON, bukan langsung ke coil',
+      /typeName="TON" instanceName="LT012"/.test(ps) && /identifier="T#3S"/.test(ps),
+      (/identifier="(T#[^"]+)"/.exec(ps) || [])[1] || 'tidak ada preset');
+  chk('ikut grup emergency stop, jadi mesin berhenti',
+      new RegExp('operand="AL\\[5\\]"[\\s\\S]*?operand="LB010"').test(main)
+      || /negated="true" operand="AL\[5\]"/.test(main), 'AL[5] -> LB010');
+}
+// Kedua sinyalnya WAJIB ada. Kalau salah satu tidak ada, req() memberi GSB000 dan cabang kedua
+// berubah jadi "NOT MSTR_RDY" telanjang - alarm tiap kali master mati. Lebih baik tidak dibuat.
+const IO_NO_AIR = IO.split('\n').filter(l => !/AIR SOURCE/.test(l)).join('\n');
+const rNoAir = core.generate({ io: IO_NO_AIR });
+const mNoAir = rNoAir.files.find(f => /Prg001_MAIN/.test(f.name)).xml;
+chk('tanpa AIR_SC_CONF, rung PS fault tidak dibuat', mNoAir.indexOf('pressure switch fault') < 0);
+chk('dan tidak dibuang diam-diam - ada warningnya',
+    rNoAir.warnList.some(w => w.code === 'air_ps_fault_skipped'),
+    rNoAir.warnList.map(w => w.code).join(', '));
+
+// ---------------------------------------------------------------- silence buzzer: PB_ALM_RST
+// Tombolnya membungkam alarm, bukan me-reset fault, dan nama standarnya PB_ALM_RST.
+// Dihitung di dalam section Fault saja - di Device_Input tombolnya muncul sekali lagi sebagai
+// salinan port ke simbol, dan itu bukan latch silence.
+const fi = main.indexOf('name="Fault"');
+const flt = main.slice(fi, main.indexOf('<BodyContent', fi + 10));
+chk('tiga latch silence buzzer pakai PB_ALM_RST',
+    (flt.match(/operand="PB_ALM_RST"/g) || []).length === 3,
+    (flt.match(/operand="PB_ALM_RST"/g) || []).length + ' pemakaian di Fault');
+chk('PB_FLT_RST tidak dipakai lagi', !/operand="PB_FLT_RST"/.test(main));
+chk('PB_ALM_RST dideklarasi di MAIN', /<Variable name="PB_ALM_RST"/.test(main));
+
 console.log('\n' + (fail ? fail + ' GAGAL' : 'SEMUA LULUS'));
 process.exit(fail ? 1 : 0);

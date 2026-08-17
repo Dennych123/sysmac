@@ -31,7 +31,10 @@ function std(jenis,io,komen){
     if(k.indexOf("SAFETY CONF")>=0||k.indexOf("SAFE CONF")>=0) return "SAFE_CONF";
     if(k.indexOf("PLC GOOD")>=0) return "PLC_GOOD";
     if(k.indexOf("POWER ON")>=0||k.indexOf("PWR ON")>=0) return "PWR_ON";
-    if(k.indexOf("FAULT RESET")>=0||k.indexOf("FLT RESET")>=0) return "PB_FLT_RST";
+    // Satu tombol, empat cara IO list menuliskannya. Simbolnya PB_ALM_RST - itu nama standarnya,
+    // dan tombol ini memang membungkam alarm, bukan cuma fault.
+    if(k.indexOf("ALARM RESET")>=0||k.indexOf("ALM RESET")>=0
+       ||k.indexOf("FAULT RESET")>=0||k.indexOf("FLT RESET")>=0) return "PB_ALM_RST";
     if(k.indexOf("MACHINE STOP")>=0) return "PB_MC_STOP";
     if(k.indexOf("HOME POS")>=0) return "HOME_POS";
     if(k.indexOf("MASTER ON")>=0){

@@ -3,7 +3,7 @@ AL[1]	BOOL			False	False	Do not publish	AL001_ Emergency stop button pressed
 AL[2]	BOOL			False	False	Do not publish	AL002_ Fuse disconnected
 AL[3]	BOOL			False	False	Do not publish	AL003_ Air source pressure lost
 AL[4]	BOOL			False	False	Do not publish	AL004_ Safety cover or light curtain open
-AL[5]	BOOL			False	False	Do not publish	AL005_ Spare
+AL[5]	BOOL			False	False	Do not publish	AL005_ Air source pressure switch fault
 AL[6]	BOOL			False	False	Do not publish	AL006_ Spare
 AL[7]	BOOL			False	False	Do not publish	AL007_ Spare
 AL[8]	BOOL			False	False	Do not publish	AL008_ Spare

@@ -32,6 +32,9 @@ function validTimer(v, fallback, label){
 }
 var T_PHPX   = validTimer(timerDefaults.phpx, "T#200MS", "PH/PX debounce");
 var T_MOTION = validTimer(timerDefaults.motion, "T#5S", "motion fault");
+// Selisih waktu yang WAJAR antara master di-ON dan pressure switch angin ikut naik. Di bawah
+// ini bukan kerusakan, cuma tangki lagi mengisi; di atasnya switch-nya yang bermasalah.
+var T_AIRPS  = validTimer(timerDefaults.airPs, "T#3S", "air pressure switch fault");
 var ARRAY_ELEMENTS = {}; // "AL[61]" -> comment, buat baris per elemen di GlobalVariables.tsv
 
 // Nama status global mengikuti standar Ndeso (MSTR_RDY, bukan MSTR_READY)
@@ -1375,7 +1378,7 @@ function buildMain(devs){
     var sEmg=req("NOT_EMG_STOP","emergency stop"), sFuse=req("FUSE_GOOD","fuse"), sAir=req("AIR_SC_CONF","air source"),
         sSafe=req("SAFE_CONF","safety"), sMstr=req("MSTR_RDY","master on confirm"), sPbMstr=req("PB_MSTR_ON","master on button"),
         sSel=req("SS_AUTO_IND","auto individual selector"), sPbAuto=req("PB_AUTO_RUN","auto start button"),
-        sPbCyc=req("PB_CYCL_STOP","cycle stop button"), sPbRst=req("PB_FLT_RST","alarm reset button"),
+        sPbCyc=req("PB_CYCL_STOP","cycle stop button"), sPbRst=req("PB_ALM_RST","alarm reset button"),
         sPbStop=req("PB_MC_STOP","machine stop button");
 
     // 1. Station_Input
@@ -1457,6 +1460,40 @@ function buildMain(devs){
         var rail=r.rail(); var c=r.ct(x[1],r.ct("LB001",rail),true);
         r.rr([r.clm(t,[c,r.ct(t,rail)])]); S5.push(r.build());
     });
+    // Angin punya DUA alarm, bukan satu, dan keduanya ada di program mesin:
+    //
+    //   AL[3]  tekanan angin jatuh   - pressure switch bilang angin hilang. Level, di-latch.
+    //   AL[5]  pressure switch rusak - switch-nya TIDAK SEPAKAT dengan perintahnya.
+    //
+    // Yang kedua menangkap apa yang tidak bisa ditangkap yang pertama. Pressure switch yang
+    // mati nyangkut di posisi "angin ada" tidak pernah memicu AL[3] - alarmnya diam selamanya
+    // dan mesin jalan tanpa penjaga tekanan. Bentuk detektornya sengaja simetris:
+    //
+    //   MSTR_RDY  AND NOT AIR   master hidup, switch bilang tidak ada angin
+    //   NOT MSTR_RDY  AND AIR   master mati, switch masih bilang ada angin
+    //
+    // Dua-duanya lewat SATU timer: selisih sesaat itu normal (tangki mengisi, angin membuang),
+    // yang tidak normal itu selisih yang bertahan. Tanpa timer, alarm ini menyala tiap kali
+    // master di-ON dan langsung dianggap gangguan palsu oleh operator.
+    (function(){
+        // Butuh DUA sinyal yang saling dibandingkan. Kalau salah satunya tidak ada di IO list,
+        // req() mengembalikan GSB000 dan pembandingnya berubah arti: cabang kedua jadi
+        // "NOT MSTR_RDY AND GSB000" = alarm tiap kali master mati. Lebih baik tidak dibuat -
+        // tapi dilaporkan, karena alarm yang hilang tanpa kabar itu justru yang berbahaya.
+        if(sAir==="GSB000" || sMstr==="GSB000"){
+            W("air_ps_fault_skipped","MAIN","MAIN: air source pressure switch fault needs both AIR_SC_CONF and MSTR_RDY in the I/O list - "
+              +"only the pressure-fall alarm AL[3] is generated, so a pressure switch stuck at 'air present' stays undetected.");
+            return;
+        }
+        var t=AL(5,"Air source pressure switch fault"); emg.push(t);
+        P("LT012","TON","Air source pressure switch disagreement");
+        var r=new Rung(o++, "Air source pressure switch fault: sensor disagrees with the master command");
+        var rail=r.rail();
+        var c1=r.ct(sAir, r.ct(sMstr, rail),      true);
+        var c2=r.ct(sAir, r.ct(sMstr, rail, true), false);
+        r.rr([r.ton([c1,c2], T_AIRPS, "LT012", t)]);
+        S5.push(r.build());
+    })();
     var chunkAux=[];
     function integSelf(list,a1,a2,out,label){
         if(!list.length){ S5.push(series(o++,[["GSB000",false]],a1,label)); }

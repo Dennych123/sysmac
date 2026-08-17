@@ -248,10 +248,10 @@ PB431_2M	BOOL		%W463.02	False	False	Do not publish	Individual button, ST3  PUSHE
 PB431_2R	BOOL		%W463.03	False	False	Do not publish	Individual button, ST3  PUSHER BACKWARD
 PB431_3M	BOOL		%W463.04	False	False	Do not publish	Spare individual button, ST3 spare 1
 PB431_3R	BOOL		%W463.05	False	False	Do not publish	Spare individual button, ST3 spare 1
+PB_ALM_RST	BOOL			False	False	Do not publish	FAULT RESET
 PB_AUTO_RUN	BOOL			False	False	Do not publish	AUTO RUNNING
 PB_CYCL_STOP	BOOL			False	False	Do not publish	CYCLE STOP
 PB_DDR_LCKN	BOOL			False	False	Do not publish	DANDORI LOCK-UNLOCK
-PB_FLT_RST	BOOL			False	False	Do not publish	FAULT RESET
 PB_MC_STOP	BOOL			False	False	Do not publish	MACHINE STOP
 PB_MSTR_ON	BOOL			False	False	Do not publish	MASTER ON
 PB_SCN_ENB	BOOL			False	False	Do not publish	SCAN ENABLE
