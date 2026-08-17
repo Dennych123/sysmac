@@ -59,8 +59,11 @@ chk('ukuran kekecilan dinaikin ke jumlah terpakai',
     arrType(tsv,'AL')==='ARRAY[1..'+p.arrayInfo.alUsed+'] OF BOOL' &&
     arrType(tsv,'MF')==='ARRAY[1..'+p.arrayInfo.mfUsed+'] OF BOOL',
     arrType(tsv,'AL')+' | used='+p.arrayInfo.alUsed);
-chk('ada warning-nya, bukan diam-diam', /Array AL diminta 3/.test(p.warnings) && /Array MF diminta 2/.test(p.warnings),
-    (p.warnings.split('\n').filter(w=>/^Array/.test(w))||[]).join(' | '));
+// Dicocokkan ke KODE warning, bukan kalimatnya. Kode itu kontrak (lihat CLAUDE.md); teksnya boleh
+// berubah - dan memang berubah waktu pesan generator dipindah ke bahasa Inggris.
+chk('ada warning-nya, bukan diam-diam',
+    p.warnList.filter(w=>w.code==='array_size_raised').length===2,
+    p.warnList.map(w=>w.code).join(', '));
 chk('slot terakhir yang kepakai tetap ada isinya',
     tsv.includes('AL['+p.arrayInfo.alUsed+']') && !new RegExp('AL\\['+(p.arrayInfo.alUsed+1)+'\\]').test(tsv));
 
@@ -80,8 +83,8 @@ chk('array ngikut, gak nyisain slot tanpa komen', count(tsv,'AL')===p.arrayInfo.
 // blok kekecilan buat station yang butuh lebih -> dilebarin + warning, jangan ngedrop alarm
 p=gen({stationBlock:2});
 chk('blok kekecilan -> SEMUA blok dinaikin (bukan cuma station itu), ada warning',
-    /lebih besar dari 'Slot per station'/.test(p.warnings) && /buat SEMUA station/.test(p.warnings),
-    (p.warnings.split('\n').filter(w=>/Slot per station/.test(w))[0]||'').slice(0,100));
+    p.warnList.some(w=>w.code==='station_block_raised'),
+    p.warnList.map(w=>w.code).join(', '));
 chk('ukuran blok jadi seragam sebesar station terbesar', p.arrayInfo.stationBlock>2,
     'stationBlock='+p.arrayInfo.stationBlock);
 chk('gak ada alarm yang ke-skip gara-gara blok kekecilan', !/alarm block full/.test(p.warnings));

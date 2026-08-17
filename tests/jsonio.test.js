@@ -46,33 +46,38 @@ const row=M.buildJsonIORow(ta,msg,
 
 const labels=row.children.filter(c=>c.tag==='button').map(c=>c.textContent);
 chk('5 tombol kebentuk', labels.length===5, JSON.stringify(labels));
-chk('ada Copy', labels.includes('Copy'));
-chk('ada Download .json', labels.includes('Download .json'));
-chk('ada Import file...', labels.includes('Import file...'));
-chk('ada Import clipboard', labels.includes('Import clipboard'));
-chk('ada Import (kotak)', labels.includes('Import (kotak)'));
+// Label tombol ditulis langsung di sumber (lapisan terjemahan sudah dibuang), jadi tesnya
+// mencocokkan teks apa adanya.
+const LBL={'prj.copy':'Copy','prj.download':'Save file','prj.importFile':'Open file',
+           'prj.importClip':'Paste','prj.import':'Load from box','prj.loaded':'Loaded from'};
+const L=k=>LBL[k];
+chk('ada Copy', labels.includes(L('prj.copy')), labels.join(' | '));
+chk('ada Download', labels.includes(L('prj.download')));
+chk('ada Open file', labels.includes(L('prj.importFile')));
+chk('ada Paste', labels.includes(L('prj.importClip')));
+chk('ada Load from box', labels.includes(L('prj.import')));
 chk('ada pemisah visual', row.children.some(c=>c.className==='row-sep'));
 
 const byLabel=l=>row.children.filter(c=>c.textContent===l)[0];
 
 // Copy -> panggil getText, isi textarea, pakai fallback execCommand (navigator.clipboard absen)
-byLabel('Copy').click();
+byLabel(L('prj.copy')).click();
 chk('Copy manggil getText', exported===1, 'exported='+exported);
 chk('Copy naruh JSON ke textarea', ta.value==='{"hasil":"export"}', ta.value);
 
 // Download -> panggil getText juga
-byLabel('Download .json').click();
+byLabel(L('prj.download')).click();
 chk('Download manggil getText', exported===2, 'exported='+exported);
 
 // Import (kotak) sukses
 ta.value='{"mau":"diimport"}';
-byLabel('Import (kotak)').click();
+byLabel(L('prj.import')).click();
 chk('Import kirim isi textarea ke doImport', importedWith==='{"mau":"diimport"}', String(importedWith));
-chk('pesan sukses', /Imported dari kotak/.test(msg.textContent)&&/ok/.test(msg.className), msg.textContent);
+chk('pesan sukses', msg.textContent.indexOf(L('prj.loaded'))===0&&/ok/.test(msg.className), msg.textContent);
 
 // Import (kotak) gagal -> pesan error dari doImport
 importErr='JSON gak valid: boom';
-byLabel('Import (kotak)').click();
+byLabel(L('prj.import')).click();
 chk('error diteruskan apa adanya', msg.textContent==='JSON gak valid: boom'&&/err/.test(msg.className), msg.textContent);
 
 // clipboard read ditolak kalau API-nya gak ada

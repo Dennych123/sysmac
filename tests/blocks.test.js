@@ -25,7 +25,17 @@ let m=run('s_parse',{payload:IO},flow); m=run('s_name',m,flow);
 const v=run('s_val',m,flow); if(v[1]){ console.log('VALIDATE ERR:',v[1].payload); process.exit(1); }
 const r=run('s_all',run('s_split',v[0],flow),flow);
 const xml=r.payload.files.find(f=>/Prg010_ST1/.test(f.name)).xml;
-const auto=xml.split('AutoRunning')[1]||'';
+// Potong per SECTION beneran. Dulu `split('AutoRunning')[1]` dipakai buat "isi AutoRunning",
+// padahal itu seluruh sisa file - termasuk section sesudahnya. Begitu rung memory pindah ke
+// section Memory, tesnya tetap hijau padahal yang diuji sudah bukan AutoRunning lagi.
+const sectionOf=(name)=>{
+  const i=xml.indexOf('"'+name+'" evaluationOrder=');
+  if(i<0) return '';
+  const j=xml.indexOf('<BodyContent', i);
+  return xml.slice(i, j<0?xml.length:j);
+};
+const auto=sectionOf('AutoRunning');
+const mem=sectionOf('Memory');
 
 let fail=0;
 const chk=(l,c,x)=>{ if(!c)fail++; console.log((c?'  OK  ':'>>BAD ')+l+(x?'\n         '+x:'')); };
@@ -52,13 +62,16 @@ const yPrev=(yR.match(/Contact"[^>]*operand="(LB\d+)"/)||[])[1];
 const nPrev=(nR.match(/Contact"[^>]*operand="(LB\d+)"/)||[])[1];
 chk('dua cabang berangkat dari step-bit yang SAMA', yPrev===nPrev, yPrev+' vs '+nPrev);
 
-// --- memory: SATU rung latch per bit, bukan coil dobel ---
-const coilCount=(bit)=>(auto.match(new RegExp('<LdObject xsi:type="Coil"[^>]*operand="'+bit+'"','g'))||[]).length;
+// --- memory: SATU rung latch per bit, bukan coil dobel, dan HARUS di section Memory ---
+chk('section Memory ada', mem.length>0);
+chk('latch memory ada di section Memory, bukan AutoRunning',
+    mem.includes('Memory LB800') && !auto.includes('Memory LB800'));
+const coilCount=(bit)=>(mem.match(new RegExp('<LdObject xsi:type="Coil"[^>]*operand="'+bit+'"','g'))||[]).length;
 chk('LB800 cuma punya 1 coil (gak dobel)', coilCount('LB800')===1, 'coil='+coilCount('LB800'));
 chk('LB801 cuma punya 1 coil walau di-set DAN di-reset', coilCount('LB801')===1, 'coil='+coilCount('LB801'));
-const m800=rungWith(auto,'Memory LB800');
+const m800=rungWith(mem,'Memory LB800');
 chk('LB800 self-latch (kontak dirinya sendiri ada)', CT('LB800').test(m800));
-const m801=rungWith(auto,'Memory LB801');
+const m801=rungWith(mem,'Memory LB801');
 chk('LB801 punya kontak reset ter-negasi', /Contact" negated="true" operand="LB6\d\d"/.test(m801));
 chk('LB801 di-set dari cabang N, di-reset dari cabang Y',
     m801.includes('set by '+nBit) && m801.includes('reset by '+yBit),

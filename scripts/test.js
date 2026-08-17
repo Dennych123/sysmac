@@ -96,7 +96,7 @@ CH6_08\tCR\tOUT\tST1 PART FEEDER-2 START`;
 // ---- cek silang + dangling-contact, dipakai buat kedua skenario (stub dan motion-sequence) ----
 function validate(label, files) {
     const xmlFiles = files.filter(f=>f.name.endsWith('.xml'));
-    const glob = new Set(files.find(f=>f.name.endsWith('.tsv')).xml
+    const glob = new Set(files.find(f=>f.name==='GlobalVariables.tsv').xml
         .split('\n').slice(1).map(l=>l.split('\t')[0]).filter(Boolean));
     let bad = 0;
     xmlFiles.forEach(f=>{
@@ -116,8 +116,11 @@ function validate(label, files) {
     });
     console.log('['+label+']', bad? 'CEK GAGAL: '+bad+' masalah' : 'CEK OK: semua operand terdeklarasi, semua external punya global');
 
+    // File probe SENGAJA berisi bentuk XML yang belum terbukti - itu memang gunanya. Kalau ikut
+    // dicek di sini, tiap kali nambah varian uji seluruh suite ikut merah tanpa ada yang salah
+    // di program mesinnya.
     let dang = 0;
-    xmlFiles.forEach(f=>{
+    xmlFiles.filter(f=>f.name.indexOf('_Probe')!==0).forEach(f=>{
         [...f.xml.matchAll(/<Rung [\s\S]*?<\/Rung>/g)].map(m=>m[0]).forEach(rg=>{
             const outs = [...rg.matchAll(/connectionPointOutId="(\d+)"/g)].map(m=>m[1]);
             const refs = new Set([...rg.matchAll(/refConnectionPointOutId="(\d+)"/g)].map(m=>m[1]));

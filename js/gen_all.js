@@ -1,6 +1,6 @@
 // ===== Generate program XML per station + main, jumlah unit dinamis =====
 var groups   = flow.get("groups") || {};
-var PER_PAGE = 8;
+var PER_PAGE;   // aktuator per screen HMI - disetel di blok "Peta alamat HMI" di bawah
 var files = [], warnings = [], lscAudit = [];
 
 // ===== Warning terstruktur =====
@@ -85,8 +85,21 @@ function findLsc(dev,asPairs){
     return best;
 }
 function pairUp(l){ var p=[]; for(var i=0;i<l.length;i+=2){ if(l[i+1]) p.push([l[i],l[i+1]]); } return p; }
-function AL(n,cmt){ var t="AL["+n+"]"; if(cmt) ARRAY_ELEMENTS[t]=cmt; return t; }
-function MF(n,cmt){ var t="MF["+n+"]"; if(cmt) ARRAY_ELEMENTS[t]=cmt; return t; }
+// Nama device buat teks alarm: ambil kata-kata AWAL yang sama dari dua komen pasangan
+// ("ST1 STOPPER-5 CHUCK" + "ST1 STOPPER-5 UNCHUCK" -> "ST1 STOPPER-5"). Dipotong per KATA,
+// bukan per karakter, kalau tidak "CLAMP" vs "CLAMP2" kepotong di tengah kata jadi nama palsu.
+// Spasi ganda di komen sumber ("ST2  STOPPER-1") sekalian dirapikan jadi satu spasi.
+function words(s){ return String(s||"").trim().split(/\s+/).filter(Boolean); }
+function devBase(a,b){
+    var wa=words(a), wb=words(b), i=0;
+    while(i<wa.length && i<wb.length && wa[i]===wb[i]) i++;
+    return (i?wa.slice(0,i):wa).join(" ");
+}
+// Komen elemen AL/MF selalu diawali stub bernomor (AL071_, MF007_) - gaya yang sama dengan baris
+// Spare di fillSpareArrayComments(), biar satu tabel Global Variable seragam dan slot kepakai /
+// cadangan sama-sama kebaca nomornya tanpa lihat kolom Name. Komen rung TIDAK pakai stub ini.
+function AL(n,cmt){ var t="AL["+n+"]"; if(cmt) ARRAY_ELEMENTS[t]="AL"+pad(n,3)+"_ "+cmt; return t; }
+function MF(n,cmt){ var t="MF["+n+"]"; if(cmt) ARRAY_ELEMENTS[t]="MF"+pad(n,3)+"_ "+cmt; return t; }
 // Nama station custom (opsional, disetel di panel "Pengaturan" web UI) - dipakein ke SEMUA komen yang
 // nyebut identitas station (bukan cuma LB400_A/B), termasuk broadcast status lintas-program (MAIN dan
 // station lain), biar konsisten satu ladder gak setengah-setengah ada nama setengah cuma "ST1".
@@ -149,9 +162,8 @@ var STATION_BLOCK_DEFAULT = 30;
     var maxNeed = 0;
     ukeys.forEach(function(k){ maxNeed = Math.max(maxNeed, need[k].al, need[k].mf); });
     if(maxNeed > sb){
-        W("station_block_raised","","Ada station yang butuh "+maxNeed+" slot, lebih besar dari 'Slot per station' ("+sb+
-                      ") - dinaikin ke "+maxNeed+" buat SEMUA station biar penomorannya tetap seragam. "+
-                      "Naikin setelannya kalau mau ada ruang cadangan lagi.");
+        W("station_block_raised","","A station needs "+maxNeed+" slots, more than 'Slots per station' ("+sb+") - raised to "+maxNeed+
+                      " for EVERY station so the numbering stays uniform. Raise the setting if you want spare room again.");
         sb = maxNeed;
     }
     STATION_BLOCK = sb;
@@ -187,7 +199,7 @@ var STATION_BLOCK_DEFAULT = 30;
         var v = parseInt(raw, 10);
         if(!isFinite(v) || v <= 0) return Math.max(dflt, used);
         if(v < used){
-            W("array_size_raised","","Array "+name+" diminta "+v+" elemen, tapi "+used+" slot sudah kepakai - dinaikin ke "+used+".");
+            W("array_size_raised","","Array "+name+" was asked for "+v+" elements but "+used+" slots are already in use - raised to "+used+".");
             return used;
         }
         return v;
@@ -197,6 +209,189 @@ var STATION_BLOCK_DEFAULT = 30;
 })();
 var AL_TYPE = "ARRAY[1.."+AL_SIZE+"] OF BOOL";
 var MF_TYPE = "ARRAY[1.."+MF_SIZE+"] OF BOOL";
+
+// ============================================================ PETA ALAMAT HMI
+// NX dan NB cuma bisa ngobrol lewat ALAMAT MEMORI, bukan tag/network variable - driver di project
+// HMI-nya "OMRON CJ/CS/NJ Series Ethernet UDP" (FINS). Jadi tiap simbol yang disentuh HMI wajib
+// punya AT specification ke area CJ-series Unit memory, dan kolom AT di GlobalVariables.tsv itu
+// SATU-SATUNYA penyambung antara dua sisi. Simbol tanpa AT = tombol yang gak nyambung ke mana-mana.
+//
+// Skema word-nya bukan karangan: dibaca balik dari project HMI produksi (Prepare HMI CE INSERT),
+// dari unit 1, 2, 6, 7, 8 yang alamatnya masih bersih:
+//
+//   tombol station n (HMI -> PLC, "Write" di switch NB) : W(PB_BASE + n*STRIDE)
+//   lampu  station n (PLC -> HMI, "Read"  di switch NB) : word tombol + RD_OFFSET   <- selalu +23
+//   bit di dalam word : tiap slot grid 2 bit (M lalu R), page 1 isi .00-.07, page 2 .08-.15
+//
+// Unit 3/4/5 di project itu JANGAN dicontoh: tiga screen (0431, 0441, 0451) nulis W465 bit per bit
+// sama persis, jadi tombol di screen unit 4 dan 5 menggerakkan aktuator unit 3. Yang dipakai di
+// sini formula bersihnya, dan hmiClaim() di bawah nolak dua simbol berbagi satu alamat - persis
+// jenis kesalahan yang bikin project itu rusak diam-diam.
+var HMI_AT = {};     // nama simbol -> string AT ("W461.00"), dipakai kolom AT di TSV
+var HMI_ROWS = [];   // baris peta buat panel HMI di web UI
+var HMI_OWNER = {};  // string AT -> nama simbol yang sudah nempatin, buat deteksi tabrakan
+var HMI_CFG = (function(){
+    var c = flow.get("hmiMap") || {};
+    function num(v, dflt, label, min, max){
+        if(v === undefined || v === null || v === "") return dflt;
+        var n = parseInt(v, 10);
+        if(!isFinite(n) || n < min || n > max){
+            W("hmi_cfg_range","","HMI map: "+label+' = "'+v+'" is outside '+min+".."+max+", using default "+dflt+".");
+            return dflt;
+        }
+        return n;
+    }
+    // Area memori dipisah per blok: tombol/lampu di W (itu yang dipakai screen NB), AL/MF di H
+    // (bit retentif - alarm gak boleh hilang pas power cycle). Cuma area CJ-series Unit memory
+    // yang boleh, karena cuma itu yang kejangkau FINS dari NB.
+    function area(v, dflt, label){
+        var a = String(v||"").trim().toUpperCase();
+        if(!a) return dflt;
+        if(["W","H","D","CIO"].indexOf(a) < 0){
+            W("hmi_cfg_range","","HMI map: "+label+' area = "'+v+'" is not W/H/D/CIO, using default '+dflt+".");
+            return dflt;
+        }
+        return a;
+    }
+    return {
+        on      : c.enabled === undefined ? true : !!c.enabled,
+        // "manual" = screen NB dikelola orang, tool cuma nyocokin diri ke situ, jadi alamat HARAM
+        // digeser diam-diam. "generate" = tool yang bikin screen-nya, geser boleh karena screen
+        // ikut dibikin ulang. Default manual: itu yang gak pernah merusak project yang sudah jalan.
+        mode    : c.mode === "generate" ? "generate" : "manual",
+        btnArea : area(c.btnArea, "W", "tombol/lampu"),
+        alArea  : area(c.alArea,  "H", "AL"),
+        mfArea  : area(c.mfArea,  "H", "MF"),
+        pbBase  : num(c.pbBase,   460, "base word tombol",    0, 511),
+        rdOfs   : num(c.rdOffset,  23, "offset word lampu",   1, 511),
+        // Lampu status MAIN dan array lampu kondisi duduk di bawah blok lampu station. Angkanya
+        // dari peta mesin: W481 master condition (screen 0021), W482 auto start (0031). W480
+        // dipakai lampu status MAIN supaya tidak menabrak keduanya, W483 buat halaman kedua
+        // auto start. Blok station mulai W484 ke atas, jadi tidak bertabrakan.
+        lampBase: num(c.lampBase, 480, "base word lampu MAIN", 0, 511),
+        condBase: num(c.condBase, 481, "base word lampu kondisi", 0, 511),
+        cntBase : num(c.cntBase,  494, "base word lampu counter", 0, 511),
+        alBase  : num(c.alBase,   300, "base word AL",        0, 511),
+        mfBase  : num(c.mfBase,   320, "base word MF",        0, 511),
+        perPage : num(c.perPage,    4, "aktuator per screen", 1, 8),
+        stride  : num(c.stride,     1, "word per station",    1, 16)
+    };
+})();
+PER_PAGE = HMI_CFG.perPage;
+
+// Tiap station butuh 2 bit per aktuator. Yang dilakukan kalau ada station yang gak muat di jatah
+// word-nya BEDA per mode, dan bedanya penting:
+//
+//   generate - tool yang bikin screen NB, jadi jatah dinaikin buat SEMUA station (bukan cuma yang
+//              kepepet: word dihitung dari NOMOR station, rumus itu cuma berlaku kalau jatahnya
+//              seragam). Alamat bergeser, tapi screen-nya ikut dibikin ulang jadi tetap cocok.
+//   manual   - screen NB dikelola orang. Menggeser alamat di sini artinya semua screen yang sudah
+//              ada tiba-tiba nunjuk bit yang salah, dan gak ada yang protes sampai mesin gerak.
+//              Jadi jatah DIPERTAHANKAN, dan aktuator yang gak kebagian slot dilaporin satu-satu
+//              lewat hmi_slot_overflow - kurang tombol itu keliatan, salah alamat enggak.
+(function fitHmiStride(){
+    if(!HMI_CFG.on) return;
+    var maxWords = 0, worst = "";
+    ukeys.forEach(function(k){
+        var devs = groups[k] || [];
+        var n = pairUp(devs.filter(function(d){ return d.io==="OUT" && (d.jenis==="CR"||d.jenis==="SOL"); })).length
+              + devs.filter(function(d){ return d.io==="OUT" && d.jenis==="SRV_CMD"; }).length;
+        var w = Math.ceil(n*2/16);
+        if(w > maxWords){ maxWords = w; worst = k+" ("+n+" actuators)"; }
+    });
+    if(maxWords <= HMI_CFG.stride) return;
+    if(HMI_CFG.mode === "generate"){
+        W("hmi_stride_raised","","HMI map: "+worst+" needs "+maxWords+" button words, more than the "+HMI_CFG.stride+" allowed - "+
+          "raised to "+maxWords+" for EVERY station so the numbering stays uniform. "+
+          "NB screens will be regenerated at the new addresses.");
+        HMI_CFG.stride = maxWords;
+    } else {
+        W("hmi_stride_fixed","","HMI map (manual mode): "+worst+" needs "+maxWords+" button words but only "+HMI_CFG.stride+" is allowed. "+
+          "The budget is NOT raised, so the existing NB screens keep pointing at the right bits - the actuators "+
+          "that miss out are listed below. Raise 'Words per station' yourself if the screens are going to be "+
+          "re-addressed, or switch to Generate mode.");
+    }
+})();
+
+// Tanda "%" itu WAJIB. Sysmac nolak "W485.01" (baris jadi merah di tabel Global Variable) tapi
+// nerima "%W485.01". Dibuktikan langsung di Sysmac Studio, bukan dari dokumentasi.
+function atBit(area, word, bit){ return "%"+area+word+"."+pad(bit,2); }
+
+// Array lampu kondisi yang dibaca screen HMI. Indeksnya 0-based (beda dari AL/MF yang 1-based) -
+// itu bentuk yang dipakai project produksi dan yang diharapkan screen-nya. Ukurannya 16 = satu
+// word penuh, jadi tiap array pas satu word dan tidak ada bit nyasar ke array sebelahnya.
+// seed[] mengisi elemen yang memang bisa diturunkan dari bit yang sudah ada; sisanya stub.
+
+// Instruksi di luar kontak/coil/TON (MOVE, pembanding, Inc, Get*Clk) bentuk XML-nya BELUM
+// diverifikasi ke Susmax Studio. Satu elemen salah bisa bikin SELURUH file gagal di-import, jadi
+// defaultnya mati: yang keluar rung penanda, bukan tebakan. Nyalakan setelah _Probe_Instructions.xml
+// ter-import bersih. Lihat TODO.md 5a.
+var ADV_OK = !!(flow.get("advancedInstructions"));
+
+// Counter Denso: satu counter = 3 rung, dan bentuknya sama untuk semua counter.
+//   1. trigger AND (hitungan < target)            -> tambah 1
+//   2. hitungan <> 0 AND >= ambang peringatan     -> lampu WARNING (mati kalau UP sudah nyala)
+//   3. hitungan <> 0 AND >= target                -> lampu UP
+// Lampu dipetakan ke PL71 (8 counter, 2 bit tiap counter) lalu lanjut ke PL72 (2 counter).
+var CNT_N = 10;
+var CNT_LAMPS = [ { name:"PL71", size:16, screen:"0071" }, { name:"PL72", size:4, screen:"0072" } ];
+// Slot lampu ke-k (0-based) -> array mana, bit ke berapa. Dua bit per counter: WARNING lalu UP.
+function cntLamp(k){
+    var bit=k*2, i=0;
+    while(i<CNT_LAMPS.length && bit>=CNT_LAMPS[i].size){ bit-=CNT_LAMPS[i].size; i++; }
+    return i<CNT_LAMPS.length ? { arr:CNT_LAMPS[i].name, warn:bit, up:bit+1 } : null;
+}
+var COND_ARRAYS = [
+    { name:"PL21",  size:16, screen:"0021", doc:"Master on condition indication",
+      seed:{} },
+    { name:"PL031", size:16, screen:"0031", doc:"Auto start condition indication, page 1",
+      seed:{ 1:"AUTO_MODE" } },
+    { name:"PL032", size:16, screen:"0031", doc:"Auto start condition indication, page 2",
+      seed:{} }
+];
+// Berapa elemen per bit rangkuman. Project produksi memakai 7/7/2 buat PL21 dan 5/5/5/1 buat
+// PL031 - dua-duanya tanpa aturan yang bisa diturunkan, jadi tidak bisa ditiru generator.
+// Dipakai ukuran seragam: rangkumannya jadi bisa dihitung dari nomor elemen.
+var COND_CHUNK = 8;
+// Satu-satunya pintu buat nempatin simbol ke alamat. Nolak - bukan menimpa - kalau alamatnya sudah
+// dipakai simbol lain, karena dua simbol di satu bit itu justru cacat yang lagi kita hindari.
+function hmiClaim(sym, at, dir, screen, komen){
+    if(!HMI_CFG.on) return;
+    var owner = HMI_OWNER[at];
+    if(owner && owner !== sym){
+        W("hmi_at_conflict","","HMI map: address "+at+" requested by "+sym+" is already owned by "+owner+" - "+sym+" skipped.",{device:sym});
+        return;
+    }
+    HMI_OWNER[at] = sym; HMI_AT[sym] = at;
+    HMI_ROWS.push({ sym:sym, at:at, dir:dir, screen:screen||"", komen:komen||"" });
+}
+// Blok bit berurutan (AL, MF) - satu variabel ARRAY nempatin banyak bit sekaligus. Dicek dulu
+// SELURUH rentangnya baru ditandai, biar blok yang nabrak gak nyisain separuh klaim di peta.
+function hmiClaimRange(sym, area, word0, bits, dir, screen, komen){
+    if(!HMI_CFG.on || bits<=0) return;
+    function at(i){ return atBit(area, word0+Math.floor(i/16), i%16); }
+    for(var i=0;i<bits;i++){
+        var owner=HMI_OWNER[at(i)];
+        if(owner && owner!==sym){
+            W("hmi_at_conflict","","HMI map: block "+sym+" ("+bits+" bits from "+area+word0+") clashes with "+owner+" at "+at(i)+" - "+sym+" gets no address.",{device:sym});
+            return;
+        }
+    }
+    for(var j=0;j<bits;j++) HMI_OWNER[at(j)]=sym;
+    HMI_AT[sym]=at(0);
+    HMI_ROWS.push({ sym:sym, at:at(0)+" .. "+at(bits-1), dir:dir, screen:screen||"", komen:komen||"" });
+}
+// Slot grid buat aktuator ke-idx (0-based) di satu station. Dua bit per slot: M lalu R.
+function hmiSlot(stationNo, idx){
+    var tb = idx*2, wOfs = Math.floor(tb/16);
+    return {
+        pg   : 1 + Math.floor(idx/PER_PAGE),
+        nn   : (idx % PER_PAGE) + 1,
+        word : HMI_CFG.pbBase + stationNo*HMI_CFG.stride + wOfs,
+        bit  : tb % 16,
+        over : wOfs >= HMI_CFG.stride
+    };
+}
 
 // ============================================================ UNIT
 function buildUnit(stKey, devs){
@@ -243,7 +438,10 @@ function buildUnit(stKey, devs){
     function P(n,t,d){ var k=n.toUpperCase(); if(nameCI[k]) return; nameCI[k]=n; pseen[n]=1; priv.push("      "+vr(n,t,d)); }
     G("GSB000","BOOL","Equipment design coil, constant ON");
     MAIN_EXPORTS.forEach(function(n){ G(n,"BOOL","Machine status from main program"); });
-    G("AL",AL_TYPE,"Alarm bit table"); G("MF",MF_TYPE,"Cylinder motion fault table");
+    // Baris array-level AL/MF sengaja TANPA komen. Komen yang berarti ada di tiap ELEMEN
+    // (AL[11] "AL011_ ST1 STOPPER-5 ALL REED SWITCH ON"); komen array-level cuma nutupin
+    // kolom Comment di tabel Sysmac dengan teks generik yang sama buat 100 baris.
+    G("AL",AL_TYPE,""); G("MF",MF_TYPE,"");
     var allDevs=[]; Object.keys(groups).forEach(function(k){ allDevs=allDevs.concat(groups[k]); });
     allDevs.forEach(function(d){ G(portName(d.address),"BOOL",d.komen); G(d.name,"BOOL",d.komen); });
 
@@ -263,9 +461,15 @@ function buildUnit(stKey, devs){
     inputs.forEach(function(d,i){ S2.push(series(o++,[[portName(d.address),false]],d.name, i===0?"Physical input to symbol":null)); });
 
     // 3. HMI_Input
+    // Tombol HMI gak butuh rung: NB nulis LANGSUNG ke word-nya, dan variabel PB station ini
+    // di-AT ke word yang sama (kolom AT di GlobalVariables.tsv). Rung di bawah penanda peta
+    // alamatnya, biar yang buka ladder tahu word mana milik station ini tanpa buka TSV dulu.
     var S3=[]; o=1;
     P("HMI_INPUT_NOP","BOOL","No operation, reserved for HMI input");
-    S3.push(series(o++,[["GSB000",false]],"HMI_INPUT_NOP","HMI input not yet implemented, placeholder to keep section non-empty"));
+    S3.push(series(o++,[["GSB000",false]],"HMI_INPUT_NOP",
+        HMI_CFG.on ? "HMI buttons arrive by AT specification, no logic needed : write "+HMI_CFG.btnArea+(HMI_CFG.pbBase+SN*HMI_CFG.stride)
+                     +", lamp "+HMI_CFG.btnArea+(HMI_CFG.pbBase+SN*HMI_CFG.stride+HMI_CFG.rdOfs)+", "+PER_PAGE+" actuators per screen"
+                   : "HMI address map disabled, no HMI input"));
 
     // 4. Timers
     var S4=[]; o=1;
@@ -295,25 +499,33 @@ function buildUnit(stKey, devs){
     var mfCap=MF_BLOCK[stKey].end, mfN=MF_BLOCK[stKey].start;
     asPairs.forEach(function(p,i){
         if(alN>alCap){ W("al_block_full",stKey,stKey+": AL alarm block full, dual sensor fault for "+p[0].komen+" skipped."); return; }
-        var cmt="Dual sensor fault, both ends detected at the same time: "+p[0].komen+" / "+p[1].komen;
+        var cmt=devBase(p[0].komen,p[1].komen)+" ALL REED SWITCH ON";
         var t=AL(alN,cmt);
         var r=new Rung(o++, cmt);
         var rail=r.rail(); var c=r.ct(p[1].name,r.ct(p[0].name,rail));
         var x=r.clm(t,[c,r.ct(t,rail)]); r.rr([x]); S6.push(r.build());
         fltList.push(t); alN++;
     });
+    // LSC tiap aktuator dihitung SEKALI di sini, bukan di dalam loop Fault seperti dulu. Fault
+    // (motion fault) dan HMI_Output (lampu posisi di screen individual) sama-sama butuh angka ini;
+    // kalau masing-masing menghitung sendiri, aturan override cuma soal waktu sebelum beda dan
+    // lampu di HMI bakal nunjuk sensor yang lain dari yang dipakai deteksi fault-nya.
+    function lscFor(a){
+        var ov=actuatorOverrides[a[0].name]||actuatorOverrides[a[1].name];
+        if(ov && ov.mode==="openloop") return { open:true };
+        if(ov && ov.mode==="manual" && ov.lscA && ov.lscB) return { a:ov.lscA, b:ov.lscB };
+        return { a:findLsc(a[0],asPairs), b:findLsc(a[1],asPairs) };
+    }
     var faultTimerIdx=0;
     actus.forEach(function(a,i){
-        var ov=actuatorOverrides[a[0].name]||actuatorOverrides[a[1].name];
-        if(ov && ov.mode==="openloop") return; // sengaja gak ada sensor by design - skip diam-diam, gak makan slot MF, gak warning
+        var L=lscFor(a);
+        if(L.open) return; // sengaja gak ada sensor by design - skip diam-diam, gak makan slot MF, gak warning
         if(mfN>mfCap){ W("mf_block_full",stKey,stKey+": MF motion-fault block full, actuator "+a[0].komen+" skipped."); return; }
-        var lscA, lscB;
-        if(ov && ov.mode==="manual" && ov.lscA && ov.lscB){ lscA=ov.lscA; lscB=ov.lscB; }
-        else { lscA=findLsc(a[0],asPairs); lscB=findLsc(a[1],asPairs); }
+        var lscA=L.a, lscB=L.b;
         // device diisi nama SIMBOL (bukan komen) - itu kunci yang dipakai actuatorOverrides dan panel
         // Confirm Mode, jadi UI bisa nyorot aktuator yang tepat tanpa nebak-nebak dari teks pesan.
         if(!lscA||!lscB){ W("lsc_not_found",stKey,stKey+": no matching limit switch for actuator "+a[0].komen+", motion fault skipped.",{device:a[0].name}); return; }
-        var cmt="Cylinder motion fault, solenoid energised but position not confirmed: "+a[0].komen+" / "+a[1].komen;
+        var cmt=devBase(a[0].komen,a[1].komen)+" Motion Fault";
         var mf=MF(mfN,cmt), tmr="LT"+pad(200+faultTimerIdx,3); faultTimerIdx++;
         P(tmr,"TON","Motion timeout for "+a[0].komen);
         // 1 rung: (SOL_M ANDNOT LSC_M) OR (SOL_R ANDNOT LSC_R) -> TON -> MF, OR digabung langsung di pin In TON
@@ -333,7 +545,7 @@ function buildUnit(stKey, devs){
         if(mfN>mfCap){ W("mf_block_full",stKey,stKey+": MF motion-fault block full, servo command "+sa.cmd.komen+" skipped."); return; }
         var lsc=(ov && ov.mode==="manual" && ov.lscA) ? ov.lscA : srvLscOf[sa.cmd.name];
         if(!lsc){ W("lsc_not_found",stKey,stKey+": no matching limit switch for servo command "+sa.cmd.komen+", motion fault skipped.",{device:sa.cmd.name}); return; }
-        var cmt="Servo motion fault, command energised but position not confirmed: "+sa.cmd.komen;
+        var cmt=words(sa.cmd.komen).join(" ")+" Motion Fault";
         var mf=MF(mfN,cmt), tmr="LT"+pad(200+faultTimerIdx,3); faultTimerIdx++;
         P(tmr,"TON","Motion timeout for "+sa.cmd.komen);
         var r=new Rung(o++, cmt);
@@ -438,6 +650,14 @@ function buildUnit(stKey, devs){
     });
     G("PB004_"+pad(SN,2)+"M","BOOL","Individual staging button");
     G("PB004_"+pad(SN,2)+"R","BOOL","Process home return button");
+    // Tombol screen IND._OPER._MAIN (004) dikumpulin di SATU word (base tombol, sebelum blok station),
+    // 2 bit per station - screen-nya memang satu buat semua station.
+    (function(){
+        var b=(SN-1)*2;
+        if(b+1 > 15){ W("hmi_slot_overflow",stKey,stKey+": station number "+SN+" is above 8, screen 004 buttons get no address."); return; }
+        hmiClaim("PB004_"+pad(SN,2)+"M", atBit(HMI_CFG.btnArea,HMI_CFG.pbBase,b),   "HMI->PLC", "004", stLabel+" individual staging");
+        hmiClaim("PB004_"+pad(SN,2)+"R", atBit(HMI_CFG.btnArea,HMI_CFG.pbBase,b+1), "HMI->PLC", "004", stLabel+" process home return");
+    })();
     S9.push(series(o++,[["IND_MODE",false],["NO_FAULT",false],["MSTR_RDY",false]],"LB310","Individual operation permitted"));
     S9.push(series(o++,[["LB310",false],["LB134",false],["LB139",false]],"LB319",null));
     S9.push(latch(o++,[["PB004_"+pad(SN,2)+"M",false]],"LB320",[["LB319",false],["LB309",false]],null));
@@ -449,6 +669,12 @@ function buildUnit(stKey, devs){
         var ilM="LB"+pad(232+i*2,3), ilR="LB"+pad(233+i*2,3);
         var oM ="LB"+pad(340+i*2,3), oR ="LB"+pad(341+i*2,3);
         G(pbM,"BOOL","Individual button, "+a[0].komen); G(pbR,"BOOL","Individual button, "+a[1].komen);
+        var slot=hmiSlot(SN,i);
+        if(slot.over) W("hmi_slot_overflow",stKey,stKey+": actuator "+a[0].komen+" does not fit this station's HMI word budget, its buttons get no address.",{device:a[0].name});
+        else {
+            hmiClaim(pbM, atBit(HMI_CFG.btnArea,slot.word,slot.bit),   "HMI->PLC", "04"+SN+slot.pg, a[0].komen);
+            hmiClaim(pbR, atBit(HMI_CFG.btnArea,slot.word,slot.bit+1), "HMI->PLC", "04"+SN+slot.pg, a[1].komen);
+        }
         P(ilM,"BOOL","Motion interlock for "+a[0].komen); P(ilR,"BOOL","Return interlock for "+a[1].komen);
         P(oM,"BOOL","Individual command, "+a[0].komen);  P(oR,"BOOL","Individual command, "+a[1].komen);
         indM.push(oM); indR.push(oR);
@@ -472,6 +698,11 @@ function buildUnit(stKey, devs){
         var il="LB"+pad(232+actus.length*2+i,3);
         var oS="LB"+pad(340+actus.length*2+i,3);
         G(pb,"BOOL","Individual button, "+sa.cmd.komen);
+        // Servo makan satu SLOT penuh (2 bit) walau tombolnya cuma satu, biar slot grid di screen NB
+        // tetap sejajar antara tombol dan lampu. Bit kedua sengaja dibiarkan kosong.
+        var sslot=hmiSlot(SN,idx);
+        if(sslot.over) W("hmi_slot_overflow",stKey,stKey+": servo "+sa.cmd.komen+" does not fit this station's HMI word budget, its button gets no address.",{device:sa.cmd.name});
+        else hmiClaim(pb, atBit(HMI_CFG.btnArea,sslot.word,sslot.bit), "HMI->PLC", "04"+SN+sslot.pg, sa.cmd.komen);
         P(il,"BOOL","Motion interlock for "+sa.cmd.komen);
         P(oS,"BOOL","Individual command, "+sa.cmd.komen);
         indSrv.push(oS);
@@ -776,10 +1007,17 @@ function buildUnit(stKey, devs){
         }
     });
 
-    // ===== Rung memory (SET/RESET) =====
+    // ===== Section Memory (SET/RESET) =====
     // Satu bit memory = SATU rung latch: (semua trigger SET, atau bit itu sendiri) ANDNOT tiap trigger
     // RESET. Ini yang bikin bit-nya bertahan lintas scan sampai di-reset eksplisit - persis LB800/LB801
     // "MEMORY PRESS OK/NG" yang baru hilang pas blok RESET MEMORY OK-NG jalan.
+    //
+    // Rungnya punya SECTION SENDIRI, bukan nempel di ekor AutoRunning seperti dulu. Alasannya bukan
+    // kerapian: bit memory hidup LINTAS step dan sering lintas siklus, sementara AutoRunning dibaca
+    // orang sebagai urutan gerak dari atas ke bawah. Latch yang nyempil di antara step bikin orang
+    // mengira bit itu bagian dari urutan. Program produksi (Prg012_ST3_CE_Eject) juga menaruhnya
+    // di section Memory tersendiri, di antara HMI_Output dan Device_Output.
+    var SMEM=[], om=1;
     Object.keys(memSets).concat(Object.keys(memResets)).filter(function(b,i,arr){ return arr.indexOf(b)===i; })
         .forEach(function(mbit){
             var sets=memSets[mbit]||[], resets=memResets[mbit]||[];
@@ -787,12 +1025,20 @@ function buildUnit(stKey, devs){
                 W("memory_reset_only",stKey,stKey+': memory bit "'+mbit+'" only has RESET blocks and is never set from this flowchart - verify that something else sets it.');
             }
             if(!GLOBALS[mbit]) P(mbit,"BOOL","Flowchart memory"+(memCmt[mbit]?": "+memCmt[mbit]:""));
-            S10.push(latch(o++, sets.map(function(b){return [b,false];}), mbit,
+            SMEM.push(latch(om++, sets.map(function(b){return [b,false];}), mbit,
                 resets.map(function(b){return [b,true];}),
                 "Memory "+mbit+(memCmt[mbit]?" ("+memCmt[mbit]+")":"")+
                 ": set by "+(sets.length?sets.join(", "):"nothing")+
                 (resets.length?", reset by "+resets.join(", "):"")));
         });
+    // Section kosong tampil polos di Susmax Studio dan gak kebedain antara "memang belum ada memory"
+    // dan "gagal ke-generate". Satu rung penanda menghilangkan keraguan itu - pola yang sama dipakai
+    // HMI_Input.
+    if(!SMEM.length){
+        P("MEMORY_NOP","BOOL","No operation, reserved for memory latch");
+        SMEM.push(series(om++,[["GSB000",false]],"MEMORY_NOP",
+            "No memory block in this station's motion sequence yet - add SET/RESET MEMORY blocks in the web UI"));
+    }
 
     var preLB499Count=S10.length;
     P("LB499","BOOL","Automatic operation complete");
@@ -856,13 +1102,37 @@ function buildUnit(stKey, devs){
     });
 
     // 12. HMI_Output
+    // Lampu diindeks per AKTUATOR, bukan per AS-pair. Di screen NB, satu slot grid memuat tombol dan
+    // lampunya sekaligus - switch-nya baca W48x dan nulis W46x di BIT yang sama. Kalau lampu dihitung
+    // dari daftar AS-pair sementara tombol dari daftar aktuator, dua daftar itu beda panjang begitu
+    // ada aktuator tanpa sensor, dan mulai slot itu lampu di layar nunjuk device yang lain dari
+    // tombolnya. Sumber nyalanya LSC yang sama dengan yang dipakai motion fault (lihat lscFor).
     var S12=[]; o=1;
-    asPairs.forEach(function(p,i){
-        var pg=1+Math.floor(i/PER_PAGE), nn=(i%PER_PAGE)+1;
-        var pM="PL4"+SN+pg+"_"+nn+"M", pR="PL4"+SN+pg+"_"+nn+"R";
-        G(pM,"BOOL","Lamp, "+p[0].komen); G(pR,"BOOL","Lamp, "+p[1].komen);
-        S12.push(series(o++,[[p[0].name,false]],pM, i===0?"Actuator position feedback to operation panel":null));
-        S12.push(series(o++,[[p[1].name,false]],pR,null));
+    actus.forEach(function(a,i){
+        var slot=hmiSlot(SN,i);
+        var pM="PL4"+SN+slot.pg+"_"+slot.nn+"M", pR="PL4"+SN+slot.pg+"_"+slot.nn+"R";
+        var L=lscFor(a);
+        // Aktuator openloop gak punya sensor by design, jadi lampunya nampilin PERINTAH - bukan
+        // posisi. Itu tetap informasi yang benar buat operator, dan lebih baik daripada slot gelap.
+        var srcM=L.open?a[0].name:L.a, srcR=L.open?a[1].name:L.b;
+        G(pM,"BOOL","Lamp, "+a[0].komen); G(pR,"BOOL","Lamp, "+a[1].komen);
+        if(slot.over) W("hmi_slot_overflow",stKey,stKey+": lamp "+a[0].komen+" does not fit this station's HMI word budget.",{device:a[0].name});
+        else {
+            var rw=slot.word+HMI_CFG.rdOfs;
+            hmiClaim(pM, atBit(HMI_CFG.btnArea,rw,slot.bit),   "PLC->HMI", "04"+SN+slot.pg, a[0].komen);
+            hmiClaim(pR, atBit(HMI_CFG.btnArea,rw,slot.bit+1), "PLC->HMI", "04"+SN+slot.pg, a[1].komen);
+        }
+        if(!srcM||!srcR){ W("hmi_lamp_no_source",stKey,stKey+": lamp "+a[0].komen+" has no position sensor, its HMI slot stays dark.",{device:a[0].name}); return; }
+        S12.push(series(o++,[[srcM,false]],pM, i===0?"Actuator position feedback to operation panel":null));
+        S12.push(series(o++,[[srcR,false]],pR,null));
+    });
+    srvActus.forEach(function(sa,i){
+        var idx=actus.length+i, slot=hmiSlot(SN,idx);
+        var pS="PL4"+SN+slot.pg+"_"+slot.nn+"S";
+        G(pS,"BOOL","Lamp, "+sa.cmd.komen);
+        var src=srvLscOf[sa.cmd.name]||sa.cmd.name;
+        if(!slot.over) hmiClaim(pS, atBit(HMI_CFG.btnArea,slot.word+HMI_CFG.rdOfs,slot.bit), "PLC->HMI", "04"+SN+slot.pg, sa.cmd.komen);
+        S12.push(series(o++,[[src,false]],pS,null));
     });
 
     // 13. Device_Output
@@ -883,7 +1153,8 @@ function buildUnit(stKey, devs){
     var secs=[sect("Station_Input",1,S1),sect("Device_Input",2,S2),sect("HMI_Input",3,S3),sect("Timers",4,S4),
       sect("LS_Combination",5,S5),sect("Fault",6,S6),sect("Preparation",7,S7),sect("Condition",8,S8),
       sect("Individual",9,S9),sect("AutoRunning",10,S10),sect("Auto_Output",11,S11),sect("HMI_Output",12,S12),
-      sect("Device_Output",13,S13),sect("Station_Output",14,S14)];
+      // Memory duduk antara HMI_Output dan Device_Output - urutan yang sama dengan program produksi
+      sect("Memory",13,SMEM),sect("Device_Output",14,S13),sect("Station_Output",15,S14)];
     return { name:inf.prg+".xml", xml:prog(inf.prg,ext,priv,secs,glob),
              stats:stKey+": in="+inputs.length+" out="+outputs.length+" actuator="+actus.length+" lsPair="+asPairs.length+" phpx="+phpx.length };
 }
@@ -898,7 +1169,10 @@ function buildMain(devs){
     G("GSB000","BOOL","Equipment design coil, constant ON");
     G("GSB001","BOOL","Equipment design coil, constant OFF");
     MAIN_EXPORTS.forEach(function(n){ G(n,"BOOL","Machine status broadcast to all units"); });
-    G("AL",AL_TYPE,"Alarm bit table"); G("MF",MF_TYPE,"Cylinder motion fault table");
+    // Baris array-level AL/MF sengaja TANPA komen. Komen yang berarti ada di tiap ELEMEN
+    // (AL[11] "AL011_ ST1 STOPPER-5 ALL REED SWITCH ON"); komen array-level cuma nutupin
+    // kolom Comment di tabel Sysmac dengan teks generik yang sama buat 100 baris.
+    G("AL",AL_TYPE,""); G("MF",MF_TYPE,"");
     var allDevs=[]; Object.keys(groups).forEach(function(k){ allDevs=allDevs.concat(groups[k]); });
     allDevs.forEach(function(d){ G(portName(d.address),"BOOL",d.komen); G(d.name,"BOOL",d.komen); });
     ukeys.forEach(function(k){
@@ -925,10 +1199,13 @@ function buildMain(devs){
     var S2=[]; o=1;
     inputs.forEach(function(d,i){ S2.push(series(o++,[[portName(d.address),false]],d.name, i===0?"Physical input to symbol":null)); });
 
-    // 3. HMI_Input
+    // 3. HMI_Input - lihat catatan yang sama di buildUnit: tombol masuk lewat AT, bukan rung.
     var S3=[]; o=1;
     P("HMI_INPUT_NOP","BOOL","No operation, reserved for HMI input");
-    S3.push(series(o++,[["GSB000",false]],"HMI_INPUT_NOP","HMI input not yet implemented, placeholder to keep section non-empty"));
+    S3.push(series(o++,[["GSB000",false]],"HMI_INPUT_NOP",
+        HMI_CFG.on ? "HMI buttons arrive by AT specification, no logic needed : screen 004 buttons "+HMI_CFG.btnArea+HMI_CFG.pbBase
+                     +", status lamps "+HMI_CFG.btnArea+(HMI_CFG.pbBase+HMI_CFG.rdOfs)
+                   : "HMI address map disabled, no HMI input"));
 
     // 4. Timers
     var S4=[]; o=1;
@@ -1092,14 +1369,36 @@ function buildMain(devs){
      [sMstr,"PL_HMI_MASTER_ON","Master on indication"],["LB060","PL_HMI_NO_FAULT","No fault indication"],
      ["LB099","PL_HMI_ALL_HOME","All machine home indication"],["LB069","PL_HMI_BUZZER","Buzzer indication"]].forEach(function(x,i){
         G(x[1],"BOOL",x[2]);
+        hmiClaim(x[1], atBit(HMI_CFG.btnArea,HMI_CFG.lampBase,i), "PLC->HMI", "001", x[2]);
         S10.push(series(o++,[[x[0],false]],x[1], i===0?"Machine status to operation panel":null));
     });
+    // Array lampu kondisi: satu rung per elemen, isinya stub GSB000 (selalu ON) kecuali yang bisa
+    // diturunkan dari bit yang memang sudah ada. Di program produksi bentuknya persis begini -
+    // "GSB000 -> PL21[n]" - karena syarat tiap mesin beda dan diisi belakangan. Yang penting
+    // rung + elemennya SUDAH ADA supaya screen 0021/0031 punya bit buat dibaca, bukan kosong.
+    COND_ARRAYS.forEach(function(ca,ai){
+        G(ca.name, "ARRAY[0.."+(ca.size-1)+"] OF BOOL", ca.doc);
+        hmiClaimRange(ca.name, HMI_CFG.btnArea, HMI_CFG.condBase+ai, ca.size, "PLC->HMI", ca.screen, ca.doc);
+        for(var i2=0;i2<ca.size;i2++){
+            var src = ca.seed[i2] || "GSB000";
+            S10.push(series(o++,[[src,false]],ca.name+"["+i2+"]", i2===0?ca.doc:null));
+        }
+    });
 
-    // 11. Device_Output
+    // 11. Memory
+    // MAIN gak punya flowchart, jadi belum ada latch yang digenerate ke sini. Section-nya tetap
+    // dibikin supaya SEMUA program punya tempat baku buat bit memory - kalau tidak, orang menaruhnya
+    // di section lain dan tiap program jadi beda tempat.
+    var SMEM=[]; o=1;
+    P("MEMORY_NOP","BOOL","No operation, reserved for memory latch");
+    SMEM.push(series(o++,[["GSB000",false]],"MEMORY_NOP",
+        "Machine-level memory latches belong here - none generated yet"));
+
+    // 12. Device_Output
     var S11=[]; o=1;
     outputs.forEach(function(d,i){ S11.push(series(o++,[[d.name,false]],portName(d.address), i===0?"Symbol to physical output":null)); });
 
-    // 12. Station_Output
+    // 13. Station_Output
     var S12=[]; o=1;
     [["LB001","PWR_ON"],["GSB000","PLC_GOOD"],["LB004","AUTO_MODE"],["LB005","IND_MODE"],["LB060","NO_FAULT"],
      ["LB099","HOME_POST"],["LB120","AUTO_RUN"],["LB121","CYCLE_STOP"],["LB002","MSTR_RDY"]].forEach(function(x,i){
@@ -1108,7 +1407,8 @@ function buildMain(devs){
 
     var secs=[sect("Station_Input",1,S1),sect("Device_Input",2,S2),sect("HMI_Input",3,S3),sect("Timers",4,S4),
       sect("Fault",5,S5),sect("Master_Preparation",6,S6),sect("Condition",7,S7),sect("Auto_Main_Loop",8,S8),
-      sect("Main_Out",9,S9),sect("HMI_Output",10,S10),sect("Device_Output",11,S11),sect("Station_Output",12,S12)];
+      sect("Main_Out",9,S9),sect("HMI_Output",10,S10),
+      sect("Memory",11,SMEM),sect("Device_Output",12,S11),sect("Station_Output",13,S12)];
     return { name:"Prg001_MAIN.xml", xml:prog("Prg001_MAIN",ext,priv,secs,glob),
              stats:"MAIN: in="+inputs.length+" out="+outputs.length+" unit="+ukeys.length };
 }
@@ -1133,8 +1433,296 @@ function progMulti(title,blocks,globVars){
      +'  </Resource></Configuration></Instances>\n</Project>\n';
 }
 
+
+
+// ============================================================ probe instruksi
+// File kecil berisi SATU rung per instruksi baru. Gunanya cuma satu: di-import ke project kosong
+// di Susmax Studio buat membuktikan bentuk XML-nya benar, SEBELUM 30 rung counter digenerate
+// dengan bentuk yang sama. Kalau file ini ditolak, yang rugi cuma project kosong; kalau bentuk
+// yang salah ikut ke program mesin, ketahuannya baru pas mesin bergerak.
+function buildProbe(){
+    var ext=[],priv=[],glob=[],nameCI={};
+    function G(n,t,d){ var k=n.toUpperCase(); if(nameCI[k]) return; nameCI[k]=n; var v=vr(n,t,d); glob.push("      "+v); ext.push("      "+v); GLOBALS[n]={t:t||"BOOL",d:d||""}; }
+    G("PRB_TRIG","BOOL","Probe trigger");
+    G("PRB_LAMP","BOOL","Probe result lamp");
+    G("PRB_A","UDINT","Probe value A");
+    G("PRB_B","UDINT","Probe value B");
+    function P(n,t,d){ var k=n.toUpperCase(); if(nameCI[k]) return; nameCI[k]=n; priv.push("      "+vr(n,t,d)); }
+    // Varian ber-instanceName butuh instansnya dideklarasi, persis seperti instans TON.
+    P("LT_probe","LT","Probe instance for the LT variant");
+    P("MOVE_probe","MOVE","Probe instance for the MOVE variant");
+    var S=[], o=1;
+    // Tiap rung SATU varian bentuk XML. Komennya diberi nomor supaya waktu sebagian ditolak,
+    // yang perlu dilaporkan cuma "varian nomor sekian yang selamat" - bukan menebak lagi.
+    // Rung yang ditolak Studio jadi rung komentar bertanda "(Import failed)".
+    function P1(label, fn){ var r=new Rung(o, "V"+o+" "+label); fn(r); S.push(r.build()); o++; }
+
+    // ---- pembanding: LT (PRB_A < PRB_B) ----
+    // V1: Block + EN/In1/In2 -> ENO   (bentuk yang sekarang, DITOLAK Studio)
+    P1("LT - Block, EN + In1/In2 -> ENO", function(r){
+        var b=r.blk("LT",null,[["EN",r.rail()],["In1",r.src("PRB_A")],["In2",r.src("PRB_B")]],["ENO"]);
+        r.rr([r.cl("PRB_LAMP", b.ENO)]);
+    });
+    // V2: sama tapi pakai instanceName - TON yang terbukti jalan juga punya instanceName
+    P1("LT - Block + instanceName", function(r){
+        var b=r.blk("LT","LT_probe",[["EN",r.rail()],["In1",r.src("PRB_A")],["In2",r.src("PRB_B")]],["ENO"]);
+        r.rr([r.cl("PRB_LAMP", b.ENO)]);
+    });
+    // V3: tanpa EN sama sekali, hasilnya lewat pin Out (fungsi murni, bukan aliran daya)
+    P1("LT - Block, In1/In2 -> Out, tanpa EN", function(r){
+        var b=r.blk("LT",null,[["In1",r.src("PRB_A")],["In2",r.src("PRB_B")]],["Out"]);
+        r.rr([r.cl("PRB_LAMP", b.Out)]);
+    });
+    // V4: EN masuk, DUA output dideklarasi (ENO buat aliran daya, Out buat hasil boolean)
+    P1("LT - Block, EN -> ENO + Out", function(r){
+        var b=r.blk("LT",null,[["EN",r.rail()],["In1",r.src("PRB_A")],["In2",r.src("PRB_B")]],["ENO","Out"]);
+        r.sink("PRB_LAMP", b.Out);
+        r.rr([b.ENO]);
+    });
+
+    // ---- MOVE ----
+    // V5: keluaran ditulis lewat DataSink (bentuk sekarang)
+    P1("MOVE - Out -> DataSink", function(r){
+        var e=r.ct("PRB_TRIG", r.rail());
+        var b=r.blk("MOVE",null,[["EN",e],["In",r.src("PRB_A")]],["ENO","Out"]);
+        r.sink("PRB_B", b.Out);
+        r.rr([b.ENO]);
+    });
+    // V6: tujuan diberikan sebagai PARAMETER masuk bernama Out, bukan lewat sink
+    P1("MOVE - Out sebagai parameter masuk", function(r){
+        var e=r.ct("PRB_TRIG", r.rail());
+        var b=r.blk("MOVE",null,[["EN",e],["In",r.src("PRB_A")],["Out",r.src("PRB_B")]],["ENO"]);
+        r.rr([b.ENO]);
+    });
+    // V7: pakai instanceName
+    P1("MOVE - instanceName + DataSink", function(r){
+        var e=r.ct("PRB_TRIG", r.rail());
+        var b=r.blk("MOVE","MOVE_probe",[["EN",e],["In",r.src("PRB_A")]],["ENO","Out"]);
+        r.sink("PRB_B", b.Out);
+        r.rr([b.ENO]);
+    });
+
+    // ---- Inc ----
+    // V8: InOut lewat DataSource
+    P1("Inc - InOut lewat DataSource", function(r){
+        var e=r.ct("PRB_TRIG", r.rail());
+        var b=r.blk("Inc",null,[["EN",e],["InOut",r.src("PRB_A")]],["ENO"]);
+        r.rr([b.ENO]);
+    });
+    // V9: pin bernama In, hasilnya balik lewat sink
+    P1("Inc - In -> sink", function(r){
+        var e=r.ct("PRB_TRIG", r.rail());
+        var b=r.blk("Inc",null,[["EN",e],["In",r.src("PRB_A")]],["ENO","Out"]);
+        r.sink("PRB_A", b.Out);
+        r.rr([b.ENO]);
+    });
+
+    // ---- clock: namanya SUDAH benar (ada di daftar Studio), jadi yang diuji bentuknya ----
+    // V10: EN -> ENO (bentuk sekarang, kena DefinitionError)
+    P1("Get1sClk - EN -> ENO", function(r){
+        var b=r.blk("Get1sClk",null,[["EN",r.rail()]],["ENO"]);
+        r.rr([r.cl("PRB_LAMP", b.ENO)]);
+    });
+    // V11: tanpa EN, hasilnya pin Out
+    P1("Get1sClk - tanpa EN, -> Out", function(r){
+        var b=r.blk("Get1sClk",null,[],["Out"]);
+        r.rr([r.cl("PRB_LAMP", b.Out)]);
+    });
+    // V12: EN masuk, hasil di pin Out
+    P1("Get1sClk - EN -> Out", function(r){
+        var b=r.blk("Get1sClk",null,[["EN",r.rail()]],["Out"]);
+        r.rr([r.cl("PRB_LAMP", b.Out)]);
+    });
+
+    return { name:"_Probe_Instructions.xml", xml:prog("P999_Probe",ext,priv,[sect("Probe",1,S)],glob),
+             stats:"PROBE: "+S.length+" varian bentuk XML (LT, MOVE, Inc, Get1sClk) - import ke project KOSONG, "
+                  +"catat nomor V yang TIDAK bertanda (Import failed)" };
+}
+
+
+// ============================================================ P000_Initial
+// Bit rangka yang dipakai SELURUH program: GSB000 selalu ON, GSB001 selalu OFF, lalu deretan
+// coil cadangan. Sebelum ini generator memakai GSB000 di puluhan rung sebagai penanda tapi tidak
+// pernah membuatnya - hasil generate di-import ke project kosong, bitnya tidak ada, dan semua
+// rung penanda itu mati tanpa ada yang protes. Program ini yang menutup lubang itu.
+//
+// Isinya nol machine-specific: sama persis untuk mesin apa pun.
+var GSB_DESIGN_LAST = 9;    // GSB002..GSB009 cadangan desain
+var GSB_ADJUST_LAST = 25;   // GSB010..GSB025 cadangan penyetelan
+function buildInitial(){
+    var ext=[],priv=[],glob=[],nameCI={};
+    function G(n,t,d){ var k=n.toUpperCase(); if(nameCI[k]) return; nameCI[k]=n; var v=vr(n,t,d); glob.push("      "+v); ext.push("      "+v); GLOBALS[n]={t:t||"BOOL",d:d||""}; }
+
+    // 1. Design_Coil
+    var S1=[], o=1;
+    G("GSB000","BOOL","Equipment design coil, constant ON");
+    G("GSB001","BOOL","Equipment design coil, constant OFF");
+    // P_On / P_Off itu system variable Susmax - selalu ada, tidak perlu dideklarasi ulang.
+    S1.push(series(o++,[["P_On",false]],"GSB000","Bits held permanently on and off by design"));
+    S1.push(series(o++,[["P_Off",false]],"GSB001",null));
+    for(var d=2; d<=GSB_DESIGN_LAST; d++){
+        var gd="GSB"+pad(d,3);
+        G(gd,"BOOL","For machine design, spare "+(d-1));
+        S1.push(series(o++,[["GSB001",false]],gd, d===2?"Design spare coils":null));
+    }
+    // Clock pulse. Get1sClk() dan kawan-kawan itu instruksi, bukan kontak, jadi butuh bentuk XML
+    // blok fungsi yang belum terbukti - lihat catatan ADV_OK di bawah.
+    var clocks=[["aP_1s","Get1sClk","1 second clock pulse"],
+                ["aP_0_1s","Get100msClk","0.1 second clock pulse"],
+                ["aP_0_01s","Get10msClk","0.01 second clock pulse"]];
+    clocks.forEach(function(c,i){
+        G(c[0],"BOOL",c[2]);
+        if(ADV_OK){
+            var r=new Rung(o++, i===0?"Clock pulses":null);
+            var rail=r.rail();
+            var out=r.blk(c[1],null,[["EN",rail]],["ENO"]);
+            r.rr([r.cl(c[0],out.ENO)]);
+            S1.push(r.build());
+        } else {
+            S1.push(series(o++,[["GSB001",false]],c[0],
+                i===0?"Clock pulses need "+c[1]+"() - enable advanced instructions to generate them":null));
+        }
+    });
+
+    // 2. Adjust_Coil
+    var S2=[]; o=1;
+    for(var a=GSB_DESIGN_LAST+1; a<=GSB_ADJUST_LAST; a++){
+        var ga="GSB"+pad(a,3);
+        G(ga,"BOOL","For machine adjustment, spare "+(a-GSB_DESIGN_LAST));
+        S2.push(series(o++,[["GSB001",false]],ga, a===GSB_DESIGN_LAST+1?"Adjustment spare coils":null));
+    }
+
+    var secs=[sect("Design_Coil",1,S1),sect("Adjust_Coil",2,S2)];
+    return { name:"P000_Initial.xml", xml:prog("P000_Initial",ext,priv,secs,glob),
+             stats:"INITIAL: GSB000/GSB001 + "+(GSB_ADJUST_LAST-1)+" spare coil, "
+                  +(ADV_OK?"clock pulses generated":"clock pulses placeholder") };
+}
+
+// ============================================================ Prg003_HMI
+// Program khusus antarmuka operator. Isinya bukan logika mesin: dia merangkum bit yang sudah
+// dihitung program lain jadi bentuk yang dibaca panel - lampu status, rangkuman syarat master /
+// auto start, dan (nanti) counter. Dipisah dari MAIN karena tugasnya memang beda: MAIN yang
+// memutuskan mesin boleh jalan atau tidak, program ini cuma MENAMPILKAN kenapa.
+function buildHmi(){
+    var ext=[],priv=[],glob=[],nameCI={};
+    function G(n,t,d){ var k=n.toUpperCase(); if(nameCI[k]) return; nameCI[k]=n; var v=vr(n,t,d); glob.push("      "+v); ext.push("      "+v); GLOBALS[n]={t:t||"BOOL",d:d||""}; }
+    function P(n,t,d){ var k=n.toUpperCase(); if(nameCI[k]) return; nameCI[k]=n; priv.push("      "+vr(n,t,d)); }
+    G("GSB000","BOOL","Equipment design coil, constant ON");
+    MAIN_EXPORTS.forEach(function(n){ G(n,"BOOL","Machine status broadcast to all units"); });
+    COND_ARRAYS.forEach(function(ca){ G(ca.name,"ARRAY[0.."+(ca.size-1)+"] OF BOOL",ca.doc); });
+
+    // 1. TP_Control
+    var S1=[], o=1, tpBit=6;
+    // Mirror status ke lampu panel. Sengaja lewat simbol PL_TP_* sendiri, bukan langsung memakai
+    // bit statusnya: panel dan ladder jadi bisa berubah sendiri-sendiri tanpa saling menyeret.
+    [["MSTR_RDY","PL_TP_MSTR_RDY","Master ready indication"],
+     ["AUTO_RUN","PL_TP_AUTO_RUN","Auto running indication"],
+     ["HOME_POST","PL_TP_HOME_POS","All machine home indication"],
+     ["IND_MODE","PL_TP_IND_MODE","Individual mode indication"],
+     ["NO_FAULT","PL_TP_NO_FLT","No fault indication"]].forEach(function(x,i){
+        G(x[1],"BOOL",x[2]);
+        // Lanjut dari bit sisa word lampu MAIN - PL_HMI_* memakai .00-.05, jadi PL_TP_* mulai .06.
+        // Satu word buat semua lampu status, gampang dibaca sekali lihat di NB.
+        hmiClaim(x[1], atBit(HMI_CFG.btnArea,HMI_CFG.lampBase,tpBit++), "PLC->HMI", "001", x[2]);
+        S1.push(series(o++,[[x[0],false]],x[1], i===0?"Machine status to touch panel":null));
+    });
+    // Rangkuman tiap array kondisi: elemen dipecah per COND_CHUNK jadi bit antara, lalu bit-bit
+    // antara itu di-AND jadi satu bit "semua syarat terpenuhi". Dipecah karena satu rung dengan
+    // 16 kontak seri tidak terbaca di layar Susmax Studio, dan operator yang mencari syarat mana
+    // yang belum jalan bisa langsung lihat kelompok mana yang mati.
+    var condSummary={};
+    COND_ARRAYS.forEach(function(ca,ai){
+        var parts=[];
+        for(var s=0;s<ca.size;s+=COND_CHUNK){
+            var grp=[];
+            for(var i2=s;i2<Math.min(s+COND_CHUNK,ca.size);i2++) grp.push([ca.name+"["+i2+"]",false]);
+            var pb="LB"+pad(1+ai*10+s/COND_CHUNK,3);
+            P(pb,"BOOL",ca.doc+" group "+(s/COND_CHUNK+1));
+            S1.push(series(o++,grp,pb, s===0?("■ "+ca.doc):null));
+            parts.push([pb,false]);
+        }
+        var all="LB"+pad(8+ai*10,3);
+        P(all,"BOOL",ca.doc+", all groups established");
+        S1.push(series(o++,parts,all,null));
+        condSummary[ca.name]=all;
+    });
+    G("PL_TP_MSTR_COND","BOOL","Master on condition established indication");
+    hmiClaim("PL_TP_MSTR_COND", atBit(HMI_CFG.btnArea,HMI_CFG.lampBase,tpBit++), "PLC->HMI", "001", "Master on condition established indication");
+    S1.push(series(o++,[[condSummary.PL21,false],["MSTR_RDY",false]],"PL_TP_MSTR_COND","Master on condition established"));
+    G("PL_TP_AUTO_COND","BOOL","Auto start condition established indication");
+    hmiClaim("PL_TP_AUTO_COND", atBit(HMI_CFG.btnArea,HMI_CFG.lampBase,tpBit++), "PLC->HMI", "001", "Auto start condition established indication");
+    S1.push(series(o++,[[condSummary.PL031,false],[condSummary.PL032,false]],"PL_TP_AUTO_COND","Auto start condition established"));
+
+    // 2. Counters
+    // Belum digenerate. Pola counter Denso butuh MOVE, pembanding (<, <=, <>) dan Inc(), dan
+    // lib.js baru bisa kontak/coil/TON. Bentuk XML tiga instruksi itu HARUS dibuktikan dulu lewat
+    // import satu rung ke Susmax Studio - XML yang ditebak akan ter-import tanpa keluhan dan salah
+    // waktu jalan, dan itu jenis kesalahan yang baru ketahuan pas mesin bergerak. Lihat TODO.md 5a.
+    var S2=[]; o=1;
+    G("GCT","ARRAY[1.."+CNT_N+"] OF BOOL","Counter count trigger");
+    G("CNT_ACT","ARRAY[1.."+CNT_N+"] OF UDINT","Counter present value");
+    G("CNT_SET","ARRAY[1.."+CNT_N+"] OF UDINT","Counter target value");
+    G("CNT_WARN","ARRAY[1.."+CNT_N+"] OF UDINT","Counter warning threshold");
+    CNT_LAMPS.forEach(function(cl,ci){
+        G(cl.name,"ARRAY[0.."+(cl.size-1)+"] OF BOOL","Counter indication, screen "+cl.screen);
+        hmiClaimRange(cl.name, HMI_CFG.btnArea, HMI_CFG.cntBase+ci, cl.size, "PLC->HMI", cl.screen, "Counter indication");
+    });
+    if(!ADV_OK){
+        P("COUNTER_NOP","BOOL","No operation, reserved for counter circuits");
+        S2.push(series(o++,[["GSB000",false]],"COUNTER_NOP",
+            "Counter circuits need MOVE / compare / Inc - turn on advanced instructions after the probe file imports cleanly"));
+        W("counters_not_generated","","Prg003_HMI: the Counters section is still a placeholder. Import _Probe_Instructions.xml into Studio first; if it comes in clean, turn on 'Advanced instructions' and the counters get generated for real.",{level:"info"});
+    } else {
+        for(var ci2=0; ci2<CNT_N; ci2++){
+            var slot=cntLamp(ci2);
+            if(!slot){ W("counter_lamp_full","","Counter "+(ci2+1)+" got no lamp slot, skipped."); continue; }
+            var n1=ci2+1, act="CNT_ACT["+n1+"]", set="CNT_SET["+n1+"]", wrn="CNT_WARN["+n1+"]";
+            var lw=slot.arr+"["+slot.warn+"]", lu=slot.arr+"["+slot.up+"]";
+            // 1. hitung naik selama belum sampai target
+            // Rantai power-flow murni: kontak -> pembanding -> Inc -> rail. Tiap blok cuma
+            // mendeklarasi pin yang BENAR-BENAR disambung; pin output nganggur bikin XML-nya
+            // punya titik menggantung dan itu yang paling gampang ditolak waktu import.
+            var r1=new Rung(o++, "Counter "+n1+" : count up while below target");
+            var g1=r1.ct("GCT["+n1+"]", r1.rail());
+            var lt=r1.blk("LT",null,[["EN",g1],["In1",r1.src(act)],["In2",r1.src(set)]],["ENO"]);
+            var inc=r1.blk("Inc",null,[["EN",lt.ENO],["InOut",r1.src(act)]],["ENO"]);
+            r1.rr([inc.ENO]); S2.push(r1.build());
+            // 2. lampu WARNING - padam begitu UP nyala, biar operator gak lihat dua lampu bareng
+            var r2=new Rung(o++, "Counter "+n1+" : warning reached");
+            var rl2=r2.rail();
+            var ne=r2.blk("NE",null,[["EN",rl2],["In1",r2.src(act)],["In2",r2.src("0")]],["ENO"]);
+            var ge=r2.blk("GE",null,[["EN",ne.ENO],["In1",r2.src(act)],["In2",r2.src(wrn)]],["ENO"]);
+            r2.rr([r2.cl(lw, r2.ct(lu, ge.ENO, true))]); S2.push(r2.build());
+            // 3. lampu UP
+            var r3=new Rung(o++, "Counter "+n1+" : target reached");
+            var rl3=r3.rail();
+            var ne3=r3.blk("NE",null,[["EN",rl3],["In1",r3.src(act)],["In2",r3.src("0")]],["ENO"]);
+            var ge3=r3.blk("GE",null,[["EN",ne3.ENO],["In1",r3.src(act)],["In2",r3.src(set)]],["ENO"]);
+            r3.rr([r3.cl(lu, ge3.ENO)]); S2.push(r3.build());
+        }
+    }
+
+    // 3. Setup
+    var S3=[]; o=1;
+    P("SETUP_NOP","BOOL","No operation, reserved for setup handling");
+    S3.push(series(o++,[["GSB000",false]],"SETUP_NOP","Product setup / recipe handling belongs here"));
+
+    // 4. Memory
+    var S4=[]; o=1;
+    P("MEMORY_NOP","BOOL","No operation, reserved for memory latch");
+    S4.push(series(o++,[["GSB000",false]],"MEMORY_NOP","HMI-level memory latches belong here - none generated yet"));
+
+    var secs=[sect("TP_Control",1,S1),sect("Counters",2,S2),sect("Setup",3,S3),sect("Memory",4,S4)];
+    return { name:"Prg003_HMI.xml", xml:prog("Prg003_HMI",ext,priv,secs,glob),
+             stats:"HMI: "+COND_ARRAYS.length+" condition array x"+COND_ARRAYS[0].size
+                  +", counters placeholder" };
+}
+
 if(!groups.MAIN||!groups.MAIN.length) W("no_main_devices","","No MAIN devices found, every comment contains a station tag.");
+files.push(buildInitial());
+if(!ADV_OK) files.push(buildProbe());
 files.push(buildMain(groups.MAIN||[]));
+files.push(buildHmi());
 ukeys.forEach(function(k){ files.push(buildUnit(k,groups[k])); });
 
 // Index yang direservasi tapi belum kepakai (blok MAIN dan blok tiap station) tetap diisi komen "Spare"
@@ -1159,6 +1747,12 @@ ukeys.forEach(function(k){ files.push(buildUnit(k,groups[k])); });
     fillRange(MF,"MF",1,MF_SIZE);
 })();
 
+// AL/MF di-AT ke area W supaya Alarm Display dan Event Display di NB bisa baca blok bit-nya
+// langsung, tanpa rung penyalin. AT dipasang di variabel ARRAY-nya - elemen array gak bisa di-AT
+// satu-satu - jadi AL[1] jatuh di bit .00 word base, AL[17] di .00 word base+1, dan seterusnya.
+hmiClaimRange("AL", HMI_CFG.alArea, HMI_CFG.alBase, AL_SIZE, "PLC->HMI", "005/0091", "AL[1.."+AL_SIZE+"]");
+hmiClaimRange("MF", HMI_CFG.mfArea, HMI_CFG.mfBase, MF_SIZE, "PLC->HMI", "005/0091", "MF[1.."+MF_SIZE+"]");
+
 var gnames=Object.keys(GLOBALS).sort();
 var elNames=Object.keys(ARRAY_ELEMENTS).sort(function(a,b){
     var ma=a.match(/^(\D+)\[(\d+)\]$/), mb=b.match(/^(\D+)\[(\d+)\]$/);
@@ -1166,22 +1760,43 @@ var elNames=Object.keys(ARRAY_ELEMENTS).sort(function(a,b){
 });
 // baris array-level (AL, MF) buat paste awal ke tabel Global Variable, baris per elemen (AL[61], ...) buat isi Comment
 // setelah array di-expand di Susmax Studio - lihat README bagian import
-var tsv="Name\tData type\tInitial value\tAT\tRetain\tConstant\tNetwork Publish\tComment\n"
-      + gnames.map(function(n){ var g=GLOBALS[n];
-            return [n,g.t,"","","False","False","Do not publish",g.d].join("\t"); }).join("\n")
-      + (elNames.length ? "\n" + elNames.map(function(n){
-            return [n,"BOOL","","","False","False","Do not publish",ARRAY_ELEMENTS[n]].join("\t"); }).join("\n") : "");
+var TSV_HEAD="Name\tData type\tInitial value\tAT\tRetain\tConstant\tNetwork Publish\tComment";
+function tsvRow(n,t,at,cmt){ return [n,t,"",at||"","False","False","Do not publish",cmt||""].join("\t"); }
+var tsv=TSV_HEAD+"\n"
+      + gnames.map(function(n){ var g=GLOBALS[n]; return tsvRow(n,g.t,HMI_AT[n],g.d); }).join("\n")
+      + (elNames.length ? "\n" + elNames.map(function(n){ return tsvRow(n,"BOOL","",ARRAY_ELEMENTS[n]); }).join("\n") : "");
+
+// File TERPISAH khusus elemen array. Di tabel Global Variable Sysmac, komen elemen baru bisa diisi
+// SETELAH array-nya di-expand, dan waktu itu yang kelihatan cuma blok AL[1..n]/MF[1..n] berurutan.
+// Kalau yang ditempel file gabungan, ratusan baris variabel skalar ikut kebawa dan barisnya gak
+// sejajar sama blok yang lagi kebuka. Makanya elemen dipisah, urutannya persis urutan expand.
+var elemTsv = TSV_HEAD+"\n" + elNames.map(function(n){ return tsvRow(n,"BOOL","",ARRAY_ELEMENTS[n]); }).join("\n");
+// Baris yang sama dalam bentuk terstruktur, buat panel spreadsheet di web UI
+var ARRAY_ROWS = elNames.map(function(n){
+    var m=/^(\D+)\[(\d+)\]$/.exec(n);
+    return { arr:m?m[1]:n, idx:m?parseInt(m[2],10):0, name:n, komen:ARRAY_ELEMENTS[n] };
+});
 // Peta blok dicetak di stats, bukan diulang-ulang di tiap komen spare: satu baris ini nggantiin
 // ratusan "reserved for ST1 alarm group" dan lebih gampang dibaca sekali lihat.
 var blockMap = "MAIN AL[1.."+AL_MAIN_RESERVED+"]  |  " + ukeys.map(function(k){
     return k+" AL["+AL_BLOCK[k].start+".."+AL_BLOCK[k].end+"] MF["+MF_BLOCK[k].start+".."+MF_BLOCK[k].end+"]";
 }).join("  |  ");
+files.push({ name:"ArrayComments.tsv", xml:elemTsv,
+             stats:"ARRAY COMMENT: "+elNames.length+" element (AL+MF), buat paste ke tabel yang arraynya sudah di-expand" });
+HMI_ROWS.sort(function(a,b){ return a.at<b.at?-1:a.at>b.at?1:0; });
 files.push({ name:"GlobalVariables.tsv", xml:tsv,
              stats:"GLOBAL: "+gnames.length+" variable, "+elNames.length+" array element comment"
-                  +"\nARRAY BLOCK ("+STATION_BLOCK+" slot/station): "+blockMap });
+                  +"\nARRAY BLOCK ("+STATION_BLOCK+" slot/station): "+blockMap
+                  +(HMI_CFG.on ? "\nHMI AT: "+HMI_ROWS.length+" symbol mapped, buttons "+HMI_CFG.btnArea+HMI_CFG.pbBase
+                                 +"+, lamps +"+HMI_CFG.rdOfs+", AL "+HMI_CFG.alArea+HMI_CFG.alBase+", MF "+HMI_CFG.mfArea+HMI_CFG.mfBase
+                                 +", "+PER_PAGE+" actuators/screen, "+HMI_CFG.stride+" word/station"
+                               : "\nHMI AT: disabled") });
 
 var globVars=gnames.map(function(n){ return "      "+vr(n,GLOBALS[n].t,GLOBALS[n].d); });
-var blocks=files.filter(function(f){ return f.name.slice(-4)===".xml"; }).map(function(f){ return extractProgram(f.xml); }).filter(Boolean);
+// Probe SENGAJA tidak ikut ke AllPrograms.xml. Dia alat uji buat project KOSONG; kalau ikut
+// masuk file gabungan, program uji itu ikut ke-import ke project mesin.
+var blocks=files.filter(function(f){ return f.name.slice(-4)===".xml" && f.name.indexOf("_Probe")!==0; })
+                .map(function(f){ return extractProgram(f.xml); }).filter(Boolean);
 files.unshift({ name:"AllPrograms.xml", xml:progMulti("AllPrograms",blocks,globVars),
                 stats:"COMBINED: "+blocks.length+" program and "+gnames.length+" global variable in one file" });
 
@@ -1190,5 +1805,9 @@ msg.payload={ files:files, warnings:warnings.join("\n"), warnList:warnList, unit
               // Dipakai web UI buat nampilin rekomendasi ukuran array (minimal = yang kepakai sekarang)
               arrayInfo:{ alUsed:AL_USED, mfUsed:MF_USED, alSize:AL_SIZE, mfSize:MF_SIZE,
                           alFilled:AL_FILLED, mfFilled:MF_FILLED, stationBlock:STATION_BLOCK },
+              // Peta alamat HMI buat panel "HMI" di web UI dan buat generator screen NB-Designer
+              hmiMap:{ cfg:HMI_CFG, rows:HMI_ROWS },
+              // Elemen AL/MF buat panel spreadsheet - dipakai buat nyalin kolom Comment ke Sysmac
+              arrayRows:ARRAY_ROWS,
               lscAudit:lscAudit.join("\n") };
 return msg;

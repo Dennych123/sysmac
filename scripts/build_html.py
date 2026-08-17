@@ -64,7 +64,7 @@ HTML = '''<!doctype html>
                                background:#fff;color:var(--fg);width:100%}
   #ioGrid input{font-family:Consolas,monospace}
   #ioGrid .c-addr{width:130px}
-  #ioGrid .c-jenis{width:150px}
+  #ioGrid .c-jenis{width:200px}
   #ioGrid .c-io{width:92px}
   #ioGrid .c-st{width:64px}
   #ioGrid .c-del{width:34px}
@@ -102,10 +102,65 @@ HTML = '''<!doctype html>
   .warn-code{flex:none;font-family:Consolas,monospace;font-size:11px;background:#fef3c7;border:1px solid #fcd34d;
              border-radius:3px;padding:0 5px;color:#92400e}
 
+  .topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+  .brand h1{margin:0}
+  .by{font-size:12px;color:var(--muted);margin-top:2px}
+  .by a{color:var(--muted);text-decoration:none;border-bottom:1px dotted var(--line)}
+  .by a:hover{color:var(--fg)}
+  .foot{margin:34px 0 8px;padding-top:14px;border-top:1px solid var(--line);
+        font-size:12px;color:var(--muted);display:flex;gap:7px;flex-wrap:wrap;align-items:center}
+  .foot a{color:var(--muted);text-decoration:none;border-bottom:1px dotted var(--line)}
+  .foot a:hover{color:var(--fg)}
+  .foot .dot{opacity:.5}
+  .sec-head{display:flex;align-items:center;gap:2px;margin:26px 0 6px}
+  .sec-head h2{margin:0}
+  /* Ikon bantuan: teks panjang pindah ke sini supaya halaman tetap terbaca sekali lihat.
+     Tooltip-nya CSS murni - tidak ada JS yang bisa nyangkut, dan tetap jalan di file://. */
+  .help{display:inline-flex;align-items:center;justify-content:center;min-width:16px;height:16px;padding:0 5px;
+        border-radius:9px;border:1px solid var(--line);color:var(--muted);font-size:11px;font-weight:700;
+        cursor:help;position:relative;margin-left:6px;vertical-align:middle;user-select:none}
+  .help:hover{border-color:var(--muted);color:var(--fg)}
+  .help::after{content:attr(data-tip);position:absolute;left:0;top:calc(100% + 7px);
+        width:340px;max-width:76vw;background:var(--card);color:var(--fg);border:1px solid var(--line);
+        border-radius:8px;padding:9px 11px;font-size:12.5px;font-weight:400;line-height:1.55;text-align:left;
+        box-shadow:0 8px 24px rgba(0,0,0,.20);opacity:0;visibility:hidden;transition:opacity .12s;
+        z-index:60;pointer-events:none}
+  .help:hover::after{opacity:1;visibility:visible}
+  .settings-row label .help{margin-left:4px}
   .settings-row{display:flex;flex-wrap:wrap;gap:16px;margin:10px 0}
   .settings-row label{font-size:12.5px;color:var(--muted);display:flex;flex-direction:column;gap:4px;font-weight:500}
-  .settings-row input{font-family:Consolas,monospace;font-size:13px;padding:7px 9px;border:1px solid var(--line);
-                      border-radius:6px;width:140px;background:var(--card);color:var(--fg)}
+  .settings-row input,.settings-row select{font-family:Consolas,monospace;font-size:13px;padding:7px 9px;
+                      border:1px solid var(--line);border-radius:6px;width:140px;background:var(--card);color:var(--fg)}
+  .settings-row select{width:auto;min-width:220px}
+  .settings-row label.chk{flex-direction:row;align-items:center;gap:7px;align-self:flex-end;padding-bottom:8px}
+  .settings-row label.chk input{width:auto}
+  .hmi-map{max-height:340px;overflow:auto;margin-top:8px;border:1px solid var(--line);border-radius:7px}
+  .btn-sm{align-self:flex-end;font-size:12.5px;padding:7px 12px;border:1px solid var(--line);border-radius:6px;
+          background:var(--card);color:var(--fg);cursor:pointer;font-weight:600}
+  .btn-sm:hover{border-color:var(--muted)}
+  .array-sheet .row{flex-wrap:wrap;gap:8px;align-items:center}
+  .array-sheet .hint{margin:4px 0 0}
+  .sheet-ctl{font-family:Consolas,monospace;font-size:12.5px;padding:5px 8px;border:1px solid var(--line);
+             border-radius:6px;background:var(--card);color:var(--fg)}
+  .sheet-chk{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--muted)}
+  .sheet-msg{font-size:12.5px;color:var(--muted);min-width:120px}
+  .sheet-wrap{max-height:420px;overflow:auto;margin-top:8px;border:1px solid var(--line);border-radius:7px}
+  .sheet{border-collapse:collapse;width:100%;font-family:Consolas,monospace;font-size:12px}
+  .sheet th{position:sticky;top:0;z-index:1;background:var(--card);text-align:left;padding:6px 9px;
+            border:1px solid var(--line);color:var(--muted);font-weight:600}
+  .sheet td{padding:3px 9px;border:1px solid var(--line);white-space:nowrap}
+  .sheet td.n{text-align:right;color:var(--muted);width:1%}
+  .sheet td.k{font-weight:600}
+  .sheet td.c{white-space:normal;min-width:280px}
+  .sheet tr.spare td{color:var(--muted)}
+  .sheet tr:hover td{background:rgba(127,127,127,.10)}
+  .hmi-tbl{border-collapse:collapse;width:100%;font-family:Consolas,monospace;font-size:12px}
+  .hmi-tbl th{position:sticky;top:0;background:var(--card);text-align:left;padding:6px 9px;
+              border-bottom:1px solid var(--line);color:var(--muted);font-weight:600}
+  .hmi-tbl td{padding:4px 9px;border-bottom:1px solid var(--line);white-space:nowrap}
+  .hmi-tbl td:first-child{font-weight:600;color:var(--fg)}
+  .hmi-tbl tr.hmi-in td:nth-child(3){color:#1d7a4c}
+  .hmi-tbl tr.hmi-out td:nth-child(3){color:#8a5a00}
   .stname-panel{display:none;flex-wrap:wrap;gap:10px;margin:10px 0}
   .stname-lbl{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--muted);background:var(--card);
               border:1px solid var(--line);border-radius:7px;padding:7px 10px;box-shadow:var(--shadow)}
@@ -240,100 +295,117 @@ HTML = '''<!doctype html>
 </style>
 </head>
 <body>
-<h1>Susmax Program Generator</h1>
-<p class="hint">Alamat / Jenis / IN-OUT / Komen. Komen memuat ST1/ST2/ST3 -&gt; masuk program unit, tanpa ST -&gt; program MAIN.
-Mode <b>Tabel</b> bikin kolom Jenis dan IN/OUT jadi pilihan, jadi gak bisa salah ketik. Mode <b>Teks</b> buat tempel
-massal dari Excel (pisah TAB) - dua-duanya isi yang sama, ganti mode kapan saja.</p>
+<div class="topbar">
+  <div class="brand">
+    <h1>Susmax Program Generator</h1>
+    <div class="by"><span>by</span>
+      <a href="https://github.com/Dennych123" target="_blank" rel="noopener">Dennych123</a></div>
+  </div>
+
+</div>
+
+<div class="sec-head">
+  <h2>I/O list</h2>
+  <span class="help" data-tip="Four columns: Address, Type, IN/OUT, Comment. A comment containing ST1 / ST2 / ST3 goes into that unit program; no ST tag goes into MAIN. Table mode gives you dropdowns so Type and IN/OUT cannot be mistyped. Text mode takes a TAB-separated paste straight from Excel. Both hold the same list, switch any time.">?</span>
+</div>
 <div class="io-tabs">
-  <button type="button" class="io-tab active" id="ioTabGrid">Tabel</button>
-  <button type="button" class="io-tab" id="ioTabText">Teks (TSV)</button>
+  <button type="button" class="io-tab active" id="ioTabGrid">Table</button>
+  <button type="button" class="io-tab" id="ioTabText">Text (TSV)</button>
   <span class="io-count" id="ioCount"></span>
 </div>
 <div id="ioGridWrap">
   <div class="io-grid-scroll"><table id="ioGrid"><tbody></tbody></table></div>
   <div class="io-grid-bar">
-    <button type="button" class="io-add" id="ioAddRow">+ Baris</button>
-    <button type="button" class="io-add" id="ioPaste">Tempel dari clipboard</button>
+    <button type="button" class="io-add" id="ioAddRow">+ Row</button>
+    <button type="button" class="io-add" id="ioPaste">Paste</button>
     <span class="io-problems" id="ioProblems"></span>
   </div>
 </div>
 <textarea id="ioText" placeholder="CH000_00&#9;PB&#9;IN&#9;NOT EMERGENCY STOP"></textarea>
-<div><button id="genBtn">Generate Program</button></div>
+<div><button id="genBtn">Generate</button></div>
 <div id="err"></div>
-<div id="warnBox" class="warn-box"><b>Warning</b><div id="warn"></div></div>
+<div id="warnBox" class="warn-box"><b>Warnings</b><div id="warn"></div></div>
 
-<h2>Pengaturan (opsional)</h2>
-<p class="hint">Timer default berlaku ke semua station - format harus <code>T#&lt;angka&gt;&lt;unit&gt;</code>
-(mis. <code>T#200MS</code>, <code>T#1S</code>), salah format dibalikin ke default + warning. Nama
-station (opsional) ikut ke komentar program yang di-generate (mis. <code>LB400_A</code>/<code>LB400_B</code>).</p>
+<div class="sec-head">
+  <h2>Settings</h2>
+  <span class="help" data-tip="These apply to every station. Timer format is T#<number><unit> - T#200MS, T#1S, T#2M. A wrong format falls back to the default and raises a warning instead of going into the ladder. Station names are optional and only show up in the generated comments.">?</span>
+</div>
 <div class="settings-row">
-  <label>Timer debounce PH/PX <input id="timerPhpx" placeholder="T#200MS"></label>
-  <label>Timer motion-fault <input id="timerMotion" placeholder="T#5S"></label>
-  <label>Ukuran array AL <input id="alSize" type="number" min="1" placeholder="100"></label>
-  <label>Ukuran array MF <input id="mfSize" type="number" min="1" placeholder="16"></label>
-  <label>Slot per station <input id="stationBlock" type="number" min="1" placeholder="30"></label>
+  <label><span>PH/PX debounce</span> <input id="timerPhpx" placeholder="T#200MS"></label>
+  <label><span>Motion fault time</span> <input id="timerMotion" placeholder="T#5S"></label>
+  <label><span>AL array size</span> <input id="alSize" type="number" min="1" placeholder="100"></label>
+  <label><span>MF array size</span> <input id="mfSize" type="number" min="1" placeholder="16"></label>
+  <label><span>Slots per station</span> <input id="stationBlock" type="number" min="1" placeholder="30"></label>
+  <label class="chk"><input id="advInstr" type="checkbox"> <span>Advanced instructions</span>
+    <span class="help" data-tip="Off by default. Contacts, coils and TON are proven to import. MOVE, comparisons, Inc and the clock functions are not - one bad element can make the whole file fail to import. Generate first with this off, import _Probe_Instructions.xml into an EMPTY project, and only turn this on once that comes in clean. Then the counters and clock pulses get generated for real.">?</span></label>
 </div>
 <div id="arraySizeHint" class="hint" style="margin-top:2px"></div>
 <div id="stationNamesPanel" class="stname-panel"></div>
 
+<details id="hmiBox" class="fold">
+<summary><span class="fold-t">HMI address map</span>
+  <span class="help" data-tip="The PLC and the NB panel only talk through memory addresses - there are no tags. Every button and lamp gets an AT address, written into the AT column of GlobalVariables.tsv. Buttons for station n sit at base + n words, lamps at the same word plus the offset. Inside one word each grid slot takes 2 bits: page 1 uses .00 to .07, page 2 uses .08 to .15.">?</span>
+  <span class="fold-sub" id="hmiSummary">not generated yet</span></summary>
+<div class="settings-row">
+  <label><span>Screen source</span>
+    <span class="help" data-tip="Manual - you maintain the NB screens, so addresses are never shifted on their own; an actuator that does not fit is reported instead. Generate - the tool builds the screens, so the word budget may grow and the screens follow the new addresses.">?</span>
+    <select id="hmiMode">
+      <option value="manual">Manual - I maintain the screens</option>
+      <option value="generate">Generate - tool builds the screens</option>
+    </select></label>
+  <label><span>Button/lamp area</span> <select id="hmiBtnArea">
+    <option value="W">W</option><option value="H">H</option><option value="D">D</option><option value="CIO">CIO</option>
+  </select></label>
+  <label><span>Button base word</span> <input id="hmiPbBase" type="number" min="0" max="511" placeholder="460"></label>
+  <label><span>Lamp word offset</span> <input id="hmiRdOffset" type="number" min="1" max="511" placeholder="23"></label>
+  <label><span>AL/MF area</span> <select id="hmiAlArea">
+    <option value="H">H</option><option value="W">W</option><option value="D">D</option><option value="CIO">CIO</option>
+  </select></label>
+  <label><span>AL base word</span> <input id="hmiAlBase" type="number" min="0" max="511" placeholder="300"></label>
+  <label><span>MF base word</span> <input id="hmiMfBase" type="number" min="0" max="511" placeholder="320"></label>
+  <label><span>Actuators per screen</span> <input id="hmiPerPage" type="number" min="1" max="8" placeholder="4"></label>
+  <label><span>Words per station</span> <input id="hmiStride" type="number" min="1" max="16" placeholder="1"></label>
+  <label class="chk"><input id="hmiEnabled" type="checkbox" checked> <span>Fill AT column</span></label>
+</div>
+<div id="hmiMapPanel" class="hmi-map"></div>
+</details>
+
 <details id="confirmModeBox" class="fold">
-<summary><span class="fold-t">Confirm Mode per aktuator</span> <span class="fold-sub" id="confirmModeSummary">opsional - buka kalau ada aktuator yang perlu dioverride</span></summary>
-<p class="hint">Default (Auto) - pencocokan sensor otomatis (findLsc buat silinder, best-match komen buat
-servo). <b>Open-loop</b> - aktuator sengaja gak punya sensor by design (mis. DANDORI LOCK, PART FEEDER
-START) - skip fault-detection DAN skip warning "no matching limit switch" sama sekali. <b>Manual</b> -
-override pencocokan otomatis yang salah/low-confidence, isi sendiri nama bit konfirmasinya. Kalau
-distel Open-loop, aktuator itu gak bisa dipakai di Motion Sequence (butuh bit konfirmasi buat lanjut
-ke step berikutnya).</p>
+<summary><span class="fold-t">Actuator confirm mode</span>
+  <span class="help" data-tip="Auto - the sensor is matched for you. Open-loop - the actuator has no sensor by design (DANDORI LOCK, PART FEEDER START); fault detection is skipped and so is the no-sensor warning, but it can no longer be used in a motion sequence because there is no confirm bit to step on. Manual - the automatic match picked the wrong sensor, so you name the confirm bits yourself.">?</span>
+  <span class="fold-sub" id="confirmModeSummary">optional</span></summary>
 <div id="confirmModePanel" class="stname-panel"></div>
 </details>
 
 <details class="json-io project-json" open>
-  <summary>Project JSON (Import/Export SEMUA - IO list, Motion Sequence, Condition, nama station, timer default sekaligus)</summary>
-  <p class="hint">Simpan/pulihkan seluruh kerjaan sekali tempel, gak perlu per-station. Import langsung
-  jalanin Generate ulang pakai IO list di dalamnya, GANTI seluruh project yang lagi ke-buka.</p>
-  <textarea id="projectJsonTa" placeholder='{"io":"CH0_00\\tPB\\tIN\\t...","stationNames":{"ST1":"Conveyor Feed"},"timerDefaults":{"phpx":"T#200MS","motion":"T#5S"},"motionSequences":{"ST1":[...]},"conditionDefs":{"ST1":[...]}}'></textarea>
+  <summary><span>Project file</span>
+    <span class="help" data-tip="Everything in one file: I/O list, motion sequences, conditions, station names, timers and the HMI map. Loading a file replaces the whole project that is open and runs Generate again.">?</span></summary>
+  <textarea id="projectJsonTa" spellcheck="false"
+    placeholder='{"io":"...","stationNames":{},"motionSequences":{},"conditionDefs":{}}'></textarea>
   <div id="projectJsonRow"></div>
-  <div id="projectJsonMsg" class="json-msg"></div>
+  <span class="json-msg" id="projectJsonMsg"></span>
 </details>
 
-<h2>Condition (opsional)</h2>
-<p class="hint">Tiap station boleh punya sejumlah bit Condition BERNAMA (gak dibatasin 3 slot lama) -
-tiap bit = OR dari beberapa kombinasi AND-syarat ("+ OR group", "+ term" per group, klik badge
-AND/NOT buat toggle negate) - persis pola Ndeso PATTERN 3 (mis. bit "P&amp;P Take Out Lowering Auto
-Start Condition" = grupA OR grupB). Bit boleh ngerujuk bit Condition LAIN (referensi silang, mis.
-condition ke-2 makein bit condition ke-1 sebagai salah satu term), sensor, atau bit apapun yang
-sudah ada - kalau belum kedeklarasi, otomatis dibikinin placeholder biar gak error pas import.
-Station yang gak disentuh tetap dapat 3 slot cadangan generik lama. Kotak <b>Import/Export JSON</b>
-di bawah - format: array condition
-<code>[{"name":"","bit":"","groups":[[{"bit":"LB206","neg":false}]]}]</code>.</p>
+<div class="sec-head">
+  <h2>Conditions</h2>
+  <span class="help" data-tip="Each station can have as many named condition bits as it needs. One bit = several AND groups joined by OR - the same shape as a Denso condition rung. A term can point at a sensor, any existing bit, or another condition bit. A bit that does not exist yet gets a placeholder so the import never fails. Stations you never touch keep the three generic spare slots.">?</span>
+</div>
 <div id="conditionPanel"></div>
 
-<h2>Motion Sequence (AutoRunning, opsional)</h2>
-<p class="hint">Tiap station boleh punya beberapa VARIAN sequence ("+ Variant"), masing-masing punya
-Condition bit sendiri (kosongin = selalu aktif) - kayak pemilihan TIPE di FSM: cuma varian yang
-kondisinya true yang jalan. Di dalam satu varian: klik solenoid buat drop node, seret dari bulatan
-kuning ke node LAIN (boleh ke arah manapun, asal gak muter balik) buat bikin dependency. Node dgn
-2+ dependency dapat badge AND/OR - klik toggle. "+ Condition/bit" bikin node rujukan bit yang sudah
-ada: tinggal PILIH dari dropdown Condition yang kamu bikin di kotak Condition di bawah (daftarnya
-ikut ke-update otomatis), atau pilih "bit lain (ketik manual)" buat nunjuk sensor/bit di luar itu.
-Dropdown yang sama juga dipakai buat Condition pemilih varian.</p>
-<p class="hint">Baris <b>Blok:</b> nambahin langkah non-motion: <b>IF/ELSE</b> (judgement - satu masuk,
-dua keluar lewat port <b>Y</b> kanan dan <b>N</b> bawah; cabangnya nge-HOLD sekali keputusan diambil
-dan saling interlock jadi mustahil nyala barengan), <b>SET/RESET mem</b> (bit memory latching - semua
-trigger set dan reset buat satu bit digabung jadi SATU rung, jadi gak ada coil dobel), dan
-<b>ALARM</b> (dapat slot AL[] otomatis, nyangkut sendiri, lalu masuk grup kategori yang dipilih).
-Buat nyatuin cabang seperti pola Ndeso, tarik <b>kedua</b> port Y dan N ke node yang sama lalu klik
-badge-nya jadi <b>OR</b>. Klik satu blok buat nampilin panel <b>Edit blok</b> di bawah kanvas - bit,
-kategori, dan komennya bisa dibetulin tanpa hapus-bikin-ulang. Bulatan <b>START</b>/<b>END</b> bisa
-diseret; klik ganda buat balikin ke posisi otomatis. Klik node/panah buat SELECT (kuning), tekan Delete/
-Backspace buat hapus yang keselect. Seret node cuma buat rapihin posisi. Station yang gak disentuh
-tetap pakai kerangka placeholder biasa. Tiap station juga punya kotak <b>Import/Export JSON</b> di
-bawah - bisa tempel JSON hasil AI atau bikinan sendiri (format: array varian
-<code>[{"condition":"","nodes":[{"id":"n1","sol":"SOL_...","after":[],"join":"AND"}]}]</code>),
-gak wajib drag-drop manual.</p>
+<div class="sec-head">
+  <h2>Motion sequence</h2>
+  <span class="help" data-tip="A station can hold several sequence variants, each with its own condition bit - leave it empty and the variant always runs. Only the variant whose condition is true will run. Click a solenoid to drop a step, then drag from the yellow dot to another step to say what has to finish first. A step waiting on two or more others gets an AND/OR badge you can toggle. Drag steps only to tidy the layout.">?</span>
+  <span class="help" data-tip="IF/ELSE - one in, two out (Y on the right, N below). Once the decision is taken the branch holds, and the two sides interlock so they can never be on together. SET/RESET memory - a latching bit; every set and reset trigger for one bit is merged into a single rung, so there is no double coil. ALARM - takes an AL slot automatically, latches itself and joins the category group you pick. To merge two branches, drag both Y and N into the same step and set its badge to OR. Click a step to edit its bit, category and comment. Select and press Delete to remove.">blocks</span>
+</div>
 <div id="motionPanel"></div>
 
 <div id="results"></div>
+<footer class="foot">
+  <span>Made by</span>
+  <a href="https://github.com/Dennych123" target="_blank" rel="noopener">Dennych123</a>
+  <span class="dot">/</span>
+  <a href="https://github.com/Dennych123/sysmac" target="_blank" rel="noopener">github.com/Dennych123/sysmac</a>
+</footer>
 <div id="stats"></div>
 
 <script>
@@ -348,6 +420,7 @@ function runNode(code, msg, flowStore) {
   var node = { warn: function(m){ console.warn(m); } };
   return new Function('msg','flow','node','return (function(){'+code+'})()')(msg, flow, node);
 }
+
 
 // ===== Clipboard + file, buat toolbar Import/Export JSON =====
 // Tool ini dipakai offline lewat file:// . Chrome ngitung file:// sebagai secure context jadi
@@ -402,37 +475,39 @@ function buildJsonIORow(ta, msg, getText, doImport, fileName) {
   function runImport(text, src) {
     ta.value = text;
     var e = doImport(text);
-    if (e) say('err', e); else say('ok', 'Imported dari ' + src + '.');
+    if (e) say('err', e); else say('ok', 'Loaded from' + ' ' + src);
   }
   function btn(cls, label, fn) {
     var b = document.createElement('button'); b.className = cls; b.textContent = label;
     b.addEventListener('click', fn); row.appendChild(b); return b;
   }
 
-  btn('json-import', 'Import (kotak)', function () { runImport(ta.value, 'kotak'); });
-  btn('json-alt', 'Import file...', function () {
+  btn('json-import', 'Load from box', function () { runImport(ta.value, 'the box'); });
+  btn('json-alt', 'Open file', function () {
     pickTextFile().then(function (f) { runImport(f.text, f.name); })
-                  .catch(function (e) { say('err', 'Gagal: ' + e.message); });
+                  .catch(function (e) { say('err', 'Failed:' + ' ' + e.message); });
   });
-  btn('json-alt', 'Import clipboard', function () {
-    readTextFromClipboard().then(function (t) {
-      if (!t || !t.trim()) { say('err', 'Clipboard kosong.'); return; }
-      runImport(t, 'clipboard');
+  btn('json-alt', 'Paste', function () {
+    readTextFromClipboard().then(function (txt) {
+      if (!txt || !txt.trim()) { say('err', 'Clipboard is empty'); return; }
+      runImport(txt, 'clipboard');
     }).catch(function (e) {
-      say('err', 'Gagal baca clipboard (' + e.message + '). Tempel manual ke kotak lalu klik "Import (kotak)".');
+      say('err', 'Cannot read clipboard, paste into the box then press Load from box' + ' (' + e.message + ')');
     });
   });
 
   var sep = document.createElement('div'); sep.className = 'row-sep'; row.appendChild(sep);
 
+  // Variabel lokalnya JANGAN dinamai t: itu nama fungsi terjemahan, dan begitu ketutup
+  // 'Copied to clipboard' malah memanggil string hasil export. Handler-nya mati diam-diam.
   btn('json-export', 'Copy', function () {
-    var t = getText(); ta.value = t;
-    copyTextToClipboard(t).then(function () { say('ok', 'Kesalin ke clipboard.'); })
-      .catch(function (e) { say('err', 'Gagal nyalin (' + e.message + '). JSON-nya udah ada di kotak, salin manual.'); });
+    var json = getText(); ta.value = json;
+    copyTextToClipboard(json).then(function () { say('ok', 'Copied to clipboard'); })
+      .catch(function (e) { say('err', 'Copy failed, the JSON is in the box - copy it by hand' + ' (' + e.message + ')'); });
   });
-  btn('json-export', 'Download .json', function () {
-    var t = getText(); ta.value = t;
-    downloadFile(fileName, t); say('ok', 'Diunduh: ' + fileName);
+  btn('json-export', 'Save file', function () {
+    var json = getText(); ta.value = json;
+    downloadFile(fileName, json); say('ok', 'Saved:' + ' ' + fileName);
   });
 
   return row;
@@ -505,7 +580,7 @@ function ioProblems() {
   var bad = {}, seen = {}, dup = {};
   ioRows.forEach(function (r, i) {
     var miss = !r.address || !r.jenis || !r.io;
-    if (miss) bad[i] = 'Alamat, Jenis, dan IN/OUT wajib diisi';
+    if (miss) bad[i] = 'Address, Type and IN/OUT are required';
     if (r.address && r.io) {
       var k = r.io + '|' + r.address;
       if (seen[k] !== undefined) { dup[k] = true; bad[i] = 'Alamat ' + r.address + ' (' + r.io + ') dipakai lebih dari sekali'; bad[seen[k]] = bad[seen[k]] || ('Alamat ' + r.address + ' (' + r.io + ') dipakai lebih dari sekali'); }
@@ -525,7 +600,7 @@ function renderIoGrid() {
   if (!thead) {
     thead = document.createElement('thead');
     var hr = document.createElement('tr');
-    ['#', 'Alamat', 'Jenis', 'IN/OUT', 'Komen', 'Program', ''].forEach(function (h) {
+    ['#', 'Address', 'Type', 'IN/OUT', 'Comment', 'Program', ''].forEach(function (h) {
       var th = document.createElement('th'); th.textContent = h; hr.appendChild(th);
     });
     thead.appendChild(hr);
@@ -533,12 +608,12 @@ function renderIoGrid() {
   }
 
   ioRows.forEach(function (r, i) {
-    var tr = document.createElement('tr');
-    if (bad[i]) { tr.className = 'bad'; tr.title = bad[i]; }
+    var rowEl = document.createElement('tr');
+    if (bad[i]) { rowEl.className = 'bad'; rowEl.title = bad[i]; }
 
-    var tdN = document.createElement('td'); tdN.className = 'rn'; tdN.textContent = (i + 1); tr.appendChild(tdN);
+    var tdN = document.createElement('td'); tdN.className = 'rn'; tdN.textContent = (i + 1); rowEl.appendChild(tdN);
 
-    function cell(cls) { var td = document.createElement('td'); td.className = cls; tr.appendChild(td); return td; }
+    function cell(cls) { var td = document.createElement('td'); td.className = cls; rowEl.appendChild(td); return td; }
     function commit() { ioSyncToText(); renderIoGrid(); ioUpdateCount(); }
 
     var addr = document.createElement('input');
@@ -547,7 +622,7 @@ function renderIoGrid() {
     cell('c-addr').appendChild(addr);
 
     var sel = document.createElement('select');
-    var blank = document.createElement('option'); blank.value = ''; blank.textContent = '- pilih -'; sel.appendChild(blank);
+    var blank = document.createElement('option'); blank.value = ''; blank.textContent = '- pick -'; sel.appendChild(blank);
     IO_JENIS.forEach(function (j) {
       var o = document.createElement('option'); o.value = j[0]; o.textContent = j[0] + ' - ' + j[1]; sel.appendChild(o);
     });
@@ -589,7 +664,7 @@ function renderIoGrid() {
     rm.addEventListener('click', function () { ioRows.splice(i, 1); commit(); });
     cell('c-del').appendChild(rm);
 
-    tb.appendChild(tr);
+    tb.appendChild(rowEl);
   });
   ioUpdateCount();
 }
@@ -646,6 +721,163 @@ function sortStations(keys) {
 }
 
 var errEl, resEl, statsEl, warnEl, warnBoxEl, motionPanelEl, conditionPanelEl, stationNamesPanelEl, timerPhpxEl, timerMotionEl, confirmModePanelEl, alSizeEl, mfSizeEl, stationBlockEl, arraySizeHintEl;
+var advInstrEl;
+var hmiModeEl, hmiBtnAreaEl, hmiAlAreaEl, hmiPbBaseEl, hmiRdOffsetEl, hmiAlBaseEl, hmiMfBaseEl, hmiPerPageEl, hmiStrideEl, hmiEnabledEl, hmiMapPanelEl, hmiSummaryEl;
+// Setelan peta HMI dikumpulin di satu tempat - dipakai regenerate(), export project JSON, dan import.
+// Tiga pemanggil yang harus setuju bentuknya; dulu pola begini kelewat satu tempat dan setelan
+// diam-diam gak ikut ke-export.
+function hmiSettings() {
+  return {
+    enabled: hmiEnabledEl ? hmiEnabledEl.checked : true,
+    mode: hmiModeEl ? hmiModeEl.value : 'manual',
+    btnArea: hmiBtnAreaEl ? hmiBtnAreaEl.value : 'W',
+    alArea: hmiAlAreaEl ? hmiAlAreaEl.value : 'H',
+    mfArea: hmiAlAreaEl ? hmiAlAreaEl.value : 'H',
+    pbBase: hmiPbBaseEl ? hmiPbBaseEl.value : '',
+    rdOffset: hmiRdOffsetEl ? hmiRdOffsetEl.value : '',
+    alBase: hmiAlBaseEl ? hmiAlBaseEl.value : '',
+    mfBase: hmiMfBaseEl ? hmiMfBaseEl.value : '',
+    perPage: hmiPerPageEl ? hmiPerPageEl.value : '',
+    stride: hmiStrideEl ? hmiStrideEl.value : ''
+  };
+}
+// Spreadsheet komen elemen AL/MF. Ditaruh di PANEL HASIL, bukan di dalam fold Pengaturan:
+// yang dicari orang setelah klik Generate itu hasilnya, dan panel yang ngumpet di tempat lain
+// sama saja dengan tidak ada. Kontrolnya dibuat dari JS (bukan id statis di template) supaya
+// seluruh blok ini hidup-mati bareng datanya - kalau tidak ada elemen array, tidak ada sisa
+// tombol yatim yang menempel di halaman.
+var lastArrayRows = [];
+var arrayFilter = 'all', arrayHideSpare = false, arraySheetBodyEl = null, arrayMsgEl = null;
+function arrayRowsShown() {
+  return lastArrayRows.filter(function (r) {
+    if (arrayFilter !== 'all' && r.arr !== arrayFilter) return false;
+    if (arrayHideSpare && / Spare$/.test(r.komen || '')) return false;
+    return true;
+  });
+}
+function arraySheetTable() {
+  var rows = arrayRowsShown();
+  var t = document.createElement('table');
+  t.className = 'sheet';
+  var hd = document.createElement('tr');
+  ['#', 'Name', 'Data Type', 'Comment'].forEach(function (h) {
+    var th = document.createElement('th'); th.textContent = h; hd.appendChild(th);
+  });
+  t.appendChild(hd);
+  rows.forEach(function (r, i) {
+    var rowEl = document.createElement('tr');
+    if (/ Spare$/.test(r.komen || '')) rowEl.className = 'spare';
+    [[String(i + 1), 'n'], [r.name, 'k'], ['BOOL', ''], [r.komen || '', 'c']].forEach(function (c) {
+      var td = document.createElement('td'); td.textContent = c[0]; if (c[1]) td.className = c[1];
+      rowEl.appendChild(td);
+    });
+    t.appendChild(rowEl);
+  });
+  return t;
+}
+function arraySheetRefresh() {
+  if (!arraySheetBodyEl) return;
+  arraySheetBodyEl.textContent = '';
+  arraySheetBodyEl.appendChild(arraySheetTable());
+}
+function buildArraySheet() {
+  if (!lastArrayRows.length) return null;
+  var box = document.createElement('div');
+  box.className = 'file array-sheet';
+  var row = document.createElement('div'); row.className = 'row';
+  var b = document.createElement('b');
+  b.textContent = 'AL / MF element comments (' + lastArrayRows.length + ')';
+  row.appendChild(b);
+
+  var sel = document.createElement('select'); sel.className = 'sheet-ctl';
+  [['all', 'AL + MF'], ['AL', 'AL saja'], ['MF', 'MF saja']].forEach(function (o) {
+    var op = document.createElement('option'); op.value = o[0]; op.textContent = o[1]; sel.appendChild(op);
+  });
+  sel.value = arrayFilter;
+  sel.addEventListener('change', function () { arrayFilter = sel.value; arraySheetRefresh(); });
+  row.appendChild(sel);
+
+  var lbl = document.createElement('label'); lbl.className = 'sheet-chk';
+  var cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = arrayHideSpare;
+  cb.addEventListener('change', function () { arrayHideSpare = cb.checked; arraySheetRefresh(); });
+  lbl.appendChild(cb); lbl.appendChild(document.createTextNode(' sembunyikan Spare'));
+  row.appendChild(lbl);
+
+  [['Salin kolom Comment', true], ['Salin semua kolom', false]].forEach(function (o) {
+    var btn = document.createElement('button'); btn.className = 'dl'; btn.textContent = o[0];
+    btn.addEventListener('click', function () { arrayCopy(o[1]); });
+    row.appendChild(btn);
+  });
+  arrayMsgEl = document.createElement('span'); arrayMsgEl.className = 'sheet-msg';
+  row.appendChild(arrayMsgEl);
+
+  var hint = document.createElement('div'); hint.className = 'hint';
+  hint.textContent = 'Urutannya persis urutan array setelah di-expand di Sysmac. '
+    + 'Salin kolom Comment lalu paste ke kolom Comment - satu kolom, sejajar baris demi baris.';
+
+  arraySheetBodyEl = document.createElement('div'); arraySheetBodyEl.className = 'sheet-wrap';
+  arraySheetBodyEl.appendChild(arraySheetTable());
+  box.appendChild(row); box.appendChild(hint); box.appendChild(arraySheetBodyEl);
+  return box;
+}
+function arrayCopy(commentOnly) {
+  var rows = arrayRowsShown();
+  var text = rows.map(function (r) {
+    return commentOnly ? (r.komen || '')
+      : [r.name, 'BOOL', '', '', 'False', 'False', 'Do not publish', r.komen || ''].join('\\t');
+  }).join('\\n');
+  function done(ok) {
+    if (!arrayMsgEl) return;
+    arrayMsgEl.textContent = ok ? (rows.length + ' baris disalin') : 'gagal menyalin, blok manual dari tabel';
+    setTimeout(function () { if (arrayMsgEl) arrayMsgEl.textContent = ''; }, 4000);
+  }
+  // navigator.clipboard butuh https/localhost. index.html sering dibuka lewat file:// - di situ
+  // API-nya tidak ada sama sekali, jadi harus ada jalur cadangan atau tombolnya diam-diam mati.
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(function () { done(true); }, function () { done(fallbackCopy(text)); });
+  } else {
+    done(fallbackCopy(text));
+  }
+}
+function fallbackCopy(text) {
+  var ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.position = 'fixed'; ta.style.top = '-1000px';
+  document.body.appendChild(ta); ta.select();
+  var ok = false;
+  try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+  document.body.removeChild(ta);
+  return ok;
+}
+function renderHmiMap(map) {
+  if (!hmiMapPanelEl) return;
+  hmiMapPanelEl.textContent = '';
+  if (!map || !map.rows || !map.rows.length) {
+    if (hmiSummaryEl) hmiSummaryEl.textContent = map && map.cfg && !map.cfg.on ? 'kolom AT dimatikan' : 'belum di-generate';
+    return;
+  }
+  if (hmiSummaryEl) {
+    hmiSummaryEl.textContent = (map.cfg.mode === 'generate' ? 'generate' : 'manual') + ' - '
+      + map.rows.length + ' simbol - tombol ' + map.cfg.btnArea + map.cfg.pbBase + '+, lampu +'
+      + map.cfg.rdOfs + ', ' + map.cfg.perPage + ' aktuator/screen, ' + map.cfg.stride + ' word/station';
+  }
+  var t = document.createElement('table');
+  t.className = 'hmi-tbl';
+  var hd = document.createElement('tr');
+  ['Address', 'Symbol', 'Direction', 'Screen', 'Device'].forEach(function (h) {
+    var th = document.createElement('th'); th.textContent = h; hd.appendChild(th);
+  });
+  t.appendChild(hd);
+  map.rows.forEach(function (r) {
+    var rowEl = document.createElement('tr');
+    rowEl.className = r.dir === 'HMI->PLC' ? 'hmi-in' : 'hmi-out';
+    [r.at, r.sym, r.dir, r.screen, r.komen].forEach(function (v) {
+      var td = document.createElement('td'); td.textContent = v || ''; rowEl.appendChild(td);
+    });
+    t.appendChild(rowEl);
+  });
+  hmiMapPanelEl.appendChild(t);
+}
 // Warning generate terakhir. warnList = versi terstruktur ({level,code,station,message}); string-nya
 // cuma disimpen buat fallback. Konsumen di sini WAJIB nyantol ke `code`, bukan nyocokin teks pesan -
 // teksnya bisa berubah kapan saja tanpa siapa pun sadar ada yang rusak.
@@ -1267,6 +1499,8 @@ function renderResults(payload) {
         + 'Rekomendasi minimal AL ' + Math.ceil(ai.alUsed / 10) * 10 + ', MF ' + Math.ceil(ai.mfUsed / 10) * 10 + '.'
       : '';
   }
+  lastArrayRows = payload.arrayRows || [];
+  renderHmiMap(payload.hmiMap);
   lastWarnings = payload.warnings || '';
   lastWarnList = payload.warnList || [];
   renderWarnings(lastWarnList, lastWarnings);
@@ -1281,7 +1515,7 @@ function renderResults(payload) {
     single.innerHTML = '<div class="t">Import sekali jalan</div>' +
       '<div class="d">Semua program dan global variable dalam 1 file XML.</div>';
     var dlBtn = document.createElement('button');
-    dlBtn.className = 'dl'; dlBtn.textContent = 'Download Single XML';
+    dlBtn.className = 'dl'; dlBtn.textContent = 'Download combined XML';
     dlBtn.addEventListener('click', function () { downloadFile(payload.files[0].name, payload.files[0].xml); });
     single.appendChild(dlBtn);
     resEl.appendChild(single);
@@ -1290,10 +1524,16 @@ function renderResults(payload) {
   // Per-program file (MAIN, tiap station, GlobalVariables.tsv) - kotaknya makan tempat (tiap satu
   // punya textarea gede), disembunyiin default di balik <details>. AllPrograms.xml single-download
   // di atas udah cukup buat kebanyakan kasus.
+  // Spreadsheet AL/MF ditaruh SEBELUM fold "Download per program" dan di luar fold itu. Waktu masih
+  // di dalam fold, tabelnya cuma kelihatan sebagai textarea mentah yang ke-scroll - persis yang mau
+  // dihindari, karena yang dibutuhkan itu menyalin satu kolom, bukan membaca TSV.
+  var sheet = buildArraySheet();
+  if (sheet) resEl.appendChild(sheet);
+
   var details = document.createElement('details'); details.className = 'per-program';
   if (perProgramOpen) details.open = true;
   details.addEventListener('toggle', function () { perProgramOpen = details.open; });
-  var summary = document.createElement('summary'); summary.textContent = 'Download per program (' + payload.files.length + ' file)';
+  var summary = document.createElement('summary'); summary.textContent = 'Files (' + payload.files.length + ' file)';
   details.appendChild(summary);
   payload.files.forEach(function (f) {
     var div = document.createElement('div');
@@ -1344,6 +1584,8 @@ function regenerate() {
   flowStore.timerDefaults = { phpx: timerPhpxEl ? timerPhpxEl.value : '', motion: timerMotionEl ? timerMotionEl.value : '' };
   flowStore.arraySizes = { al: alSizeEl ? alSizeEl.value : '', mf: mfSizeEl ? mfSizeEl.value : '',
                            stationBlock: stationBlockEl ? stationBlockEl.value : '' };
+  flowStore.hmiMap = hmiSettings();
+  flowStore.advancedInstructions = advInstrEl ? advInstrEl.checked : false;
   flowStore.actuatorOverrides = actuatorOverrides;
   try {
     // Salinan wrapper baru tiap panggil - gen_all.js nge-reassign msg.payload di baris terakhirnya,
@@ -1719,7 +1961,7 @@ function renderMotionPanel() {
         var def = (conditionState[stKey] || []).filter(function (d) { return d.bit === val; })[0];
         if (def && def.name) condCmtInput.value = def.name;
       });
-      var condBtn = document.createElement('button'); condBtn.className = 'add-cond'; condBtn.textContent = '+ Syarat/bit';
+      var condBtn = document.createElement('button'); condBtn.className = 'add-cond'; condBtn.textContent = '+ Condition/bit';
       condBtn.title = 'Taruh bit yang SUDAH ada (Condition section, sensor, memory) sebagai SYARAT. '
         + 'Tarik dari bulatan kuningnya ke langkah yang harus nunggu bit itu ON. '
         + 'Arahnya satu jalur: dia sumber, gak bisa jadi tujuan panah - logic yang nyalain bit itu ditulis di luar flowchart.';
@@ -1735,7 +1977,7 @@ function renderMotionPanel() {
       // Bit yang dipakai (kondisi judgement, target memory) dipilih lewat dropdown yang sama dengan
       // Condition - jadi sensor, bit Condition, atau bit custom semuanya bisa dipakai.
       var blockBar = document.createElement('div'); blockBar.className = 'graph-toolbar';
-      var blkLbl = document.createElement('b'); blkLbl.textContent = 'Blok:'; blkLbl.style.fontSize = '11px';
+      var blkLbl = document.createElement('b'); blkLbl.textContent = 'Blocks:'; blkLbl.style.fontSize = '11px';
       blockBar.appendChild(blkLbl);
 
       var blkPick = makeBitPicker(stKey, '', '-- pilih bit --', null);
@@ -1790,7 +2032,7 @@ function renderMotionPanel() {
           var selType = selNode.type || 'motion';
           var editRow = document.createElement('div'); editRow.className = 'graph-toolbar';
           var editLbl = document.createElement('b');
-          editLbl.textContent = 'Edit blok "' + nodeLabel(selNode) + '":';
+          editLbl.textContent = 'Edit block "' + nodeLabel(selNode) + '":';
           editLbl.style.fontSize = '11px';
           editRow.appendChild(editLbl);
 
@@ -1854,7 +2096,7 @@ function renderMotionPanel() {
     if (jsonBoxOpen[jsonKey]) jsonBox.open = true;
     jsonBox.addEventListener('toggle', function () { jsonBoxOpen[jsonKey] = jsonBox.open; });
     var jsonLabel = document.createElement('summary');
-    jsonLabel.textContent = 'Import/Export JSON (array varian)';
+    jsonLabel.textContent = 'Sequence JSON';
     var jsonTa = document.createElement('textarea');
     jsonTa.placeholder = '[{"condition":"","comment":"","nodes":[{"id":"n1","sol":"' + (names[0] || 'SOL_...') + '","after":[],"join":"AND"}]}]';
     var jsonMsg = document.createElement('div'); jsonMsg.className = 'json-msg';
@@ -1937,7 +2179,7 @@ function renderConditionPanel() {
         gbox.appendChild(termInput); gbox.appendChild(addTBtn);
 
         if (def.groups.length > 1) {
-          var rmG = document.createElement('button'); rmG.className = 'cond-rm-term'; rmG.textContent = 'hapus grup';
+          var rmG = document.createElement('button'); rmG.className = 'cond-rm-term'; rmG.textContent = 'remove group';
           rmG.addEventListener('click', function () { removeOrGroup(stKey, di, gi); renderConditionPanel(); regenerate(); });
           gbox.appendChild(rmG);
         }
@@ -1960,7 +2202,7 @@ function renderConditionPanel() {
     if (jsonBoxOpen[jsonKey]) jsonBox.open = true;
     jsonBox.addEventListener('toggle', function () { jsonBoxOpen[jsonKey] = jsonBox.open; });
     var jsonLabel = document.createElement('summary');
-    jsonLabel.textContent = 'Import/Export JSON (array condition)';
+    jsonLabel.textContent = 'Condition JSON';
     var jsonTa = document.createElement('textarea');
     jsonTa.placeholder = '[{"name":"","bit":"","groups":[[{"bit":"LB206","neg":false}]]}]';
     var jsonMsg = document.createElement('div'); jsonMsg.className = 'json-msg';
@@ -2106,7 +2348,7 @@ function updateConfirmModeSummary(stationCount) {
   // KODE warning, bukan nyocokin kalimatnya - kalau teksnya diubah, pencocokan teks bakal diam-diam
   // berhenti jalan dan section ini gak pernah kebuka lagi padahal ada yang perlu diurus.
   var needs = lastWarnList.filter(function (w) { return w.code === 'lsc_not_found'; }).length;
-  if (!total) { sub.textContent = 'generate dulu buat lihat daftar aktuator'; sub.className = 'fold-sub'; return; }
+  if (!total) { sub.textContent = 'run Generate first to see the actuator list'; sub.className = 'fold-sub'; return; }
   // Sebutin NAMA aktuatornya, bukan cuma jumlahnya - angka doang bikin user harus nyisir daftar
   // sendiri. Bloknya juga diwarnai merah di panel, jadi ketemunya cepat.
   var missing = lastWarnList.filter(function (w) {
@@ -2152,6 +2394,8 @@ function exportProjectJSON() {
     timerDefaults: { phpx: timerPhpxEl ? timerPhpxEl.value : '', motion: timerMotionEl ? timerMotionEl.value : '' },
     arraySizes: { al: alSizeEl ? alSizeEl.value : '', mf: mfSizeEl ? mfSizeEl.value : '',
                   stationBlock: stationBlockEl ? stationBlockEl.value : '' },
+    hmiMap: hmiSettings(),
+    advancedInstructions: advInstrEl ? advInstrEl.checked : false,
     actuatorOverrides: actuatorOverrides,
     motionSequences: motionSequences,
     conditionDefs: conditionDefs
@@ -2178,6 +2422,20 @@ function importProjectJSON(jsonText) {
   if (alSizeEl) alSizeEl.value = (parsed.arraySizes && parsed.arraySizes.al) || '';
   if (mfSizeEl) mfSizeEl.value = (parsed.arraySizes && parsed.arraySizes.mf) || '';
   if (stationBlockEl) stationBlockEl.value = (parsed.arraySizes && parsed.arraySizes.stationBlock) || '';
+  if (advInstrEl) advInstrEl.checked = !!parsed.advancedInstructions;
+  var hm = parsed.hmiMap || {};
+  if (hmiModeEl) hmiModeEl.value = hm.mode === 'generate' ? 'generate' : 'manual';
+  if (hmiBtnAreaEl) hmiBtnAreaEl.value = hm.btnArea || 'W';
+  if (hmiAlAreaEl) hmiAlAreaEl.value = hm.alArea || 'H';
+  if (hmiPbBaseEl) hmiPbBaseEl.value = hm.pbBase || '';
+  if (hmiRdOffsetEl) hmiRdOffsetEl.value = hm.rdOffset || '';
+  if (hmiAlBaseEl) hmiAlBaseEl.value = hm.alBase || '';
+  if (hmiMfBaseEl) hmiMfBaseEl.value = hm.mfBase || '';
+  if (hmiPerPageEl) hmiPerPageEl.value = hm.perPage || '';
+  if (hmiStrideEl) hmiStrideEl.value = hm.stride || '';
+  // Project lama gak punya blok hmiMap sama sekali - default-nya AKTIF, bukan mati, biar import
+  // project lama tetap keluar kolom AT tanpa harus dicentang manual.
+  if (hmiEnabledEl) hmiEnabledEl.checked = hm.enabled === undefined ? true : !!hm.enabled;
   actuatorOverrides = {};
   Object.keys(parsed.actuatorOverrides || {}).forEach(function (k) { actuatorOverrides[k] = parsed.actuatorOverrides[k]; });
 
@@ -2249,7 +2507,22 @@ alSizeEl = document.getElementById('alSize');
 mfSizeEl = document.getElementById('mfSize');
 stationBlockEl = document.getElementById('stationBlock');
 arraySizeHintEl = document.getElementById('arraySizeHint');
-[alSizeEl, mfSizeEl, stationBlockEl].forEach(function (el) {
+advInstrEl = document.getElementById('advInstr');
+advInstrEl.addEventListener('change', function () { if (lastSplitMsg) regenerate(); });
+hmiModeEl = document.getElementById('hmiMode');
+hmiBtnAreaEl = document.getElementById('hmiBtnArea');
+hmiAlAreaEl = document.getElementById('hmiAlArea');
+hmiPbBaseEl = document.getElementById('hmiPbBase');
+hmiRdOffsetEl = document.getElementById('hmiRdOffset');
+hmiAlBaseEl = document.getElementById('hmiAlBase');
+hmiMfBaseEl = document.getElementById('hmiMfBase');
+hmiPerPageEl = document.getElementById('hmiPerPage');
+hmiStrideEl = document.getElementById('hmiStride');
+hmiEnabledEl = document.getElementById('hmiEnabled');
+hmiMapPanelEl = document.getElementById('hmiMapPanel');
+hmiSummaryEl = document.getElementById('hmiSummary');
+[alSizeEl, mfSizeEl, stationBlockEl, hmiModeEl, hmiBtnAreaEl, hmiAlAreaEl, hmiPbBaseEl, hmiRdOffsetEl, hmiAlBaseEl, hmiMfBaseEl,
+ hmiPerPageEl, hmiStrideEl, hmiEnabledEl].forEach(function (el) {
   el.addEventListener('change', function () { if (lastSplitMsg) regenerate(); });
 });
 timerPhpxEl = document.getElementById('timerPhpx');
@@ -2265,7 +2538,7 @@ document.getElementById('ioAddRow').addEventListener('click', function () {
 document.getElementById('ioPaste').addEventListener('click', function () {
   readTextFromClipboard().then(function (t) {
     var rows = ioParseText(t);
-    if (!rows.length) { window.alert('Clipboard gak berisi baris TSV (Alamat/Jenis/IN-OUT/Komen).'); return; }
+    if (!rows.length) { window.alert('Clipboard has no TSV rows (Address / Type / IN-OUT / Comment)'); return; }
     // Ditambahin, bukan nimpa - biar tempelan kedua gak diam-diam ngapus yang pertama
     ioRows = ioRows.concat(rows);
     ioSyncToText(); renderIoGrid();
