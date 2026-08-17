@@ -1856,6 +1856,16 @@ function buildHmi(){
     G(TMR_SET,"ARRAY[0..15] OF UDINT","Timer preset value");
     G(TMR_CUR,"ARRAY[0..15] OF UDINT","Timer present value");
     G(TMR_LAMP,"ARRAY[0..9] OF BOOL","Timer up indication, screen 0081");
+    // Clock pulse dibangun di P000_Initial, tapi program yang MEMAKAI-nya tetap harus
+    // mendeklarasikan sendiri: ExternalVars itu per-program, bukan warisan.
+    // Komentarnya diambil dari deklarasi Initial kalau ada, supaya satu simbol tidak punya
+    // dua keterangan berbeda di dua berkas.
+    if(ADV_OK){
+        var tclk={}; for(var tc=0; tc<TMR_N; tc++) tclk[tmrClock(tc)]=1;
+        Object.keys(tclk).forEach(function(c){
+            G(c,"BOOL",(GLOBALS[c]&&GLOBALS[c].d)||((c==="aP_0_1s"?"0.1":"1")+" second clock pulse"));
+        });
+    }
     hmiClaimRange(TMR_LAMP, HMI_CFG.btnArea, HMI_CFG.cntBase+CNT_LAMPS.length, 10, "PLC->HMI", "0081", "Timer up indication");
     numW = hmiClaimWords(TMR_SET, HMI_CFG.numArea, numW, 32, "HMI<->PLC", "0081", "Timer preset value");
     numW = hmiClaimWords(TMR_CUR, HMI_CFG.numArea, numW, 32, "PLC->HMI",  "0081", "Timer present value");
