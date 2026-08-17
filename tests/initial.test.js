@@ -81,22 +81,25 @@ chk('pembanding pakai nama simbol + Inc',
 // yang pernah terjadi dan bentuk gagalnya tidak kelihatan dari jumlah rung.
 chk('pembanding tidak minta pin ENO',
     !/typeName="&lt;[^"]*"><InputVariables>[\s\S]{0,600}?parameterName="ENO"/.test(cnt));
-chk('Inc bawa InOut di sisi masuk dan keluar',
-    (cnt.match(/<InputVariable parameterName="InOut"/g) || []).length === 10
-    && (cnt.match(/<OutputVariable parameterName="InOut"/g) || []).length === 10);
-// Nilai balik Inc tidak dipakai, tapi pin-nya HARUS tetap ada LENGKAP dengan titik
-// sambungnya. Dua bentuk gagalnya beda dan dua-duanya pernah kejadian: pin dibuang ->
-// "The function name is not defined"; titik sambungnya dibuang -> "invalid connection"
-// dan rung-nya ter-import kosong.
-// Diperiksa DI DALAM kotak Inc-nya: pembanding juga punya pin tanpa nama, jadi menghitung
-// parameterName="" di seluruh section akan lulus walau Inc-nya sendiri kehilangan pin itu.
+// Pin in-out punya elemennya SENDIRI dan harus di urutan paling depan. Didaftar dua kali
+// di Input+Output bikin susunan pin-nya tidak cocok dengan definisi Inc, dan Studio
+// menjawab "The function name is not defined" - kotaknya tergambar, isinya tidak jalan.
 const incBoxes = cnt.match(/<FbdObject xsi:type="Block" typeName="Inc"[\s\S]*?<\/FbdObject>/g) || [];
-chk('10 kotak Inc, tiap kotak 3 pin keluar', incBoxes.length === 10
-    && incBoxes.every(b => (b.match(/<OutputVariable /g) || []).length === 3), incBoxes.length + ' kotak');
-chk('Inc mendeklarasi pin nilai balik berikut titik sambungnya',
-    incBoxes.every(b => /<OutputVariable parameterName=""><ConnectionPointOut /.test(b)));
-chk('tidak ada pin yang ditulis tanpa titik sambung',
-    !/<OutputVariable parameterName="[^"]*" \/>/.test(cnt));
+chk('10 kotak Inc', incBoxes.length === 10, incBoxes.length + ' kotak');
+chk('InOut ditulis sebagai <InOutVariables>, bukan didaftar dua kali',
+    incBoxes.every(b => /<InOutVariables><InOutVariable parameterName="InOut">/.test(b)
+                     && !/<InputVariable parameterName="InOut"/.test(b)
+                     && !/<OutputVariable parameterName="InOut"/.test(b)));
+chk('<InOutVariables> di urutan paling depan',
+    incBoxes.every(b => b.indexOf('<InOutVariables>') < b.indexOf('<InputVariables>')));
+// Sisi keluar pin in-out menulis balik ke variabel yang SAMA - itu arti "in-out".
+chk('sisi keluar InOut menulis balik ke CNT_ACT yang sama',
+    (cnt.match(/<FbdObject xsi:type="DataSink" identifier="CNT_ACT\[\d+\]"/g) || []).length === 10);
+// Tiap pin yang DITULIS wajib ada yang memakai. Pin nganggur = "invalid connection" dan
+// rung-nya ter-import kosong. Pin yang tidak dipakai jangan ditulis - contoh resmi Omron
+// pun tidak menulis ENO waktu ENO-nya tidak dipakai.
+chk('Inc tidak menulis pin yang tidak dipakai',
+    incBoxes.every(b => (b.match(/<OutputVariable /g) || []).length === 1));
 chk('probe gak ikut keluar lagi', !file(a, '_Probe_Instructions.xml'));
 chk('clock pulse digenerate', /typeName="Get1sClk"/.test(file(a, 'P000_Initial.xml').xml));
 

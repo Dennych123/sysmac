@@ -1498,37 +1498,30 @@ function buildProbe(){
         r.rr([r.cl("PRB_LAMP", b[""])]);
     });
 
-    // ---- Inc: TIGA pin keluar (ENO, InOut, nilai balik tanpa nama), yang diisi cuma InOut ----
-    // Yang dipakai generator sekarang: semua pin dideklarasi lengkap dengan titik sambungnya,
-    // nilai baliknya cukup tidak dirujuk siapa pun.
-    P1("Inc - 3 pin keluar, nilai balik tidak dirujuk", function(r){
+    // ---- Inc: pin in-out ----
+    // Bentuk yang dipakai generator sekarang, disalin dari Function0 di Sample.xml:
+    // <InOutVariables> di depan, sisi keluarnya ke DataSink dengan variabel yang SAMA,
+    // dan pin yang tidak dipakai tidak ditulis sama sekali.
+    P1("Inc - InOut lewat <InOutVariables>, ENO ke rel", function(r){
         var e=r.ct("PRB_TRIG", r.rail());
-        var b=r.blk("Inc",null,[["EN",e],["InOut",r.src("PRB_A")]],["ENO","InOut",""]);
+        var b=r.blk("Inc",null,[["EN",e]],["ENO"],[["InOut",r.src("PRB_A")]]);
         r.sink("PRB_A", b.InOut);
         r.rr([b.ENO]);
     });
-    // Kalau ternyata Studio menuntut tiap pin ada yang memakai: nilai balik dibuang ke coil.
-    P1("Inc - nilai balik disambung ke coil", function(r){
+    // Persis pola Function0: ENO tidak ditulis, yang menyambung ke rel kanan justru pin
+    // nilai balik tanpa nama.
+    P1("Inc - tanpa ENO, pin tanpa nama yang ke rel", function(r){
         var e=r.ct("PRB_TRIG", r.rail());
-        var b=r.blk("Inc",null,[["EN",e],["InOut",r.src("PRB_A")]],["ENO","InOut",""]);
+        var b=r.blk("Inc",null,[["EN",e]],[""],[["InOut",r.src("PRB_A")]]);
         r.sink("PRB_A", b.InOut);
-        r.cl("PRB_LAMP", b[""]);
-        r.rr([b.ENO]);
+        r.rr([b[""]]);
     });
-    // <InOutVariables> - bentuk yang dipakai contoh resmi Omron (Sample.xml). Percobaan
-    // pertama ditolak XSD karena ditaruh di URUTAN TERAKHIR; tempatnya paling depan.
-    P1("Inc - InOut lewat <InOutVariables>", function(r){
+    // Ketiga pin keluar ditulis semua dan dua-duanya ada yang memakai.
+    P1("Inc - ENO ke rel + nilai balik ke coil", function(r){
         var e=r.ct("PRB_TRIG", r.rail());
         var b=r.blk("Inc",null,[["EN",e]],["ENO",""],[["InOut",r.src("PRB_A")]]);
         r.sink("PRB_A", b.InOut);
-        r.rr([b.ENO]);
-    });
-    // Jalan memutar kalau Inc tetap tidak mau: hasil hitungnya sama persis, dan `+` sudah
-    // dipakai di project mesin. Tidak ada pin in-out sama sekali, semua pin ada yang memakai.
-    P1("tanpa Inc - pakai + : CNT := CNT + 1", function(r){
-        var e=r.ct("PRB_TRIG", r.rail());
-        var b=r.blk("+",null,[["EN",e],["In1",r.src("PRB_A")],["In2",r.src("UDINT#1")]],["ENO",""]);
-        r.sink("PRB_A", b[""]);
+        r.cl("PRB_LAMP", b[""]);
         r.rr([b.ENO]);
     });
 
@@ -1703,13 +1696,15 @@ function buildHmi(){
             var r1=new Rung(o++, "Counter "+n1+" : count up while below target");
             var g1=r1.ct("GCT["+n1+"]", r1.rail());
             var lt=r1.blk("<",null,[["EN",g1],["In1",r1.src(act)],["In2",r1.src(set)]],[""]);
-            // Inc punya TIGA pin keluar: ENO, InOut, dan nilai balik tanpa nama. Terlihat
-            // langsung waktu kotaknya digambar tangan di Studio, dan yang diisi operand cuma
-            // InOut. Pin nilai balik tetap harus DIDEKLARASI lengkap dengan titik sambungnya
-            // - kalau pin-nya dibuang, Studio bilang "The function name is not defined";
-            // kalau titik sambungnya yang dibuang, "invalid connection" dan rung-nya kosong.
-            // Cukup tidak ada yang merujuk id-nya.
-            var inc=r1.blk("Inc",null,[["EN",lt[""]],["InOut",r1.src(act)]],["ENO","InOut",""]);
+            // InOut ditulis sebagai <InOutVariables>, BUKAN didaftar dua kali di Input dan
+            // Output. Bentuk ini disalin dari Function0 di contoh resmi Omron (Sample.xml):
+            // DataSource -> pin in-out -> DataSink dengan variabel YANG SAMA. Mendaftarnya
+            // dua kali bikin Studio melihat 2 masuk + 3 keluar padahal definisinya 1 masuk +
+            // 1 keluar + 1 in-out, dan jawabannya "The function name is not defined".
+            // Pin nilai balik yang tidak dipakai TIDAK ditulis - contoh Omron pun tidak
+            // menulis ENO waktu ENO-nya tidak dipakai. Pin yang ditulis wajib ada yang
+            // memakai; kalau tidak: "invalid connection" dan rung-nya ter-import kosong.
+            var inc=r1.blk("Inc",null,[["EN",lt[""]]],["ENO"],[["InOut",r1.src(act)]]);
             r1.sink(act, inc.InOut);
             r1.rr([inc.ENO]); S2.push(r1.build());
             // 2. lampu WARNING - padam begitu UP nyala, biar operator gak lihat dua lampu bareng

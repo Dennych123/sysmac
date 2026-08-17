@@ -308,24 +308,28 @@ Rung.prototype.sink=function(v,ref){var i=this.n++;this.a.push('<FbdObject xsi:t
 // "Sysmac Studio/Sample/IEC 61131-10 XML/Controller/Sample.xml".
 //
 // inouts (opsional) = [["InOut", refId]] -> <InOutVariables>, buat Inc/Dec/Clear.
+// Pin in-out WAJIB lewat sini, jangan didaftar dua kali di ins+outs - itu bentuk model
+// internal Studio, bukan bentuk XML import, dan Studio menolaknya dengan "The function
+// name is not defined". Sisi keluarnya disambungkan ke sink dengan variabel yang SAMA.
 // URUTAN ELEMENNYA TERIKAT: <InOutVariables> HARUS pertama, baru <InputVariables>,
 // baru <OutputVariables>. Itu xsd:sequence, bukan selera. Menaruhnya terakhir ditolak:
 //   "The element 'FbdObject' ... has invalid child element 'InOutVariables'"
 // Nomor order dihitung MENYELURUH satu blok (EN=1, In=2, InOut=3), bukan per kelompok.
+//
+// Tulis HANYA pin yang dipakai. Contoh resmi Omron pun tidak menulis ENO waktu ENO-nya
+// tidak dipakai, dan tidak pernah meninggalkan satu pun titik keluar tanpa yang merujuk.
 Rung.prototype.blk=function(typeName,instanceName,ins,outs,inouts){
   var self=this, outIds={};
   var xin=ins.map(function(p,k){
     return '<InputVariable parameterName="'+esc(p[0])+'"><ConnectionPointIn>'+self.ad('ConnectionPointInOrder',k+1)
          + '<Connection refConnectionPointOutId="'+p[1]+'" /></ConnectionPointIn></InputVariable>';
   }).join('');
-  var xout=outs.map(function(o,k){
-    // "Nama"   -> pin disambung, id-nya dikembalikan
-    // ["Nama"] -> pin cuma DIDEKLARASI, tanpa titik sambung. Perlu buat pin yang memang
-    //            tidak dipakai (nilai balik Inc/Dec) - kalau pin-nya dihilangkan sama
-    //            sekali, susunannya tidak cocok lagi dan Studio bilang "The function name
-    //            is not defined". ConnectionPointOut-nya minOccurs="0" di XSD.
-    var bare=Array.isArray(o), nm=bare?o[0]:o;
-    if(bare) return '<OutputVariable parameterName="'+esc(nm)+'" />';
+  // Tiap pin keluar SELALU dapat <ConnectionPointOut>, dipakai atau tidak. Menghilangkan
+  // titik sambungnya memang sah menurut XSD (minOccurs="0") tapi ditolak Studio waktu
+  // konversi: "The function or the function block has invalid connection. Imported as an
+  // empty rung." - rung-nya hilang sama sekali, lebih parah daripada sekadar DefinitionError.
+  // Pin yang tidak dipakai cukup dibiarkan tanpa ada yang merujuk id-nya.
+  var xout=outs.map(function(nm,k){
     var id=self.n++; outIds[nm]=id;
     return '<OutputVariable parameterName="'+esc(nm)+'"><ConnectionPointOut connectionPointOutId="'+id+'">'
          + self.ad('ConnectionPointOutOrder',k+1)+'</ConnectionPointOut></OutputVariable>';

@@ -42,10 +42,16 @@ Rung.prototype.sink=function(v,ref){var i=this.n++;this.a.push('<FbdObject xsi:t
 // "Sysmac Studio/Sample/IEC 61131-10 XML/Controller/Sample.xml".
 //
 // inouts (opsional) = [["InOut", refId]] -> <InOutVariables>, buat Inc/Dec/Clear.
+// Pin in-out WAJIB lewat sini, jangan didaftar dua kali di ins+outs - itu bentuk model
+// internal Studio, bukan bentuk XML import, dan Studio menolaknya dengan "The function
+// name is not defined". Sisi keluarnya disambungkan ke sink dengan variabel yang SAMA.
 // URUTAN ELEMENNYA TERIKAT: <InOutVariables> HARUS pertama, baru <InputVariables>,
 // baru <OutputVariables>. Itu xsd:sequence, bukan selera. Menaruhnya terakhir ditolak:
 //   "The element 'FbdObject' ... has invalid child element 'InOutVariables'"
 // Nomor order dihitung MENYELURUH satu blok (EN=1, In=2, InOut=3), bukan per kelompok.
+//
+// Tulis HANYA pin yang dipakai. Contoh resmi Omron pun tidak menulis ENO waktu ENO-nya
+// tidak dipakai, dan tidak pernah meninggalkan satu pun titik keluar tanpa yang merujuk.
 Rung.prototype.blk=function(typeName,instanceName,ins,outs,inouts){
   var self=this, outIds={};
   var xin=ins.map(function(p,k){

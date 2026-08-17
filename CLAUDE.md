@@ -78,8 +78,43 @@ dan baru ditolak Studio sebagai `(DefinitionError)`. Jadi dua-duanya perlu — X
 untuk bentuk, Studio untuk resolusi nama.
 
 `Sample.xml` itu jawaban untuk pertanyaan "bentuk yang benar seperti apa", ditulis
-Omron sendiri. Sudah terbukti berguna: dari situ ketahuan pin tanpa nama memang
-ditulis `parameterName=""`, dan `<InOutVariables>` itu sah asal urutannya benar.
+Omron sendiri. **Tiru rung-nya, jangan karang sendiri.** Satu rung di situ —
+`Function0` — menjawab tiga hal yang masing-masing sempat kutebak dan salah:
+
+```
+DataSource var2 ──▶ <InOutVariable> ──▶ DataSink var2      variabel yang SAMA
+OutputVariable ""  ──▶ RightPowerRail
+ENO tidak ditulis sama sekali
+```
+
+1. **Pin in-out punya elemennya sendiri**, `<InOutVariables>`, di urutan paling
+   depan. BUKAN didaftar dua kali di `<InputVariables>` + `<OutputVariables>`.
+   Yang dua kali itu bentuk model internal Studio (yang dilaporkan `--probe-fb`),
+   bukan bentuk XML import. Salah di sini → `The function name is not defined`.
+2. **Sisi keluar pin in-out menulis balik ke variabel yang sama.** Itu arti
+   "in-out": satu operand, dibaca dan ditulis.
+3. **Pin yang tidak dipakai TIDAK ditulis.** `Function0` punya `EN` tapi tidak
+   menulis `ENO` sama sekali. Sebaliknya, pin yang ditulis WAJIB ada yang memakai:
+   di seluruh `Sample.xml` tidak ada satu pun `connectionPointOutId` yang tidak
+   dirujuk. Pin nganggur → `The function or the function block has invalid
+   connection. Imported as an empty rung.` — rung-nya hilang, bukan cuma merah.
+
+Cara memeriksanya satu perintah, dan lebih murah daripada satu putaran ke Studio:
+
+```bash
+python -c "import re,io;s=io.open('x.xml',encoding='utf-8-sig').read();
+[print(m.group(0)[:60], [i for i in re.findall(r'connectionPointOutId=\"(\d+)\"',m.group(0))
+ if i not in re.findall(r'refConnectionPointOutId=\"(\d+)\"',m.group(0))])
+ for m in re.finditer(r'<Rung\b[\s\S]*?</Rung>',s)]"
+```
+
+Tiga pesan error Studio, tiga sebab yang BEDA — jangan tertukar:
+
+| pesan | artinya | ciri |
+|---|---|---|
+| `(DefinitionError)` / `The function name is not defined` | susunan pin tidak cocok definisi | kotak tergambar, merah |
+| `invalid connection ... empty rung` | ada pin ditulis tanpa yang memakai | rung hilang, kosong |
+| `(Import failed)` | XML-nya sendiri ditolak | rung jadi komentar |
 
 Yang sudah dibaca dari XSD dan belum tentu kepikiran dari kode:
 
@@ -118,15 +153,16 @@ mesin, jadi ini bukan tebakan):
 | `ADD` `SUB` `MUL` `DIV` (`+ - * /`) | `EN`, `In1`, `In2` | `ENO`, **pin hasil tanpa nama** |
 | pembanding `=` `<>` `<` `<=` `>` `>=` | `EN`, `In1`, `In2` | **satu pin aliran daya tanpa nama — TIDAK ada ENO** |
 | `Get1sClk` `Get10msClk` `Get100msClk` | `EN` | **satu pin tanpa nama — TIDAK ada ENO** |
-| `Inc` `Dec` `Clear` | `EN`, `InOut` | `ENO`, `InOut` (lagi), pin BOOL tanpa nama |
+| `Inc` `Dec` `Clear` | `EN` + `InOut` di `<InOutVariables>` | `ENO`, pin BOOL tanpa nama |
 | `TON` (FB) | `In`, `PT` | `Q`, `ET` |
 
 Tiga hal yang gampang salah di situ:
 
 1. **Pembanding dan `Get**Clk` tidak punya `ENO`.** Meminta `ENO` = ditolak.
    Rung diteruskan lewat pin hasilnya, bukan lewat ENO.
-2. **Pin `InOut` muncul DUA KALI** — sekali di daftar masuk, sekali di daftar
-   keluar, operandnya sama. Menaruhnya cuma di satu sisi = ditolak.
+2. **Pin `InOut` ditulis di `<InOutVariables>`**, bukan di daftar masuk/keluar.
+   Laporan `--probe-fb` memang menampilkannya di kedua daftar — itu model internal
+   Studio, bukan bentuk XML import. Lihat `Function0` di bagian XSD di atas.
 3. **Project nyata memakai nama simbol** (`<`, `<=`, `<>`, `=`, `>=`), bukan
    `LT`/`LE`/`NE`/`EQ`/`GE`. Manual bilang dua-duanya sah; yang terbukti
    ter-import cuma yang simbol. Di XML `<` ditulis `&lt;`.
