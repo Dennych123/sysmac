@@ -375,6 +375,13 @@ chk('LSC cadangan TIDAK ikut syarat home position', !/LSC4\d+_\d[MR]/.test(prep)
 chk('slot cadangan punya alarm ALL REED SWITCH ON',
     /SPARE \d+ ALL REED SWITCH ON/i.test(fltAll),
     (fltAll.match(/[A-Z0-9 _]+ALL REED SWITCH ON/g)||[]).slice(-2).join(' | '));
+chk('slot cadangan punya motion fault',
+    /SPARE \d+ MOTION FAULT/i.test(fltAll)
+    && spSol.every(n=>fltAll.indexOf('operand="'+n+'"')>=0),
+    (fltAll.match(/[A-Z0-9 _]+MOTION FAULT/g)||[]).slice(-2).join(' | '));
+chk('motion fault cadangan pakai TON seperti aktuator nyata',
+    (fltAll.match(/typeName="TON"/g)||[]).length >= 6*stN.length/2,
+    (fltAll.match(/typeName="TON"/g)||[]).length+' TON');
 chk('slot cadangan punya baris output ke coil placeholder',
     spSol.length===6*stN.length
     && spSol.every(n=>autoOut.indexOf('xsi:type="Coil" operand="'+n+'"')>=0),

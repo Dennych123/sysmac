@@ -719,6 +719,27 @@ function buildUnit(stKey, devs){
         r.rr([coil]); S6.push(r.build());
         fltList.push(mf); mfN++;
     });
+    // Motion fault slot cadangan. Bentuknya sama dengan aktuator nyata, dan slot MF-nya diambil
+    // SEKARANG - alasan yang sama dengan AL: dialokasi belakangan waktu aktuatornya dipasang,
+    // nomor MF semua yang di belakangnya bergeser, dan nomor itu yang tercetak di layar NB.
+    //
+    // Yang perlu diketahui waktu memakainya: menekan tombol M slot cadangan MEMANG memunculkan
+    // motion fault setelah timernya habis. Perintahnya keluar, LSC-nya tidak pernah balas -
+    // karena belum ada silindernya. Itu jawaban yang benar, bukan cacat: slot itu diperintah
+    // bergerak dan tidak bergerak. Begitu aktuatornya dipasang, rung yang sama langsung jadi
+    // motion fault sungguhan tanpa satu baris pun ditulis ulang.
+    spareList.forEach(function(s){
+        if(mfN>mfCap){ W("mf_block_full",stKey,stKey+": MF motion-fault block full, "+s.tag+" skipped."); return; }
+        var cmt=s.tag.toUpperCase()+" MOTION FAULT";
+        var mf=MF(mfN,cmt), tmr="LT"+pad(200+faultTimerIdx,3); faultTimerIdx++;
+        P(tmr,"TON","Motion timeout for "+s.tag);
+        var r=new Rung(o++, cmt);
+        var rail=r.rail();
+        var c1=r.ct(s.lscM,r.ct(s.solM,rail),true);
+        var c2=r.ct(s.lscR,r.ct(s.solR,rail),true);
+        r.rr([r.ton([c1,c2],T_MOTION,tmr,mf)]); S6.push(r.build());
+        fltList.push(mf); mfN++;
+    });
     // ===== Alarm dari blok flowchart (AutoRunning) =====
     // Bit-nya WAJIB dialokasi di sini, SEBELUM integ() dipanggil di bawah: integ() yang merangkai
     // "grup alarm bersih" (chunkNot semua bit alarm -> LB13x/LB14x/LB15x). Kalau alarm baru dibikin

@@ -130,7 +130,7 @@ MF[28]	BOOL			False	False	Do not publish	MF028_ Spare
 MF[29]	BOOL			False	False	Do not publish	MF029_ Spare
 MF[30]	BOOL			False	False	Do not publish	MF030_ Spare
 MF[31]	BOOL			False	False	Do not publish	MF031_ ST2 STOPPER-1 Motion Fault
-MF[32]	BOOL			False	False	Do not publish	MF032_ Spare
+MF[32]	BOOL			False	False	Do not publish	MF032_ ST2 SPARE 1 MOTION FAULT
 MF[33]	BOOL			False	False	Do not publish	MF033_ Spare
 MF[34]	BOOL			False	False	Do not publish	MF034_ Spare
 MF[35]	BOOL			False	False	Do not publish	MF035_ Spare
@@ -161,7 +161,7 @@ MF[59]	BOOL			False	False	Do not publish	MF059_ Spare
 MF[60]	BOOL			False	False	Do not publish	MF060_ Spare
 MF[61]	BOOL			False	False	Do not publish	MF061_ ST3 EJECTOR Motion Fault
 MF[62]	BOOL			False	False	Do not publish	MF062_ ST3 PUSHER Motion Fault
-MF[63]	BOOL			False	False	Do not publish	MF063_ Spare
+MF[63]	BOOL			False	False	Do not publish	MF063_ ST3 SPARE 1 MOTION FAULT
 MF[64]	BOOL			False	False	Do not publish	MF064_ Spare
 MF[65]	BOOL			False	False	Do not publish	MF065_ Spare
 MF[66]	BOOL			False	False	Do not publish	MF066_ Spare
