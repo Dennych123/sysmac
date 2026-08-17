@@ -11,8 +11,10 @@ function Rung(o,c){this.o=o;this.c=c;this.a=[];this.n=1;}
 Rung.prototype.rail=function(){var i=this.n++;this.a.push('<LdObject xsi:type="LeftPowerRail"><ConnectionPointOut connectionPointOutId="'+i+'" /></LdObject>');return i;};
 Rung.prototype.ct=function(op,ref,neg,edge){var i=this.n++;this.a.push('<LdObject xsi:type="Contact"'+(neg?' negated="true"':'')+(edge?' edge="'+edge+'"':'')+' operand="'+op+'"><ConnectionPointIn><Connection refConnectionPointOutId="'+ref+'" /></ConnectionPointIn><ConnectionPointOut connectionPointOutId="'+i+'" /></LdObject>');return i;};
 Rung.prototype.ctm=function(op,refs,neg){var i=this.n++;var r=refs.map(function(x){return '<Connection refConnectionPointOutId="'+x+'" />';}).join('');this.a.push('<LdObject xsi:type="Contact"'+(neg?' negated="true"':'')+' operand="'+op+'"><ConnectionPointIn>'+r+'</ConnectionPointIn><ConnectionPointOut connectionPointOutId="'+i+'" /></LdObject>');return i;};
-Rung.prototype.cl=function(op,ref,neg,edge){var i=this.n++;this.a.push('<LdObject xsi:type="Coil"'+(neg?' negated="true"':'')+(edge?' edge="'+edge+'"':'')+' operand="'+op+'"><ConnectionPointIn><Connection refConnectionPointOutId="'+ref+'" /></ConnectionPointIn><ConnectionPointOut connectionPointOutId="'+i+'" /></LdObject>');return i;};
-Rung.prototype.clm=function(op,refs,neg){var i=this.n++;var r=refs.map(function(x){return '<Connection refConnectionPointOutId="'+x+'" />';}).join('');this.a.push('<LdObject xsi:type="Coil"'+(neg?' negated="true"':'')+' operand="'+op+'"><ConnectionPointIn>'+r+'</ConnectionPointIn><ConnectionPointOut connectionPointOutId="'+i+'" /></LdObject>');return i;};
+// latch: "set" atau "reset" (coil S / R). Nama atributnya `latch`, nilainya none|set|reset -
+// dibaca dari XSD resminya, bukan ditebak. Lihat CLAUDE.md "XSD resminya ADA di komputer ini".
+Rung.prototype.cl=function(op,ref,neg,edge,latch){var i=this.n++;this.a.push('<LdObject xsi:type="Coil"'+(neg?' negated="true"':'')+(edge?' edge="'+edge+'"':'')+(latch?' latch="'+latch+'"':'')+' operand="'+op+'"><ConnectionPointIn><Connection refConnectionPointOutId="'+ref+'" /></ConnectionPointIn><ConnectionPointOut connectionPointOutId="'+i+'" /></LdObject>');return i;};
+Rung.prototype.clm=function(op,refs,neg,latch){var i=this.n++;var r=refs.map(function(x){return '<Connection refConnectionPointOutId="'+x+'" />';}).join('');this.a.push('<LdObject xsi:type="Coil"'+(neg?' negated="true"':'')+(latch?' latch="'+latch+'"':'')+' operand="'+op+'"><ConnectionPointIn>'+r+'</ConnectionPointIn><ConnectionPointOut connectionPointOutId="'+i+'" /></LdObject>');return i;};
 // ===== Function block / instruksi umum =====
 // Bentuknya DITURUNKAN dari ton() di bawah - blok fungsi pertama yang terbukti ter-import
 // Susmax Studio. Yang dipakai ulang: pembungkus AddData buat urutan pin, DataSource buat
@@ -50,7 +52,14 @@ Rung.prototype.blk=function(typeName,instanceName,ins,outs,inouts){
     return '<InputVariable parameterName="'+esc(p[0])+'"><ConnectionPointIn>'+self.ad('ConnectionPointInOrder',k+1)
          + '<Connection refConnectionPointOutId="'+p[1]+'" /></ConnectionPointIn></InputVariable>';
   }).join('');
-  var xout=outs.map(function(nm,k){
+  var xout=outs.map(function(o,k){
+    // "Nama"   -> pin disambung, id-nya dikembalikan
+    // ["Nama"] -> pin cuma DIDEKLARASI, tanpa titik sambung. Perlu buat pin yang memang
+    //            tidak dipakai (nilai balik Inc/Dec) - kalau pin-nya dihilangkan sama
+    //            sekali, susunannya tidak cocok lagi dan Studio bilang "The function name
+    //            is not defined". ConnectionPointOut-nya minOccurs="0" di XSD.
+    var bare=Array.isArray(o), nm=bare?o[0]:o;
+    if(bare) return '<OutputVariable parameterName="'+esc(nm)+'" />';
     var id=self.n++; outIds[nm]=id;
     return '<OutputVariable parameterName="'+esc(nm)+'"><ConnectionPointOut connectionPointOutId="'+id+'">'
          + self.ad('ConnectionPointOutOrder',k+1)+'</ConnectionPointOut></OutputVariable>';

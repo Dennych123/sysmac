@@ -47,12 +47,11 @@ function rungToXml(L, order, rung, net) {
     if (!op) return { skip: 'elemen tanpa operand' };
 
     if (e.kind === 'Coil') {
-      // Coil Set/Reset punya atribut XML sendiri yang belum diverifikasi lewat
-      // import sungguhan. Menulisnya sebagai coil BIASA akan ter-import mulus dan
-      // mengubah arti rung total (bit yang harusnya nyangkut jadi ikut lepas).
-      if (e.set) return { skip: 'coil Set belum didukung' };
-      if (e.reset) return { skip: 'coil Reset belum didukung' };
-      coils.push(R.clm(op, refs, !!e.neg));
+      // Coil Set/Reset = atribut latch pada <Coil>, nilainya set/reset. Diambil dari XSD
+      // resmi Sysmac, bukan ditebak. Ini PENTING benar: coil Set yang ditulis sebagai coil
+      // biasa ter-import mulus tapi mengubah arti rung total - bit yang harusnya nyangkut
+      // jadi ikut lepas begitu kondisinya hilang.
+      coils.push(R.clm(op, refs, !!e.neg, e.set ? 'set' : (e.reset ? 'reset' : null)));
     } else {
       // Kontak edge butuh atribut `edge`, dan pembangunnya cuma menerima SATU
       // sambungan masuk - kontak edge di titik gabungan belum bisa ditulis.

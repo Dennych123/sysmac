@@ -77,6 +77,10 @@ chk('pembanding tidak minta pin ENO',
 chk('Inc bawa InOut di sisi masuk dan keluar',
     (cnt.match(/<InputVariable parameterName="InOut"/g) || []).length === 10
     && (cnt.match(/<OutputVariable parameterName="InOut"/g) || []).length === 10);
+// Nilai balik Inc tidak dipakai, tapi pin-nya HARUS tetap ada. Menghilangkannya bikin
+// susunan pin tidak cocok dan Studio menolak dengan "The function name is not defined".
+chk('Inc tetap mendeklarasi pin nilai balik yang tidak disambung',
+    (cnt.match(/<OutputVariable parameterName="" \/>/g) || []).length === 10);
 chk('probe gak ikut keluar lagi', !file(a, '_Probe_Instructions.xml'));
 chk('clock pulse digenerate', /typeName="Get1sClk"/.test(file(a, 'P000_Initial.xml').xml));
 

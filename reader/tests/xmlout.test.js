@@ -135,8 +135,14 @@ const proj = readProject(fs.readFileSync(fixture), unzip);
 
   // --- lubang ---
   const holes = all.map(commentOf).filter(c => /TIDAK DIEKSPOR/.test(c));
-  chk('coil Set/Reset ditolak, tidak ditulis sebagai coil biasa',
-      holes.some(c => /coil Set/.test(c)), holes.join(' | ').slice(0, 120));
+  // Coil Set/Reset sekarang DITULIS, pakai atribut latch dari XSD resmi Sysmac. Yang
+  // dijaga di sini: latch-nya benar-benar ikut. Coil Set yang lolos sebagai coil BIASA
+  // ter-import mulus tapi artinya lain - bit yang harusnya nyangkut ikut lepas.
+  const xml = files.map(f => f.xml).join('');
+  chk('coil Set ditulis sebagai latch="set"', /<LdObject xsi:type="Coil"[^>]*latch="set"/.test(xml));
+  chk('coil Reset ditulis sebagai latch="reset"', /<LdObject xsi:type="Coil"[^>]*latch="reset"/.test(xml));
+  chk('coil Set/Reset bukan lubang lagi', !holes.some(c => /coil Set|coil Reset/.test(c)),
+      holes.join(' | ').slice(0, 120));
   chk('rung blok fungsi jadi lubang', holes.some(c => /blok fungsi/.test(c)));
   chk('lubang menuliskan logika aslinya', holes.every(c => c.length > 20));
   chk('jumlah lubang cocok dengan laporan', holes.length === report.holes,

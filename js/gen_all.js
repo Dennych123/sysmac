@@ -1512,11 +1512,25 @@ function buildProbe(){
         r.cl("PRB_LAMP", b[""]);
         r.rr([b.ENO]);
     });
+    // Nilai balik dideklarasi TAPI tidak disambung - ini yang dipakai generator sekarang.
+    P1("Inc - InOut dua sisi + nilai balik dideklarasi tanpa disambung", function(r){
+        var e=r.ct("PRB_TRIG", r.rail());
+        var b=r.blk("Inc",null,[["EN",e],["InOut",r.src("PRB_A")]],["ENO","InOut",[""]]);
+        r.sink("PRB_A", b.InOut);
+        r.rr([b.ENO]);
+    });
+    // Nilai baliknya dinamai "Out" seperti di manual, bukan dikosongkan seperti di Studio.
+    P1("Inc - InOut dua sisi + nilai balik bernama Out", function(r){
+        var e=r.ct("PRB_TRIG", r.rail());
+        var b=r.blk("Inc",null,[["EN",e],["InOut",r.src("PRB_A")]],["ENO","InOut",["Out"]]);
+        r.sink("PRB_A", b.InOut);
+        r.rr([b.ENO]);
+    });
     // <InOutVariables> - bentuk yang dipakai contoh resmi Omron (Sample.xml). Percobaan
     // pertama ditolak XSD karena ditaruh di URUTAN TERAKHIR; tempatnya paling depan.
     P1("Inc - InOut lewat <InOutVariables>", function(r){
         var e=r.ct("PRB_TRIG", r.rail());
-        var b=r.blk("Inc",null,[["EN",e]],["ENO"],[["InOut",r.src("PRB_A")]]);
+        var b=r.blk("Inc",null,[["EN",e]],["ENO",[""]],[["InOut",r.src("PRB_A")]]);
         r.sink("PRB_A", b.InOut);
         r.rr([b.ENO]);
     });
@@ -1692,7 +1706,11 @@ function buildHmi(){
             var r1=new Rung(o++, "Counter "+n1+" : count up while below target");
             var g1=r1.ct("GCT["+n1+"]", r1.rail());
             var lt=r1.blk("<",null,[["EN",g1],["In1",r1.src(act)],["In2",r1.src(set)]],[""]);
-            var inc=r1.blk("Inc",null,[["EN",lt[""]],["InOut",r1.src(act)]],["ENO","InOut"]);
+            // Inc punya EMPAT pin keluar, bukan dua: ENO, InOut, dan nilai balik tanpa nama
+            // yang selalu TRUE. Nilai baliknya tidak dipakai, tapi kalau pin-nya tidak
+            // dideklarasi susunannya tidak cocok dan Studio bilang "The function name is not
+            // defined" - persis yang kejadian. Dibungkus array = dideklarasi tanpa disambung.
+            var inc=r1.blk("Inc",null,[["EN",lt[""]],["InOut",r1.src(act)]],["ENO","InOut",[""]]);
             r1.sink(act, inc.InOut);
             r1.rr([inc.ENO]); S2.push(r1.build());
             // 2. lampu WARNING - padam begitu UP nyala, biar operator gak lihat dua lampu bareng
