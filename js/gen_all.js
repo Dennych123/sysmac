@@ -1639,8 +1639,10 @@ function buildProbe(){
         var e=r.ct("PRB_TRIG", r.rail());
         var b=r.blk("Inc",null,[["EN",e]],["ENO",""],[["InOut",r.src("PRB_A")]]);
         r.sink("PRB_A", b.InOut);
-        r.cl("PRB_LAMP", b[""]);
-        r.rr([b.ENO]);
+        // Coil-nya ikut ke rel kanan. Coil yang berhenti di udara bikin rung ini masuk KOSONG,
+        // dan probe yang rung-nya kosong menuduh bentuk pin Inc padahal yang salah kabelnya.
+        var lamp=r.cl("PRB_LAMP", b[""]);
+        r.rr([b.ENO, lamp]);
     });
 
     // ---- aritmatika: punya ENO, TAPI pin hasilnya tanpa nama ----
