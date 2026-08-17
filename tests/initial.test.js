@@ -86,6 +86,10 @@ chk('pembanding tidak minta pin ENO',
 // menjawab "The function name is not defined" - kotaknya tergambar, isinya tidak jalan.
 const incBoxes = cnt.match(/<FbdObject xsi:type="Block" typeName="Inc"[\s\S]*?<\/FbdObject>/g) || [];
 chk('10 kotak Inc', incBoxes.length === 10, incBoxes.length + ' kotak');
+// Trigger counter WAJIB diferensiasi naik. Kontak biasa bikin Inc jalan tiap scan selama
+// trigger nyala - ter-import bersih, ketahuannya baru waktu hitungannya melonjak di mesin.
+chk('kontak GCT diferensiasi naik',
+    (cnt.match(/<LdObject xsi:type="Contact" edge="rising" operand="GCT\[\d+\]"/g) || []).length === 10);
 chk('InOut ditulis sebagai <InOutVariables>, bukan didaftar dua kali',
     incBoxes.every(b => /<InOutVariables><InOutVariable parameterName="InOut">/.test(b)
                      && !/<InputVariable parameterName="InOut"/.test(b)

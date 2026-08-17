@@ -1688,13 +1688,16 @@ function buildHmi(){
             // Rantai power-flow murni: kontak -> pembanding -> Inc -> rail. Bentuk pin-nya
             // BUKAN tebakan, diambil dari project mesin lewat `reader/cli.js --probe-fb`:
             //   pembanding  EN,In1,In2 -> satu pin TANPA NAMA, TIDAK punya ENO
-            //   Inc         EN,InOut   -> ENO + InOut lagi di sisi keluar
+            //   Inc         EN + InOut di <InOutVariables> -> ENO
             // Nama instruksinya pakai simbol (`<`, `<>`, `>=`), sama seperti yang tersimpan di
             // project nyata; lib.js yang meng-escape `<` jadi &lt; waktu menulis XML.
             var ZERO="UDINT#0";   // literal bertipe - CNT_ACT itu UDINT, "0" telanjang ambigu
             // 1. hitung naik selama belum sampai target
             var r1=new Rung(o++, "Counter "+n1+" : count up while below target");
-            var g1=r1.ct("GCT["+n1+"]", r1.rail());
+            // Kontak trigger DIFERENSIASI NAIK. Tanpa itu Inc jalan tiap scan selama GCT
+            // masih nyala, jadi satu tekan tombol menambah puluhan hitungan - dan itu tidak
+            // kelihatan waktu import, cuma waktu operator memakainya.
+            var g1=r1.ct("GCT["+n1+"]", r1.rail(), false, "rising");
             var lt=r1.blk("<",null,[["EN",g1],["In1",r1.src(act)],["In2",r1.src(set)]],[""]);
             // InOut ditulis sebagai <InOutVariables>, BUKAN didaftar dua kali di Input dan
             // Output. Bentuk ini disalin dari Function0 di contoh resmi Omron (Sample.xml):
