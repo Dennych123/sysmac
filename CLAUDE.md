@@ -55,6 +55,57 @@ blok ke-3 walau ST1/ST2 kosong. Itu yang membuat nomor alarm tidak bergeser saat
 aktuator atau unit ditambah. Ukuran blok harus **seragam**; kalau satu station
 butuh lebih, semuanya dinaikkan.
 
+## Instruksi di luar kontak/coil — FUN vs FB
+
+Daftar lengkap 353 instruksi + kolom FUN/FB ada di
+[docs/SYSMAC_INSTRUCTIONS.md](docs/SYSMAC_INSTRUCTIONS.md), ditarik dari manual
+W560 dan dicocokkan ke project `.smc2` nyata. **Lihat tabel itu dulu sebelum
+menulis blok baru.** Yang di bawah ini aturan yang tidak kelihatan dari tabelnya.
+
+**FB punya nama instance, FUN tidak.** Itu pembeda pertama dan penyebab utama
+`(DefinitionError)` waktu import:
+
+| | contoh | `instanceName` | dideklarasi di tabel variabel |
+|---|---|---|---|
+| **FB** | `TON` `TOF` `CTU` `MC_*` `EC_*` | wajib | ya, bertipe FB-nya |
+| **FUN** | `MOVE` `Inc` `=` `<` `Get1sClk` `ADD` | tidak boleh | tidak |
+
+**Nama pin harus PERSIS sama dengan definisinya — termasuk yang tidak punya
+nama.** Studio mencocokkan blok ke library lewat nama + susunan pin sekaligus.
+Kalau satu pin salah nama atau kelebihan/kekurangan, hasilnya `(DefinitionError)`
+tanpa penjelasan apa pun — bukan "pin X tidak dikenal".
+
+Bentuk sebenarnya, dibaca dari `Prepare CE insert3.smc2` (project yang jalan di
+mesin, jadi ini bukan tebakan):
+
+| kelas | pin masuk | pin keluar |
+|---|---|---|
+| `MOVE` | `EN`, `In` | `ENO`, `Out` |
+| `ADD` `SUB` `MUL` `DIV` (`+ - * /`) | `EN`, `In1`, `In2` | `ENO`, **pin hasil tanpa nama** |
+| pembanding `=` `<>` `<` `<=` `>` `>=` | `EN`, `In1`, `In2` | **satu pin aliran daya tanpa nama — TIDAK ada ENO** |
+| `Get1sClk` `Get10msClk` `Get100msClk` | `EN` | **satu pin tanpa nama — TIDAK ada ENO** |
+| `Inc` `Dec` `Clear` | `EN`, `InOut` | `ENO`, `InOut` (lagi), pin BOOL tanpa nama |
+| `TON` (FB) | `In`, `PT` | `Q`, `ET` |
+
+Tiga hal yang gampang salah di situ:
+
+1. **Pembanding dan `Get**Clk` tidak punya `ENO`.** Meminta `ENO` = ditolak.
+   Rung diteruskan lewat pin hasilnya, bukan lewat ENO.
+2. **Pin `InOut` muncul DUA KALI** — sekali di daftar masuk, sekali di daftar
+   keluar, operandnya sama. Menaruhnya cuma di satu sisi = ditolak.
+3. **Project nyata memakai nama simbol** (`<`, `<=`, `<>`, `=`, `>=`), bukan
+   `LT`/`LE`/`NE`/`EQ`/`GE`. Manual bilang dua-duanya sah; yang terbukti
+   ter-import cuma yang simbol. Di XML `<` ditulis `&lt;`.
+
+Awalan `@` = varian diferensiasi naik (`@Inc`, `@MOVE`) — instruksi yang sama,
+cuma jalan di scan pertama saja.
+
+**Yang belum terbukti tetap mati.** `ADV_OK` di `js/gen_all.js` menahan semua
+blok di luar kontak/coil/TON. Menyalakannya butuh bukti import bersih, bukan
+kecocokan dengan tabel di atas: `_Probe_Instructions.xml` di-import ke project
+KOSONG, lalu dicatat varian mana yang tidak bertanda `(DefinitionError)` /
+`(Import failed)`. Yang sudah lulus sejauh ini: **MOVE** (`EN`,`In` → `ENO`,`Out`).
+
 ## Membaca project Sysmac (.smc2) — `reader/`
 
 Ada di [reader/](reader/) (dulu repo terpisah `Universal_Ladder`/`plc-reader`,
@@ -94,6 +145,16 @@ rung berblok fungsi, jadi **rung komentar** berisi alasan + logika aslinya —
 tempatnya tetap ada, jadi nomor rung tidak bergeser dan lubangnya kelihatan di
 layar Studio. Cakupan sekarang ~54% rung (sisanya blok fungsi, belum didukung).
 
+**`--probe-fb` itu sumber kebenaran bentuk blok fungsi.** Dia mendaftar tiap
+kotak fungsi di project nyata beserta pin-nya (`PF` = pin aliran daya, `PRM` =
+parameter, `IO:true` = in-out) — bukan gambar, melainkan model internal Studio.
+Sebelum menebak bentuk XML sebuah instruksi, jalankan ini dulu ke project yang
+memang memakai instruksi itu:
+
+```bash
+cd reader && node cli.js "Prepare CE insert3.smc2" --probe-fb
+```
+
 `rungExpr()` di `src/ladder.js` itu hal LAIN: dia menebak bentuk rangkaian dari
 koordinat saja dan menandai hasilnya `~`. Cukup untuk dibaca manusia, TIDAK boleh
 dipakai untuk menulis program.
@@ -109,6 +170,7 @@ dipakai untuk menulis program.
 | `scripts/core.js` | runner pipeline headless (modul + CLI) |
 | `scripts/test.js` | uji pipeline end-to-end |
 | `tests/*.test.js` | harness per-area, jalan tanpa browser |
+| `docs/SYSMAC_INSTRUCTIONS.md` | 353 instruksi + FUN/FB + pin, dari manual W560 |
 
 ## Cara harness UI bekerja
 

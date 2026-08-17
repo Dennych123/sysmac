@@ -14,34 +14,58 @@ Rung.prototype.ctm=function(op,refs,neg){var i=this.n++;var r=refs.map(function(
 Rung.prototype.cl=function(op,ref,neg,edge){var i=this.n++;this.a.push('<LdObject xsi:type="Coil"'+(neg?' negated="true"':'')+(edge?' edge="'+edge+'"':'')+' operand="'+op+'"><ConnectionPointIn><Connection refConnectionPointOutId="'+ref+'" /></ConnectionPointIn><ConnectionPointOut connectionPointOutId="'+i+'" /></LdObject>');return i;};
 Rung.prototype.clm=function(op,refs,neg){var i=this.n++;var r=refs.map(function(x){return '<Connection refConnectionPointOutId="'+x+'" />';}).join('');this.a.push('<LdObject xsi:type="Coil"'+(neg?' negated="true"':'')+' operand="'+op+'"><ConnectionPointIn>'+r+'</ConnectionPointIn><ConnectionPointOut connectionPointOutId="'+i+'" /></LdObject>');return i;};
 // ===== Function block / instruksi umum =====
-// Bentuknya DITURUNKAN dari ton() di bawah - satu-satunya blok fungsi yang sudah terbukti
-// ter-import Susmax Studio. Yang dipakai ulang: pembungkus AddData buat urutan pin, DataSource
-// buat nilai masuk, dan ConnectionPointOut buat nilai keluar.
+// Bentuknya DITURUNKAN dari ton() di bawah - blok fungsi pertama yang terbukti ter-import
+// Susmax Studio. Yang dipakai ulang: pembungkus AddData buat urutan pin, DataSource buat
+// nilai masuk, dan ConnectionPointOut buat nilai keluar.
 //
-// BELUM TERBUKTI: sink (nilai keluar yang ditulis ke variabel, dipakai MOVE). Bentuknya ditebak
-// simetris dengan DataSource. JANGAN dipercaya sebelum probe-nya ter-import bersih - lihat
-// TODO.md 5a: XML yang ditebak ter-import tanpa keluhan lalu salah waktu jalan.
+// SUDAH TERBUKTI ter-import: MOVE, bentuk EN,In -> ENO,Out (lewat _Probe_Instructions.xml).
+//
+// Daftar pin tiap instruksi ada di docs/SYSMAC_INSTRUCTIONS.md; yang WAJIB diingat waktu
+// memanggil blk() - dan yang bikin percobaan pertama ditolak semua:
+//   * FB butuh instanceName, FUN tidak boleh punya.
+//   * Pembanding (=, <, <=, <>, >=) dan Get**Clk TIDAK punya ENO. Minta "ENO" = ditolak.
+//     Pin hasilnya tidak bernama, jadi namanya ditulis "" (string kosong).
+//   * Pin In-out (Inc, Dec, Clear) muncul di daftar masuk DAN daftar keluar sekaligus,
+//     operandnya sama.
+// Bentuk-bentuk itu dibaca dari project nyata (`reader/cli.js x.smc2 --probe-fb`), tapi
+// PEMETAANNYA ke XML import masih diuji - lihat buildProbe() di js/gen_all.js.
 Rung.prototype.ad=function(tag,ord){return '<AddData><Data name="https://www.ia.omron.com/Smc IEC61131_10_Ed1_0_SmcExt1_0_Spc1_0.xsd" handleUnknown="discard"><smcext:'+tag+' order="'+ord+'" /></Data></AddData>';};
 // Nilai masuk: konstanta ("16#0", "K100") atau nama variabel
 Rung.prototype.src=function(v){var i=this.n++;this.a.push('<FbdObject xsi:type="DataSource" identifier="'+esc(String(v))+'"><ConnectionPointOut connectionPointOutId="'+i+'" /></FbdObject>');return i;};
 // Nilai keluar ditulis ke variabel
 Rung.prototype.sink=function(v,ref){var i=this.n++;this.a.push('<FbdObject xsi:type="DataSink" identifier="'+esc(String(v))+'"><ConnectionPointIn><Connection refConnectionPointOutId="'+ref+'" /></ConnectionPointIn></FbdObject>');return i;};
 // blk("MOVE", null, [["EN",enId],["In",srcId]], ["ENO","Out"]) -> { ENO:id, Out:id }
-Rung.prototype.blk=function(typeName,instanceName,ins,outs){
+//
+// Nama pin "" (kosong) itu SAH: pembanding dan Get**Clk memang punya pin hasil tanpa nama.
+// Hasilnya diambil dari outIds[""].
+//
+// inouts (opsional) = [["InOut", refId]] -> <InOutVariables>. BELUM TERBUKTI; dipakai probe
+// saja. Alternatifnya yang juga diuji: pin yang sama ditaruh di ins DAN outs sekaligus,
+// yang itu bentuk yang dipakai model internal Studio.
+Rung.prototype.blk=function(typeName,instanceName,ins,outs,inouts){
   var self=this, outIds={};
   var xin=ins.map(function(p,k){
-    return '<InputVariable parameterName="'+p[0]+'"><ConnectionPointIn>'+self.ad('ConnectionPointInOrder',k+1)
+    return '<InputVariable parameterName="'+esc(p[0])+'"><ConnectionPointIn>'+self.ad('ConnectionPointInOrder',k+1)
          + '<Connection refConnectionPointOutId="'+p[1]+'" /></ConnectionPointIn></InputVariable>';
   }).join('');
   var xout=outs.map(function(nm,k){
     var id=self.n++; outIds[nm]=id;
-    return '<OutputVariable parameterName="'+nm+'"><ConnectionPointOut connectionPointOutId="'+id+'">'
+    return '<OutputVariable parameterName="'+esc(nm)+'"><ConnectionPointOut connectionPointOutId="'+id+'">'
          + self.ad('ConnectionPointOutOrder',k+1)+'</ConnectionPointOut></OutputVariable>';
   }).join('');
-  this.a.push('<FbdObject xsi:type="Block" typeName="'+typeName+'"'
+  var xio=(inouts||[]).map(function(p,k){
+    var id=self.n++; outIds[p[0]]=id;
+    return '<InOutVariable parameterName="'+esc(p[0])+'">'
+         + '<ConnectionPointIn>'+self.ad('ConnectionPointInOrder',ins.length+k+1)
+         + '<Connection refConnectionPointOutId="'+p[1]+'" /></ConnectionPointIn>'
+         + '<ConnectionPointOut connectionPointOutId="'+id+'">'
+         + self.ad('ConnectionPointOutOrder',outs.length+k+1)+'</ConnectionPointOut></InOutVariable>';
+  }).join('');
+  this.a.push('<FbdObject xsi:type="Block" typeName="'+esc(typeName)+'"'
    +(instanceName?' instanceName="'+instanceName+'"':'')+'>'
    +'<InputVariables>'+xin+'</InputVariables>'
-   +'<OutputVariables>'+xout+'</OutputVariables></FbdObject>');
+   +'<OutputVariables>'+xout+'</OutputVariables>'
+   +(xio?'<InOutVariables>'+xio+'</InOutVariables>':'')+'</FbdObject>');
   return outIds;
 };
 Rung.prototype.rr=function(refs){this.a.push('<LdObject xsi:type="RightPowerRail">'+refs.map(function(x){return '<ConnectionPointIn><Connection refConnectionPointOutId="'+x+'" /></ConnectionPointIn>';}).join('')+'</LdObject>');};

@@ -100,6 +100,13 @@ Elemen `F`/`FB` sudah membawa daftar pinnya sendiri (`In`/`Out`, `__type` `PF`
 untuk pin aliran daya dan `PRM` untuk parameter), dan `js/lib.js` sudah punya
 contoh bentuk XML-nya di `ton()`. Jadi bahannya lengkap; yang kurang **bukti**.
 
+Bahannya sekarang bertambah: daftar FUN/FB seluruh instruksi ada di
+[docs/SYSMAC_INSTRUCTIONS.md](docs/SYSMAC_INSTRUCTIONS.md), dan susunan pin yang
+sebenarnya bisa dibaca dari project mesin lewat `node cli.js x.smc2 --probe-fb`.
+Yang masih dicari tinggal satu: **bagaimana pin tanpa nama ditulis di XML
+import** — pembanding dan `Get**Clk` pin hasilnya memang tidak bernama.
+`_Probe_Instructions.xml` ronde 2 menguji itu.
+
 Urutannya harus: ekspor SATU rung TON -> import ke project kosong di Studio ->
 lihat apakah bentuknya sama -> baru digeneralkan. Jangan dibalik. Instruksi yang
 bentuk XML-nya ditebak akan ter-import tanpa keluhan dan salah waktu jalan, dan

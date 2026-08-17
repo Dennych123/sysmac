@@ -1447,96 +1447,95 @@ function buildProbe(){
     G("PRB_LAMP","BOOL","Probe result lamp");
     G("PRB_A","UDINT","Probe value A");
     G("PRB_B","UDINT","Probe value B");
-    function P(n,t,d){ var k=n.toUpperCase(); if(nameCI[k]) return; nameCI[k]=n; priv.push("      "+vr(n,t,d)); }
-    // Varian ber-instanceName butuh instansnya dideklarasi, persis seperti instans TON.
-    P("LT_probe","LT","Probe instance for the LT variant");
-    P("MOVE_probe","MOVE","Probe instance for the MOVE variant");
     var S=[], o=1;
     // Tiap rung SATU varian bentuk XML. Komennya diberi nomor supaya waktu sebagian ditolak,
     // yang perlu dilaporkan cuma "varian nomor sekian yang selamat" - bukan menebak lagi.
-    // Rung yang ditolak Studio jadi rung komentar bertanda "(Import failed)".
+    // Rung yang ditolak Studio jadi rung komentar bertanda "(Import failed)"; kalau kotaknya
+    // tergambar tapi bertanda "(DefinitionError)", nama + susunan pin-nya yang tidak cocok.
     function P1(label, fn){ var r=new Rung(o, "V"+o+" "+label); fn(r); S.push(r.build()); o++; }
 
-    // ---- pembanding: LT (PRB_A < PRB_B) ----
-    // V1: Block + EN/In1/In2 -> ENO   (bentuk yang sekarang, DITOLAK Studio)
-    P1("LT - Block, EN + In1/In2 -> ENO", function(r){
-        var b=r.blk("LT",null,[["EN",r.rail()],["In1",r.src("PRB_A")],["In2",r.src("PRB_B")]],["ENO"]);
-        r.rr([r.cl("PRB_LAMP", b.ENO)]);
-    });
-    // V2: sama tapi pakai instanceName - TON yang terbukti jalan juga punya instanceName
-    P1("LT - Block + instanceName", function(r){
-        var b=r.blk("LT","LT_probe",[["EN",r.rail()],["In1",r.src("PRB_A")],["In2",r.src("PRB_B")]],["ENO"]);
-        r.rr([r.cl("PRB_LAMP", b.ENO)]);
-    });
-    // V3: tanpa EN sama sekali, hasilnya lewat pin Out (fungsi murni, bukan aliran daya)
-    P1("LT - Block, In1/In2 -> Out, tanpa EN", function(r){
-        var b=r.blk("LT",null,[["In1",r.src("PRB_A")],["In2",r.src("PRB_B")]],["Out"]);
-        r.rr([r.cl("PRB_LAMP", b.Out)]);
-    });
-    // V4: EN masuk, DUA output dideklarasi (ENO buat aliran daya, Out buat hasil boolean)
-    P1("LT - Block, EN -> ENO + Out", function(r){
-        var b=r.blk("LT",null,[["EN",r.rail()],["In1",r.src("PRB_A")],["In2",r.src("PRB_B")]],["ENO","Out"]);
-        r.sink("PRB_LAMP", b.Out);
-        r.rr([b.ENO]);
-    });
+    // RONDE 2. Ronde 1 menebak susunan pin; hasilnya cuma MOVE yang lulus. Ronde ini tidak
+    // menebak lagi - susunan pin diambil dari project mesin lewat `--probe-fb`, yang sisa
+    // pertanyaannya tinggal SATU: bagaimana pin tanpa nama itu ditulis di XML import.
+    // Rinciannya di CLAUDE.md "Instruksi di luar kontak/coil".
 
-    // ---- MOVE ----
-    // V5: keluaran ditulis lewat DataSink (bentuk sekarang)
-    P1("MOVE - Out -> DataSink", function(r){
+    // V1 kontrol: satu-satunya bentuk yang sudah terbukti. Kalau yang ini ikut gagal,
+    // yang salah bukan susunan pin-nya melainkan filenya secara keseluruhan.
+    P1("MOVE - EN,In -> ENO,Out  [terbukti di ronde 1]", function(r){
         var e=r.ct("PRB_TRIG", r.rail());
         var b=r.blk("MOVE",null,[["EN",e],["In",r.src("PRB_A")]],["ENO","Out"]);
         r.sink("PRB_B", b.Out);
         r.rr([b.ENO]);
     });
-    // V6: tujuan diberikan sebagai PARAMETER masuk bernama Out, bukan lewat sink
-    P1("MOVE - Out sebagai parameter masuk", function(r){
+
+    // ---- pembanding: TIDAK punya ENO, pin hasilnya tanpa nama ----
+    // Yang diuji: pin tanpa nama ditulis parameterName="" atau "Out", dan nama simbol vs kata.
+    P1("< (simbol) - EN,In1,In2 -> pin hasil tanpa nama", function(r){
+        var b=r.blk("<",null,[["EN",r.rail()],["In1",r.src("PRB_A")],["In2",r.src("PRB_B")]],[""]);
+        r.rr([r.cl("PRB_LAMP", b[""])]);
+    });
+    P1("< (simbol) - EN,In1,In2 -> Out", function(r){
+        var b=r.blk("<",null,[["EN",r.rail()],["In1",r.src("PRB_A")],["In2",r.src("PRB_B")]],["Out"]);
+        r.rr([r.cl("PRB_LAMP", b.Out)]);
+    });
+    P1("LT (kata) - EN,In1,In2 -> pin hasil tanpa nama", function(r){
+        var b=r.blk("LT",null,[["EN",r.rail()],["In1",r.src("PRB_A")],["In2",r.src("PRB_B")]],[""]);
+        r.rr([r.cl("PRB_LAMP", b[""])]);
+    });
+    P1("= (simbol) - EN,In1,In2 -> pin hasil tanpa nama", function(r){
+        var b=r.blk("=",null,[["EN",r.rail()],["In1",r.src("PRB_A")],["In2",r.src("PRB_B")]],[""]);
+        r.rr([r.cl("PRB_LAMP", b[""])]);
+    });
+
+    // ---- clock: EN masuk, satu pin keluar tanpa nama, tanpa ENO ----
+    P1("Get1sClk - EN -> pin hasil tanpa nama", function(r){
+        var b=r.blk("Get1sClk",null,[["EN",r.rail()]],[""]);
+        r.rr([r.cl("PRB_LAMP", b[""])]);
+    });
+    // Anggota lain keluarga yang sama: memisahkan "bentuknya salah" dari "nama itu tidak ada".
+    P1("Get100msClk - EN -> pin hasil tanpa nama", function(r){
+        var b=r.blk("Get100msClk",null,[["EN",r.rail()]],[""]);
+        r.rr([r.cl("PRB_LAMP", b[""])]);
+    });
+
+    // ---- Inc: pin InOut ada di sisi masuk DAN sisi keluar sekaligus ----
+    P1("Inc - InOut di dua sisi (masuk + keluar)", function(r){
         var e=r.ct("PRB_TRIG", r.rail());
-        var b=r.blk("MOVE",null,[["EN",e],["In",r.src("PRB_A")],["Out",r.src("PRB_B")]],["ENO"]);
+        var b=r.blk("Inc",null,[["EN",e],["InOut",r.src("PRB_A")]],["ENO","InOut"]);
+        r.sink("PRB_A", b.InOut);
         r.rr([b.ENO]);
     });
-    // V7: pakai instanceName
-    P1("MOVE - instanceName + DataSink", function(r){
+    P1("Inc - InOut dua sisi + pin hasil tanpa nama", function(r){
         var e=r.ct("PRB_TRIG", r.rail());
-        var b=r.blk("MOVE","MOVE_probe",[["EN",e],["In",r.src("PRB_A")]],["ENO","Out"]);
+        var b=r.blk("Inc",null,[["EN",e],["InOut",r.src("PRB_A")]],["ENO","InOut",""]);
+        r.sink("PRB_A", b.InOut);
+        r.cl("PRB_LAMP", b[""]);
+        r.rr([b.ENO]);
+    });
+    P1("Inc - InOut lewat <InOutVariable>", function(r){
+        var e=r.ct("PRB_TRIG", r.rail());
+        var b=r.blk("Inc",null,[["EN",e]],["ENO"],[["InOut",r.src("PRB_A")]]);
+        r.sink("PRB_A", b.InOut);
+        r.rr([b.ENO]);
+    });
+
+    // ---- aritmatika: punya ENO, TAPI pin hasilnya tanpa nama ----
+    P1("+ (simbol) - EN,In1,In2 -> ENO + hasil tanpa nama", function(r){
+        var e=r.ct("PRB_TRIG", r.rail());
+        var b=r.blk("+",null,[["EN",e],["In1",r.src("PRB_A")],["In2",r.src("UDINT#1")]],["ENO",""]);
+        r.sink("PRB_B", b[""]);
+        r.rr([b.ENO]);
+    });
+    P1("ADD (kata) - EN,In1,In2 -> ENO,Out", function(r){
+        var e=r.ct("PRB_TRIG", r.rail());
+        var b=r.blk("ADD",null,[["EN",e],["In1",r.src("PRB_A")],["In2",r.src("UDINT#1")]],["ENO","Out"]);
         r.sink("PRB_B", b.Out);
         r.rr([b.ENO]);
     });
 
-    // ---- Inc ----
-    // V8: InOut lewat DataSource
-    P1("Inc - InOut lewat DataSource", function(r){
-        var e=r.ct("PRB_TRIG", r.rail());
-        var b=r.blk("Inc",null,[["EN",e],["InOut",r.src("PRB_A")]],["ENO"]);
-        r.rr([b.ENO]);
-    });
-    // V9: pin bernama In, hasilnya balik lewat sink
-    P1("Inc - In -> sink", function(r){
-        var e=r.ct("PRB_TRIG", r.rail());
-        var b=r.blk("Inc",null,[["EN",e],["In",r.src("PRB_A")]],["ENO","Out"]);
-        r.sink("PRB_A", b.Out);
-        r.rr([b.ENO]);
-    });
-
-    // ---- clock: namanya SUDAH benar (ada di daftar Studio), jadi yang diuji bentuknya ----
-    // V10: EN -> ENO (bentuk sekarang, kena DefinitionError)
-    P1("Get1sClk - EN -> ENO", function(r){
-        var b=r.blk("Get1sClk",null,[["EN",r.rail()]],["ENO"]);
-        r.rr([r.cl("PRB_LAMP", b.ENO)]);
-    });
-    // V11: tanpa EN, hasilnya pin Out
-    P1("Get1sClk - tanpa EN, -> Out", function(r){
-        var b=r.blk("Get1sClk",null,[],["Out"]);
-        r.rr([r.cl("PRB_LAMP", b.Out)]);
-    });
-    // V12: EN masuk, hasil di pin Out
-    P1("Get1sClk - EN -> Out", function(r){
-        var b=r.blk("Get1sClk",null,[["EN",r.rail()]],["Out"]);
-        r.rr([r.cl("PRB_LAMP", b.Out)]);
-    });
-
     return { name:"_Probe_Instructions.xml", xml:prog("P999_Probe",ext,priv,[sect("Probe",1,S)],glob),
-             stats:"PROBE: "+S.length+" varian bentuk XML (LT, MOVE, Inc, Get1sClk) - import ke project KOSONG, "
-                  +"catat nomor V yang TIDAK bertanda (Import failed)" };
+             stats:"PROBE ronde 2: "+S.length+" varian (MOVE, pembanding, Get**Clk, Inc, ADD) - import ke "
+                  +"project KOSONG, catat nomor V yang TIDAK bertanda (DefinitionError) / (Import failed)" };
 }
 
 
