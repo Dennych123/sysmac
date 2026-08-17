@@ -279,7 +279,10 @@ HTML = '''<!doctype html>
   details.project-json{border:1px solid var(--line);border-radius:8px;padding:12px 14px;margin:14px 0;
                        background:var(--card);box-shadow:var(--shadow)}
   details.project-json>summary{font-size:13.5px;font-weight:600;color:var(--fg);cursor:pointer}
-  .project-json textarea{height:180px}
+  /* Kotaknya sengaja pendek. Tidak ada yang mengetik project JSON di sini - masuknya lewat
+     tombol Open file atau Paste. Yang dibutuhkan cuma beberapa baris buat memastikan isinya
+     benar; 180px cuma mendorong seluruh halaman ke bawah tanpa ada yang membacanya. */
+  .project-json textarea{height:72px}
 
   /* Section yang bisa dilipat (mis. Confirm Mode). Dipakai buat bagian OPSIONAL yang kalau selalu
      kebuka cuma makan tinggi layar - ringkasannya tetap kelihatan di summary jadi gak perlu dibuka
@@ -319,11 +322,11 @@ HTML = '''<!doctype html>
 <body>
 <nav class="sidenav" id="sideNav">
   <div class="nav-t">Sections</div>
+  <a href="#sec-project">Project file</a>
   <a href="#sec-io">I/O list</a>
   <a href="#sec-settings">Settings</a>
   <a href="#hmiBox">HMI address map</a>
   <a href="#confirmModeBox">Confirm mode</a>
-  <a href="#sec-project">Project file</a>
   <a href="#sec-cond">Conditions</a>
   <a href="#sec-motion">Motion sequence</a>
   <a href="#results">Results <span class="n" id="navFileCount"></span></a>
@@ -336,6 +339,15 @@ HTML = '''<!doctype html>
   </div>
 
 </div>
+
+<details class="json-io project-json" id="sec-project" open>
+  <summary><span>Project file</span>
+    <span class="help" data-tip="Everything in one file: I/O list, motion sequences, conditions, station names, timers and the HMI map. Loading a file replaces the whole project that is open and runs Generate again.">?</span></summary>
+  <textarea id="projectJsonTa" spellcheck="false"
+    placeholder='{"io":"...","stationNames":{},"motionSequences":{},"conditionDefs":{}}'></textarea>
+  <div id="projectJsonRow"></div>
+  <span class="json-msg" id="projectJsonMsg"></span>
+</details>
 
 <div class="sec-head" id="sec-io">
   <h2>I/O list</h2>
@@ -408,15 +420,6 @@ HTML = '''<!doctype html>
   <span class="help" data-tip="Auto - the sensor is matched for you. Open-loop - the actuator has no sensor by design (DANDORI LOCK, PART FEEDER START); fault detection is skipped and so is the no-sensor warning, but it can no longer be used in a motion sequence because there is no confirm bit to step on. Manual - the automatic match picked the wrong sensor, so you name the confirm bits yourself.">?</span>
   <span class="fold-sub" id="confirmModeSummary">optional</span></summary>
 <div id="confirmModePanel" class="stname-panel"></div>
-</details>
-
-<details class="json-io project-json" id="sec-project" open>
-  <summary><span>Project file</span>
-    <span class="help" data-tip="Everything in one file: I/O list, motion sequences, conditions, station names, timers and the HMI map. Loading a file replaces the whole project that is open and runs Generate again.">?</span></summary>
-  <textarea id="projectJsonTa" spellcheck="false"
-    placeholder='{"io":"...","stationNames":{},"motionSequences":{},"conditionDefs":{}}'></textarea>
-  <div id="projectJsonRow"></div>
-  <span class="json-msg" id="projectJsonMsg"></span>
 </details>
 
 <div class="sec-head" id="sec-cond">
