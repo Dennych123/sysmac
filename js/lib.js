@@ -211,6 +211,7 @@ return '<?xml version="1.0"?>\n<Project xmlns:xsi="http://www.w3.org/2001/XMLSch
 // markup <Variable> yang sudah jadi, dibungkus satu kontainer polos: itu yang dipakai exporter
 // reader, yang memang tidak punya alamat maupun retain buat dilaporkan.
 function globSection(glob){
+  if(typeof glob==='string') return glob;                      // markup kontainer sudah jadi (probe)
   if(glob.length && typeof glob[0]==='object') return globalVarBlocks(glob);
   return '    <GlobalVars>\n'+glob.join('\n')+'\n    </GlobalVars>';
 }

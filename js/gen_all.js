@@ -1722,6 +1722,72 @@ function progMulti(title,blocks,globVars){
 
 
 
+// ============================================================ probe komen elemen array
+// Pertanyaannya tinggal SATU. Import sudah terbukti mengisi kolom AT (<Address>) dan kolom
+// Retain (kontainer <GlobalVars retain="true">) - dua-duanya dicoba di Studio dan jadi. Yang
+// belum: komen per elemen AL[1..100], padahal bentuknya sudah menyalin Sample.xml milik Omron.
+//
+// Berarti bedanya ada di rincian yang tidak bisa dilihat XSD. Menebak rincian itu satu per satu
+// berarti satu putaran ke Studio untuk tiap tebakan. Berkas ini menaruh semuanya sekaligus,
+// tiap tebakan pada variabel bernama sendiri: satu kali import, lalu tinggal dibaca nama mana
+// yang komen elemennya terisi.
+//
+// Dua kontrol ikut supaya jawabannya tidak ambigu. PV6 memakai komen tingkat VARIABEL lewat
+// jalur AddData yang sama - kalau itu pun kosong, yang tidak dipakai Studio adalah
+// smcext:VariableComment secara keseluruhan, bukan cuma bagian elemennya. PV7 memakai
+// Documentation biasa, jalur yang sudah pasti jalan - kalau PV7 ikut kosong, berarti berkasnya
+// yang tidak ter-import dan semua hasil lain tidak berarti apa-apa.
+function buildProbeVars(){
+    var D='<Data name="https://www.ia.omron.com/Smc IEC61131_10_Ed1_0_SmcExt1_0_Spc1_0.xsd" handleUnknown="discard">';
+    var AR='ARRAY[0..3] OF BOOL';
+    function elem(id){
+        return '<smcext:VariableComment>'
+             + [0,1,2,3].map(function(i){ return '<smcext:ElementComment element="['+i+']">'
+                 + '<smcext:Text id="'+id+'">ELEMEN '+i+' TERISI</smcext:Text></smcext:ElementComment>'; }).join('')
+             + '</smcext:VariableComment>';
+    }
+    // [nama, keterangan buat dibaca manusia, markup <Variable> lengkap]
+    var V=[];
+    function v(n,why,doc,add,type,addr){
+        V.push({n:n,why:why,x:'      <Variable name="'+n+'">'
+            +(doc===null?'':'<Documentation xsi:type="SimpleText">'+esc(doc)+'</Documentation>')
+            +(add?'<AddData>'+add+'</AddData>':'')
+            +'<Type><TypeName>'+(type||AR)+'</TypeName></Type>'
+            +(addr?'<Address address="'+addr+'" />':'')
+            +'</Variable>'});
+    }
+    // --- komen per elemen: lima tebakan yang berbeda hanya pada satu hal masing-masing ---
+    v("PV1_KOSONGDOC","Documentation kosong + ElementComment id=1 (bentuk yang SEKARANG dipakai)",
+      "", D+elem(1)+'</Data>');
+    v("PV2_TANPADOC","Documentation tidak ditulis sama sekali - persis Sample.xml Omron",
+      null, D+elem(1)+'</Data>');
+    v("PV3_ADADOC","Documentation berisi teks + ElementComment id=1",
+      "Array probe dengan komen", D+elem(1)+'</Data>');
+    v("PV4_ID2","Tanpa Documentation, ElementComment id=2 - kalau id itu nomor kolom komen",
+      null, D+elem(2)+'</Data>');
+    v("PV5_PUBDULU","Urutan Data dibalik: GlobalVariableAdditionalProperties dulu, seperti Sample.xml",
+      null, D+'<smcext:GlobalVariableAdditionalProperties networkPublish="DoNotPublish" /></Data>'+D+elem(1)+'</Data>');
+    // Kontrol: komen tingkat variabel, bukan elemen. Kalau ini pun kosong, yang tidak dipakai
+    // Studio adalah smcext:VariableComment secara keseluruhan - bukan cuma bagian elemennya.
+    v("PV6_VARCOMMENT","Kontrol: VariableComment tanpa ElementComment (komen variabel, bukan elemen)",
+      null, D+'<smcext:VariableComment><smcext:Text id="1">KOMEN VARIABEL TERISI</smcext:Text></smcext:VariableComment></Data>',"BOOL");
+    v("PV7_DOCSAJA","Kontrol: Documentation saja, tanpa AddData - jalur yang sudah pasti jalan",
+      "DOCUMENTATION TERISI", null, "BOOL");
+    var glob='    <GlobalVars>\n'+V.map(function(e){return e.x;}).join('\n')+'\n    </GlobalVars>';
+    // Programnya cuma pelengkap - berkas import wajib punya isi. Rung-rungnya menuliskan daftar
+    // tebakannya supaya yang membukanya di Studio tidak perlu berkas ini lagi buat membacanya.
+    var S=[], o=1;
+    S.push(series(o++,[["GSB000",false]],"PV_NOP","Baca tabel Global Variable, bukan rung ini. "
+        +"Expand tiap array PVn, lalu lihat kolom Comment elemennya - yang terisi berarti bentuknya dipakai."));
+    V.forEach(function(e){ S.push(series(o++,[["GSB000",false]],"PV_NOP", e.n+" : "+e.why)); });
+    var ext=['      '+vr("GSB000","BOOL","Equipment design coil, constant ON")];
+    var priv=['      '+vr("PV_NOP","BOOL","No operation")];
+    return { name:"_Probe_GlobalVars.xml",
+             xml:prog("P998_ProbeVars",ext,priv,[sect("Probe",1,S)],glob),
+             stats:"PROBE VARS: "+V.length+" varian komen elemen - import ke project KOSONG, expand tiap PVn, "
+                  +"lalu laporkan nama mana yang komen elemennya terisi" };
+}
+
 // ============================================================ probe instruksi
 // File kecil berisi SATU rung per instruksi baru. Gunanya cuma satu: di-import ke project kosong
 // di Susmax Studio buat membuktikan bentuk XML-nya benar, SEBELUM 30 rung counter digenerate
@@ -2087,6 +2153,9 @@ function buildHmi(){
 if(!groups.MAIN||!groups.MAIN.length) W("no_main_devices","","No MAIN devices found, every comment contains a station tag.");
 files.push(buildInitial());
 if(!ADV_OK) files.push(buildProbe());
+// Selalu ikut selama pertanyaan komen elemen belum terjawab. Kecil, namanya berawalan _Probe_
+// jadi tidak ikut ke AllPrograms.xml, dan hilang begitu jawabannya sudah dipakai.
+files.push(buildProbeVars());
 files.push(buildMain(groups.MAIN||[]));
 files.push(buildHmi());
 ukeys.forEach(function(k){ files.push(buildUnit(k,groups[k])); });
