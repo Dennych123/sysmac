@@ -1478,7 +1478,32 @@ function buildMain(devs){
      [3,sAir,"Air source pressure lost"],[4,sSafe,"Safety cover or light curtain open"]].forEach(function(x,i){
         var t=AL(x[0],x[2]); emg.push(t);
         var r=new Rung(o++, i===0?"Emergency stop group, latched until alarm reset: "+x[2]:x[2]);
-        var rail=r.rail(); var c=r.ct(x[1],r.ct("LB001",rail),true);
+        var rail=r.rail(), c;
+        if(x[0]===3){
+            // Angin dinilai HANYA saat angin memang seharusnya ada, bukan sepanjang PLC hidup.
+            // Bentuknya diambil dari program mesin:
+            //
+            //   LB009 -- SAFE_CONF -- NOT_EMG_STOP --+-- /AIR_SC_CONF --+-- ( AL[3] )
+            //   LB002 ------------------------------+                  |
+            //   AL[3] -------------------------------------------------+
+            //
+            // Dua cabang, dua keadaan yang sah-sah saja punya angin: mesin sudah selesai
+            // dimatikan tapi tetap aman dan bertegangan, atau master sudah hidup cukup lama.
+            // Gerbang lamanya cuma LB001 (jeda power-on 5 detik) dan itu terlalu kasar - dengan
+            // itu, E-stop ditekan atau pintu safety dibuka pun tetap dinilai, padahal di situ
+            // anginnya memang SENGAJA dibuang. Alarm yang menyala karena mesin bekerja sesuai
+            // rancangannya lama-lama diabaikan operator, dan alarm yang diabaikan sama saja
+            // dengan tidak ada.
+            //
+            // Sebelum master pernah dinyalakan sekali pun, LB009 masih OFF dan LB002 belum
+            // pernah jalan - jadi tidak ada yang dinilai. Itu benar: belum ada yang mencoba
+            // menghidupkan mesin, belum ada yang perlu dikeluhkan soal angin.
+            var b1=r.ct(sEmg, r.ct(sSafe, r.ct("LB009", rail)));
+            var b2=r.ct("LB002", rail);
+            c=r.ctm(x[1],[b1,b2],true);
+        } else {
+            c=r.ct(x[1],r.ct("LB001",rail),true);
+        }
         r.rr([r.clm(t,[c,r.ct(t,rail)])]); S5.push(r.build());
     });
     // Angin punya DUA alarm, bukan satu, dan keduanya ada di program mesin:

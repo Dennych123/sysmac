@@ -90,6 +90,27 @@ chk('tidak ada lagi rung terpisah yang nge-drive LB009',
 // AL[3] tekanan jatuh, AL[5] pressure switch rusak. Yang kedua menangkap apa yang tidak bisa
 // ditangkap yang pertama: switch yang mati nyangkut di "angin ada" tidak pernah memicu AL[3],
 // jadi alarmnya diam selamanya dan mesin jalan tanpa penjaga tekanan.
+// AL[3] hanya dinilai saat angin memang seharusnya ada: (master off complete AND safety AND
+// E-stop OK) ATAU master on delay sudah lewat. Gerbang lamanya cuma LB001 dan itu ikut menilai
+// saat E-stop ditekan - keadaan yang anginnya memang sengaja dibuang.
+const aI = main.indexOf('Air source pressure lost');
+chk('rung tekanan angin ada', aI >= 0);
+if (aI >= 0) {
+  const ar = main.slice(main.lastIndexOf('<Rung', aI), main.indexOf('</Rung>', aI));
+  const ac = (ar.match(/<LdObject xsi:type="Contact"[^>]*>/g) || [])
+    .map(o => ((/operand="([^"]+)"/.exec(o) || [])[1] || '') + (/negated="true"/.test(o) ? '/' : ''));
+  chk('AL[3] tidak lagi digerbang LB001 saja', ac.indexOf('LB001') < 0, ac.join(' '));
+  chk('cabang 1: master off complete + safety + E-stop',
+      ac.indexOf('LB009') >= 0 && ac.indexOf('SAFE_CONF') >= 0 && ac.indexOf('NOT_EMG_STOP') >= 0, ac.join(' '));
+  chk('cabang 2: master on delay', ac.indexOf('LB002') >= 0, ac.join(' '));
+  // Dua cabang bertemu DI kontak AIR_SC_CONF - satu kontak, dua sambungan masuk.
+  const airC = /<LdObject xsi:type="Contact" negated="true" operand="AIR_SC_CONF"><ConnectionPointIn>([\s\S]*?)<\/ConnectionPointIn>/.exec(ar);
+  chk('kedua cabang bertemu di kontak /AIR_SC_CONF',
+      !!airC && (airC[1].match(/refConnectionPointOutId/g) || []).length === 2,
+      airC ? (airC[1].match(/refConnectionPointOutId/g) || []).length + ' sambungan masuk' : 'kontak tidak ketemu');
+  chk('masih di-seal oleh dirinya sendiri', ac.indexOf('AL[3]') >= 0, ac.join(' '));
+}
+
 const airFall = /operand="AL\[3\]"/.test(main);
 const airPs   = /operand="AL\[5\]"/.test(main);
 chk('alarm tekanan angin jatuh tetap ada (AL[3])', airFall);
