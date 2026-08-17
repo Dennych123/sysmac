@@ -1,7 +1,10 @@
 import json, os
 
 _D = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-J = lambda f: open(os.path.join(_D, 'js', f)).read()
+# encoding WAJIB disebut. Tanpa itu Python pakai encoding bawaan OS - cp1252 di Windows - dan
+# berkas js yang UTF-8 dibaca sebagai byte cp1252: '■' di gen_all.js masuk ke index.html
+# sebagai 'a-'. Tidak ada error, tidak ada peringatan, cuma karakter yang salah di layar.
+J = lambda f: open(os.path.join(_D, 'js', f), encoding='utf-8').read()
 
 PARSE   = J('parse.js')
 GENNAME = J('genname.js')

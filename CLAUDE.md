@@ -14,9 +14,19 @@ node scripts/core.js project.json out/ # generate dari CLI, tanpa browser
 pwsh scripts/validate_xml.ps1          # outputs/*.xml  ->  XSD resmi Sysmac
 ```
 
-`node tests/run.js` membaca `index.html`, jadi **build dulu baru test** kalau yang
-diubah ada di `scripts/build_html.py`. Kalau tidak, yang diuji versi lama dan
-hasil lulus/gagalnya menyesatkan.
+`node tests/run.js` membaca `index.html`, jadi **build dulu baru test**. Sekarang
+suite-nya menolak jalan kalau `index.html` tidak memuat isi `js/*.js` yang
+terakhir — dicek lewat isi, bukan tanggal berkas. Penjaga ini ada karena
+kegagalannya paling menipu di repo ini: suite generator membaca `js/*.js` lewat
+`scripts/core.js`, jadi SEMUANYA tetap hijau sementara browser menjalankan
+salinan lama yang ikut ke `index.html`. Yang di layar tidak berubah sama sekali
+dan tidak ada satu pun tes yang mengeluh.
+
+**Semua `open()` di `build_html.py` harus menyebut `encoding='utf-8'`.** Tanpa
+itu Python memakai encoding bawaan OS — cp1252 di Windows — dan berkas js yang
+UTF-8 dibaca sebagai byte cp1252: `■` di `gen_all.js` masuk ke `index.html`
+sebagai `â– `. Tidak ada error, tidak ada peringatan, cuma karakter yang salah
+di layar. Penjaga isi di atas ikut menangkap ini.
 
 ### Empat gerbang sebelum XML dibawa ke Studio
 
