@@ -12,6 +12,10 @@ Kolom **ENO**: `ya` = kotaknya punya pin ENO (aliran daya keluar). `tidak` = kel
 
 Kolom **Pin** diambil dari tabel Variables di manual: `In-out` artinya pin itu muncul di sisi masuk DAN sisi keluar sekaligus (lihat `Inc`).
 
+`**` dalam nama itu tanda **keluarga**, bukan nama harfiah: manual menulis `Get**Clk` sekali untuk `Get1sClk`, `Get100msClk`, `Get10msClk`, dan seterusnya. Anggota keluarganya sekelas semua.
+
+Satu baris ditambahkan tangan karena penarikan otomatisnya meleset: **`GE` / `>=`**. Halaman 2-108 memuat LT/LE/GT/GE sekaligus — satu halaman untuk empat instruksi — dan yang tertarik cuma tiga. Generator memakainya. Kalau manualnya ditarik ulang, periksa baris ini lagi.
+
 
 ## Ladder Diagram Instructions
 
@@ -80,6 +84,7 @@ Kolom **Pin** diambil dari tabel Variables di manual: `In-out` artinya pin itu m
 | `LT` | `<` | Less Than | FUN | tidak | In1 to InN (input), Out (output) | 2-108 |
 | `LE` | `<=` | Less Than Or Equal | FUN | tidak | In1 to InN (input), Out (output) | 2-108 |
 | `GT` | `>` | Greater Than | FUN | tidak | In1 to InN (input), Out (output) | 2-108 |
+| `GE` | `>=` | Greater Than Or Equal | FUN | tidak | In1 to InN (input), Out (output) | 2-108 |
 | `EQascii` |  | Text String Compari- son Equal Determines if | FUN |  |  | 2-111 |
 | `NEascii` |  | Text String Compari- son Not Equal Determine | FUN |  |  | 2-113 |
 | `LTascii` |  | Text String Compari- son Less Than Performs | FUN |  |  | 2-115 |

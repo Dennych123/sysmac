@@ -5,14 +5,18 @@
 # Studio memasang XSD-nya sendiri di komputer ini, dan .NET bisa memakainya langsung. Satu
 # kali jalan di sini menggantikan satu putaran bolak-balik ke Studio.
 #
-#   pwsh scripts/validate_xml.ps1                    # semua outputs/*.xml
-#   pwsh scripts/validate_xml.ps1 outputs/x.xml      # satu berkas
+#   pwsh scripts/validate_xml.ps1                     # semua outputs/*.xml
+#   pwsh scripts/validate_xml.ps1 outputs/x.xml a.xml # berkas tertentu, sebanyak apa pun
 #   pwsh scripts/validate_xml.ps1 -SchemaDir "D:\..." # kalau Sysmac dipasang di tempat lain
 #
 # CATATAN: XSD cuma memeriksa BENTUK. Nama instruksi yang tidak ada di library tetap lolos
 # di sini dan baru ditolak Studio sebagai (DefinitionError). Dua-duanya perlu.
 [CmdletBinding()]
 param(
+  # ValueFromRemainingArguments supaya daftar berkas boleh ditulis polos. Tanpa itu berkas
+  # kedua nyangkut ke parameter posisi berikutnya dan dikira folder XSD - pesan galatnya
+  # menuduh XSD-nya hilang padahal yang salah cara memanggil.
+  [Parameter(Position = 0, ValueFromRemainingArguments = $true)]
   [string[]]$Path,
   [string]$SchemaDir = "C:\Program Files\OMRON\Sysmac Studio\Sample\IEC 61131-10 XML\Controller"
 )
