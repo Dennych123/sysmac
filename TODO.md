@@ -112,6 +112,12 @@ lihat apakah bentuknya sama -> baru digeneralkan. Jangan dibalik. Instruksi yang
 bentuk XML-nya ditebak akan ter-import tanpa keluhan dan salah waktu jalan, dan
 itu jenis kesalahan yang tidak kelihatan sampai mesinnya bergerak.
 
+Temuan yang belum dipakai: XSD-nya punya `<Address address="%W461.00"/>` sebagai anak
+`Variable` (setelah `InitialValue`). Artinya **AT bisa ikut di XML**, tidak harus lewat
+tempel TSV ke tabel Global Variable. Retain TIDAK bisa — atributnya ada di kontainer
+(`GlobalVars`), bukan di tiap variabel, jadi kolom Retain di TSV tetap satu-satunya jalan
+buat retain per-variabel.
+
 Yang juga masih ditolak: **coil Set/Reset** dan **kontak edge di titik gabungan**
 (`Rung.ct()` cuma menerima satu sambungan masuk). Atribut Set/Reset sekarang sudah
 diketahui dari XSD-nya — `latch="set"` / `latch="reset"` pada `<Coil>` — tinggal

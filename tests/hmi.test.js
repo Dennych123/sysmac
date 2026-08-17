@@ -185,8 +185,8 @@ const hmiPrg=p.files.find(f=>f.name==='Prg003_HMI.xml');
 chk('Prg003_HMI digenerate', !!hmiPrg);
 if(hmiPrg){
   const hx=hmiPrg.xml;
-  chk('section: TP_Control, Counters, Setup, Memory',
-      secList(hx).join(' ')==='TP_Control Counters Setup Memory', secList(hx).join(' '));
+  chk('section: TP_Control, Counters, Timers, Setup, Memory',
+      secList(hx).join(' ')==='TP_Control Counters Timers Setup Memory', secList(hx).join(' '));
   ['PL21','PL031','PL032'].forEach(function(a){
     // tiap elemen 0..15 harus punya rung, kalau bolong bit itu tidak pernah di-drive
     const miss=[];
@@ -204,6 +204,66 @@ if(hmiPrg){
       /COUNTER_NOP/.test(hx) && /counters_not_generated/.test(JSON.stringify(p.warnList)));
 }
 
+// --- Nilai angka (target counter, preset timer) ikut dipublish ---
+// Ini kebutuhan nyata layar counter di NB: tanpa alamat, kotak angkanya tidak punya apa-apa
+// untuk ditempel. Satu UDINT = DUA word, jadi blok 10 counter makan 20 word, bukan 10.
+const wordAt=(n)=>atOf(tsv,n);
+['PD071_SET1','PD071_SET2','PD071_CUR','PD081_SET','PD081_CUR'].forEach(n=>{
+  chk('nilai angka '+n+' punya alamat', /^%D\d+$/.test(wordAt(n)), wordAt(n)||'kosong');
+});
+// Alamat WORD tidak boleh ada ".nn"-nya - itu alamat bit, dan NB akan membacanya sebagai bit.
+chk('alamat angka itu word, bukan bit', !/\./.test(wordAt('PD071_SET1')), wordAt('PD071_SET1'));
+const nb=(n)=>parseInt((wordAt(n)||'%D0').slice(2),10);
+chk('blok angka tidak tumpang tindih (1 UDINT = 2 word)',
+    nb('PD071_SET2')-nb('PD071_SET1')===20 && nb('PD071_CUR')-nb('PD071_SET2')===20
+    && nb('PD081_SET')-nb('PD071_CUR')===20 && nb('PD081_CUR')-nb('PD081_SET')===32,
+    ['PD071_SET1','PD071_SET2','PD071_CUR','PD081_SET','PD081_CUR'].map(n=>n+'='+wordAt(n)).join(' '));
+// Blok angka di area SENDIRI - kalau nyasar ke area tombol, satu UDINT menimpa 2 word tombol
+// dan tabrakannya tidak kelihatan karena yang satu bit yang satu angka.
+chk('blok angka terpisah dari area tombol', map.cfg.numArea!==map.cfg.btnArea,
+    map.cfg.numArea+' vs '+map.cfg.btnArea);
+
+// --- Retain untuk H dan D ---
+// H itu Holding: alarm yang hilang waktu power cycle bukan alarm. D menampung angka yang
+// diketik operator; tanpa retain, target counter balik ke nol tiap listrik mati dan mesin
+// jalan dengan target 0 tanpa ada yang memberitahu.
+const retOf=(n)=>((tsv.split('\n').find(l=>l.startsWith(n+'\t'))||'').split('\t')[4]||'');
+['AL','MF'].forEach(n=>chk('retain ON buat '+n+' (H area)', retOf(n)==='True', retOf(n)||'baris tidak ada'));
+// Set DAN current dua-duanya - bukan cuma set. Current yang hilang waktu power cycle bikin
+// hitungan produksi balik ke nol, dan itu ketahuannya baru pas laporan shift.
+['PD071_SET1','PD071_SET2','PD071_CUR','PD081_SET','PD081_CUR'].forEach(n=>
+  chk('retain ON buat '+n+' (D area)', retOf(n)==='True', retOf(n)||'baris tidak ada'));
+// W itu area kerja tombol/lampu, ditulis ulang tiap scan - retain di situ salah.
+const wRow=tsv.split('\n').filter(l=>/\t%W/.test(l));
+chk('retain OFF buat alamat W', wRow.length>0 && wRow.every(l=>l.split('\t')[4]==='False'),
+    wRow.length+' baris W');
+
+// --- Spare: jatah alamat TIDAK dipaskan ke IO list hari ini ---
+chk('default spare 30%', map.cfg.spare===30, String(map.cfg.spare));
+let sp0=gen({hmiMap:{mode:'generate',spare:0}});
+let sp100=gen({hmiMap:{mode:'generate',spare:100}});
+chk('spare besar menaikkan jatah word per station',
+    sp100.hmiMap.cfg.stride > sp0.hmiMap.cfg.stride,
+    'spare 0 -> stride '+sp0.hmiMap.cfg.stride+', spare 100 -> stride '+sp100.hmiMap.cfg.stride);
+// Yang penting bukan angkanya, tapi jaraknya: tiap station maju sebanyak stride, jadi lubang
+// cadangan itu ada DI DALAM jatah station - menambah aktuator nanti mengisi lubang, tidak
+// mendorong station di belakangnya.
+// Station diambil dari KODE SCREEN (04<station><halaman>), bukan dari teks komen: tombol
+// staging di program MAIN komennya juga diawali "ST1 ..." padahal duduk di word MAIN.
+function stationWords(pp){
+  const w={};
+  (pp.hmiMap.rows||[]).forEach(r=>{
+    const s=/^04(\d)\d$/.exec(String(r.screen||'')); const a=/^%W(\d+)\./.exec(r.at||'');
+    if(s && a && r.dir==='HMI->PLC'){ const k='ST'+s[1], n=+a[1]; if(w[k]===undefined||n<w[k]) w[k]=n; }
+  });
+  return w;
+}
+const g0=stationWords(sp0), g100=stationWords(sp100);
+chk('jarak antar station = jatah word per station',
+    (g0.ST2-g0.ST1)===sp0.hmiMap.cfg.stride && (g100.ST2-g100.ST1)===sp100.hmiMap.cfg.stride,
+    'spare 0: '+JSON.stringify(g0)+' stride '+sp0.hmiMap.cfg.stride
+    +' | spare 100: '+JSON.stringify(g100)+' stride '+sp100.hmiMap.cfg.stride);
+
 // Sisi UI. Panel-nya di-inline lewat build_html.py, jadi yang dicek index.html HASIL BUILD - bukan
 // template-nya - supaya ketahuan kalau panelnya kepental waktu build. Setelan yang gak ikut ke
 // export project JSON itu kegagalan diam: orang nyetel base address, export, import, dan angkanya
@@ -211,7 +271,7 @@ if(hmiPrg){
 const html=fs.existsSync(root+'/index.html')?fs.readFileSync(root+'/index.html','utf8'):'';
 chk('index.html ada (build dulu kalau gagal)', !!html);
 if(html){
-  const inputs=['hmiMode','hmiBtnArea','hmiAlArea','hmiPbBase','hmiRdOffset','hmiAlBase','hmiMfBase','hmiPerPage','hmiStride','hmiEnabled'];
+  const inputs=['hmiMode','hmiBtnArea','hmiAlArea','hmiPbBase','hmiRdOffset','hmiAlBase','hmiMfBase','hmiPerPage','hmiStride','hmiEnabled','hmiNumArea','hmiNumBase','hmiSpare'];
   const missing=inputs.filter(id=>html.indexOf('id="'+id+'"')<0);
   chk('semua input panel HMI ada di build', !missing.length, missing.join(', '));
   chk('setelan HMI ikut ke project JSON export', /hmiMap:\s*hmiSettings\(\)/.test(html));

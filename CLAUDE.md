@@ -176,6 +176,38 @@ kecocokan dengan tabel di atas: `_Probe_Instructions.xml` di-import ke project
 KOSONG, lalu dicatat varian mana yang tidak bertanda `(DefinitionError)` /
 `(Import failed)`. Yang sudah lulus sejauh ini: **MOVE** (`EN`,`In` → `ENO`,`Out`).
 
+## Peta alamat HMI — aturan yang tidak kelihatan dari kode
+
+**Retain menyala untuk H dan D, mati untuk W.** H itu Holding: alarm yang hilang waktu
+power cycle bukan alarm. D menampung angka yang diketik operator — target counter,
+preset timer, hitungan berjalan; tanpa retain, setelan itu balik ke nol tiap listrik
+mati dan mesin jalan dengan target 0 tanpa satu pun keluhan. W area kerja tombol/lampu,
+ditulis ulang tiap scan, jadi retain di situ justru salah. `retainOf()` di `gen_all.js`.
+
+**Bit dan angka di area TERPISAH.** Satu UDINT makan DUA word. Kalau blok angka ditaruh
+di area yang sama dengan tombol, satu array counter menimpa 20 word tombol dan
+tabrakannya tidak kelihatan — yang satu dibaca sebagai bit, yang satu sebagai angka.
+Default: tombol/lampu di W, AL/MF di H, angka di D.
+
+**Jatah alamat menyertakan spare (default 30%).** Dipaskan ke IO list hari ini, aktuator
+pertama yang ditambah setelah mesin jalan mendorong alamat semua yang di belakangnya —
+dan tiap screen NB yang sudah digambar ikut salah tunjuk. Lubangnya disisakan DI DALAM
+jatah tiap station, jadi penambahan mengisi lubang, bukan menggeser station lain.
+
+**Nama array mengikuti standar Denso, dibaca dari project mesin** (`Prepare CE insert3`,
+`autowelding`): `PD071_SET1` target counter, `PD071_SET2` ambang peringatan, `PD071_CUR`
+hitungan berjalan, `PD081_SET`/`PD081_CUR` timer, `PL71`/`PL72` lampu counter, `PL081`
+lampu timer, `GCT`/`GTM` pemicu. Jangan dikarang nama baru — layar NB yang sudah ada
+mencari nama itu.
+
+**Counter dibatasi konstanta, bukan targetnya.** `PD071_CUR < UDINT#99999999`, dan lampu
+UP yang menandai target tercapai. Dibatasi target, counter berhenti tepat di target dan
+kelebihan produksi tidak terhitung. Dua project mesin sama-sama begitu.
+
+**Timer: edge ada di kontak CLOCK, bukan di GTM.** GTM itu "timer ini sedang jalan"
+(penahan); yang mencacah pulsa clock. Ketuker, timernya menghitung sekali seumur hidup —
+dan itu tidak kelihatan sama sekali dari jumlah rung maupun dari hasil import.
+
 ## Membaca project Sysmac (.smc2) — `reader/`
 
 Ada di [reader/](reader/) (dulu repo terpisah `Universal_Ladder`/`plc-reader`,

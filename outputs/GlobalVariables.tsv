@@ -1,6 +1,6 @@
 Name	Data type	Initial value	AT	Retain	Constant	Network Publish	Comment
 AIR_SC_CONF	BOOL			False	False	Do not publish	AIR SOURCE CONF
-AL	ARRAY[1..100] OF BOOL		%H300.00	False	False	Do not publish	
+AL	ARRAY[1..100] OF BOOL		%H300.00	True	False	Do not publish	
 AS_ST1_LFT_DIV_BWD	BOOL			False	False	Do not publish	ST1 LEFT DIVIDER BACKWARD
 AS_ST1_LFT_DIV_FWD	BOOL			False	False	Do not publish	ST1 LEFT DIVIDER FORWARD
 AS_ST1_RGT_DIV_BWD	BOOL			False	False	Do not publish	ST1 RIGHT DIVIDER BACKWARD
@@ -108,9 +108,6 @@ CH6_04	BOOL			False	False	Do not publish	ST1 DANDORI  TYPE-2 LOCK
 CH6_05	BOOL			False	False	Do not publish	ST1 DANDORI  TYPE-2 UNLOCK
 CH6_07	BOOL			False	False	Do not publish	ST1 PART FEEDER-1 START
 CH6_08	BOOL			False	False	Do not publish	ST1 PART FEEDER-2 START
-CNT_ACT	ARRAY[1..10] OF UDINT			False	False	Do not publish	Counter present value
-CNT_SET	ARRAY[1..10] OF UDINT			False	False	Do not publish	Counter target value
-CNT_WARN	ARRAY[1..10] OF UDINT			False	False	Do not publish	Counter warning threshold
 CR_ST1_LFT_DIV_BWD	BOOL			False	False	Do not publish	ST1 LEFT DIVIDER BACKWARD
 CR_ST1_LFT_DIV_FWD	BOOL			False	False	Do not publish	ST1 LEFT DIVIDER FORWARD
 CR_ST1_PART_FDR1_STR	BOOL			False	False	Do not publish	ST1 PART FEEDER-1 START
@@ -180,6 +177,12 @@ GSB022	BOOL			False	False	Do not publish	For machine adjustment, spare 13
 GSB023	BOOL			False	False	Do not publish	For machine adjustment, spare 14
 GSB024	BOOL			False	False	Do not publish	For machine adjustment, spare 15
 GSB025	BOOL			False	False	Do not publish	For machine adjustment, spare 16
+GTM001	BOOL			False	False	Do not publish	Timer 1 count
+GTM002	BOOL			False	False	Do not publish	Timer 2 count
+GTM003	BOOL			False	False	Do not publish	Timer 3 count
+GTM004	BOOL			False	False	Do not publish	Timer 4 count
+GTM005	BOOL			False	False	Do not publish	Timer 5 count
+GTM006	BOOL			False	False	Do not publish	Timer 6 count
 HOME_POST	BOOL			False	False	Do not publish	Machine status from main program
 IND_MODE	BOOL			False	False	Do not publish	Machine status from main program
 LSC_ST1_LFT_DIV_BWD	BOOL			False	False	Do not publish	ST1 LEFT DIVIDER BACKWARD position confirmed
@@ -200,7 +203,7 @@ LSC_ST3_EJC_BWD	BOOL			False	False	Do not publish	ST3 EJECTOR BACKWARD position 
 LSC_ST3_EJC_FWD	BOOL			False	False	Do not publish	ST3 EJECTOR FORWARD position confirmed
 LSC_ST3_PSH_BWD	BOOL			False	False	Do not publish	ST3 PUSHER BACKWARD position confirmed
 LSC_ST3_PSH_FWD	BOOL			False	False	Do not publish	ST3 PUSHER FORWARD position confirmed
-MF	ARRAY[1..90] OF BOOL		%H320.00	False	False	Do not publish	
+MF	ARRAY[1..90] OF BOOL		%H320.00	True	False	Do not publish	
 MSTR_RDY	BOOL			False	False	Do not publish	Machine status from main program
 NOT_EMG_STOP	BOOL			False	False	Do not publish	NOT EMERGENCY STOP
 NO_FAULT	BOOL			False	False	Do not publish	Machine status from main program
@@ -241,6 +244,11 @@ PB_FLT_RST	BOOL			False	False	Do not publish	FAULT RESET
 PB_MC_STOP	BOOL			False	False	Do not publish	MACHINE STOP
 PB_MSTR_ON	BOOL			False	False	Do not publish	MASTER ON
 PB_SCN_ENB	BOOL			False	False	Do not publish	SCAN ENABLE
+PD071_CUR	ARRAY[1..10] OF UDINT		%D140	True	False	Do not publish	Counter present value
+PD071_SET1	ARRAY[1..10] OF UDINT		%D100	True	False	Do not publish	Counter target value
+PD071_SET2	ARRAY[1..10] OF UDINT		%D120	True	False	Do not publish	Counter warning threshold
+PD081_CUR	ARRAY[0..15] OF UDINT		%D192	True	False	Do not publish	Timer present value
+PD081_SET	ARRAY[0..15] OF UDINT		%D160	True	False	Do not publish	Timer preset value
 PH_ST1_INS_FLW_OUT	BOOL			False	False	Do not publish	ST1 INSERT FLOW OUT
 PH_ST1_INS_FLW_OUT_OFF	BOOL			False	False	Do not publish	ST1 INSERT FLOW OUT confirmed absent
 PH_ST1_INS_FLW_OUT_ON	BOOL			False	False	Do not publish	ST1 INSERT FLOW OUT confirmed present
@@ -288,6 +296,7 @@ PH_ST3_SHT_FULL_OFF	BOOL			False	False	Do not publish	ST3  SHUTTER FULL confirme
 PH_ST3_SHT_FULL_ON	BOOL			False	False	Do not publish	ST3  SHUTTER FULL confirmed present
 PL031	ARRAY[0..15] OF BOOL		%W482.00	False	False	Do not publish	Auto start condition indication, page 1
 PL032	ARRAY[0..15] OF BOOL		%W483.00	False	False	Do not publish	Auto start condition indication, page 2
+PL081	ARRAY[0..9] OF BOOL		%W496.00	False	False	Do not publish	Timer up indication, screen 0081
 PL21	ARRAY[0..15] OF BOOL		%W481.00	False	False	Do not publish	Master on condition indication
 PL411_1M	BOOL		%W484.00	False	False	Do not publish	Lamp, ST1 LEFT DIVIDER BACKWARD
 PL411_1R	BOOL		%W484.01	False	False	Do not publish	Lamp, ST1 LEFT DIVIDER FORWARD

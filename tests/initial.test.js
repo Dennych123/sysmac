@@ -69,7 +69,10 @@ chk('default: nol blok fungsi selain TON di program mesin',
 // ---------------------------------------------------------------- instruksi lanjutan menyala
 let a = gen({ advancedInstructions: true });
 const hx = file(a, 'Prg003_HMI.xml').xml;
-const cnt = hx.slice(hx.indexOf('name="Counters"'), hx.indexOf('name="Setup"'));
+// Batas section-nya ke "Timers", BUKAN "Setup" - kalau kelebihan, rung timer ikut terhitung
+// sebagai rung counter dan jumlahnya tetap "masuk akal" walau salah.
+const cnt = hx.slice(hx.indexOf('name="Counters"'), hx.indexOf('name="Timers"'));
+const tmr = hx.slice(hx.indexOf('name="Timers"'), hx.indexOf('name="Setup"'));
 chk('counter digenerate: 10 counter x 3 rung',
     (cnt.match(/<Rung /g) || []).length === 30, (cnt.match(/<Rung /g) || []).length + ' rung');
 // Pembandingnya pakai nama SIMBOL, bukan LT/NE/GE - itu yang tersimpan di project mesin
@@ -97,8 +100,13 @@ chk('InOut ditulis sebagai <InOutVariables>, bukan didaftar dua kali',
 chk('<InOutVariables> di urutan paling depan',
     incBoxes.every(b => b.indexOf('<InOutVariables>') < b.indexOf('<InputVariables>')));
 // Sisi keluar pin in-out menulis balik ke variabel yang SAMA - itu arti "in-out".
-chk('sisi keluar InOut menulis balik ke CNT_ACT yang sama',
-    (cnt.match(/<FbdObject xsi:type="DataSink" identifier="CNT_ACT\[\d+\]"/g) || []).length === 10);
+chk('sisi keluar InOut menulis balik ke PD071_CUR yang sama',
+    (cnt.match(/<FbdObject xsi:type="DataSink" identifier="PD071_CUR\[\d+\]"/g) || []).length === 10);
+// Batas cacah itu KONSTANTA, bukan targetnya. Dibatasi target, counter berhenti tepat di
+// target dan kelebihan produksi tidak terhitung - dua project mesin sama-sama tidak begitu.
+chk('counter dibatasi konstanta, bukan targetnya',
+    (cnt.match(/identifier="UDINT#99999999"/g) || []).length === 10
+    && cnt.indexOf('typeName="&lt;"><InputVariables><InputVariable parameterName="EN"') >= 0);
 // Tiap pin yang DITULIS wajib ada yang memakai. Pin nganggur = "invalid connection" dan
 // rung-nya ter-import kosong. Pin yang tidak dipakai jangan ditulis - contoh resmi Omron
 // pun tidak menulis ENO waktu ENO-nya tidak dipakai.
@@ -106,6 +114,22 @@ chk('Inc tidak menulis pin yang tidak dipakai',
     incBoxes.every(b => (b.match(/<OutputVariable /g) || []).length === 1));
 chk('probe gak ikut keluar lagi', !file(a, '_Probe_Instructions.xml'));
 chk('clock pulse digenerate', /typeName="Get1sClk"/.test(file(a, 'P000_Initial.xml').xml));
+
+// --- Timers: bentuknya sama dengan counter, yang mencacah pulsa clock ---
+chk('timer digenerate: 6 timer x 2 rung',
+    (tmr.match(/<Rung /g) || []).length === 12, (tmr.match(/<Rung /g) || []).length + ' rung');
+// Edge ada di kontak CLOCK, bukan di GTM. Ketuker: GTM yang berdiferensiasi bikin timernya
+// mencacah SEKALI seumur hidup, dan itu tidak kelihatan sama sekali dari jumlah rung.
+chk('edge ada di kontak clock, bukan di GTM',
+    (tmr.match(/<LdObject xsi:type="Contact" edge="rising" operand="aP_[^"]+"/g) || []).length === 6
+    && !/edge="rising" operand="GTM/.test(tmr));
+chk('timer 1-2 basis 0,1 detik, sisanya 1 detik',
+    (tmr.match(/operand="aP_0_1s"/g) || []).length === 2
+    && (tmr.match(/operand="aP_1s"/g) || []).length === 4);
+chk('lampu timer up ke PL081',
+    (tmr.match(/<LdObject xsi:type="Coil" operand="PL081\[\d+\]"/g) || []).length === 6);
+chk('timer menulis balik ke PD081_CUR yang sama',
+    (tmr.match(/<FbdObject xsi:type="DataSink" identifier="PD081_CUR\[\d+\]"/g) || []).length === 6);
 
 // Pin output yang dideklarasi tapi tidak disambung = titik menggantung. Itu yang paling gampang
 // bikin Studio menolak file, dan pernah kejadian waktu pin Out ikut dideklarasi tapi tak dipakai.

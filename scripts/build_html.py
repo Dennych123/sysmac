@@ -410,6 +410,15 @@ HTML = '''<!doctype html>
   <label><span>MF base word</span> <input id="hmiMfBase" type="number" min="0" max="511" placeholder="320"></label>
   <label><span>Actuators per screen</span> <input id="hmiPerPage" type="number" min="1" max="8" placeholder="4"></label>
   <label><span>Words per station</span> <input id="hmiStride" type="number" min="1" max="16" placeholder="1"></label>
+  <label><span>Spare slots (%)</span>
+    <span class="help" data-tip="Extra button slots kept free in every station, as a percentage of the actuators it has today. Without it the addresses fit the current I/O list exactly, and the first actuator added after the machine is running pushes every address behind it - every NB screen already drawn then points at the wrong bit. 30% means a station with 6 actuators reserves room for 8.">?</span>
+    <input id="hmiSpare" type="number" min="0" max="300" placeholder="30"></label>
+  <label><span>Number area</span>
+    <span class="help" data-tip="Where counter targets, timer presets and running values live. These are numbers, not bits - one UDINT takes two words - so they get their own area and can never collide with the button and lamp blocks.">?</span>
+    <select id="hmiNumArea">
+    <option value="D">D</option><option value="W">W</option><option value="H">H</option><option value="CIO">CIO</option>
+  </select></label>
+  <label><span>Number base word</span> <input id="hmiNumBase" type="number" min="0" max="4095" placeholder="100"></label>
   <label class="chk"><input id="hmiEnabled" type="checkbox" checked> <span>Fill AT column</span></label>
 </div>
 <div id="hmiMapPanel" class="hmi-map"></div>
@@ -761,7 +770,7 @@ function sortStations(keys) {
 
 var errEl, resEl, statsEl, warnEl, warnBoxEl, motionPanelEl, conditionPanelEl, stationNamesPanelEl, timerPhpxEl, timerMotionEl, confirmModePanelEl, alSizeEl, mfSizeEl, stationBlockEl, arraySizeHintEl, navFileCountEl;
 var advInstrEl;
-var hmiModeEl, hmiBtnAreaEl, hmiAlAreaEl, hmiPbBaseEl, hmiRdOffsetEl, hmiAlBaseEl, hmiMfBaseEl, hmiPerPageEl, hmiStrideEl, hmiEnabledEl, hmiMapPanelEl, hmiSummaryEl;
+var hmiModeEl, hmiBtnAreaEl, hmiAlAreaEl, hmiPbBaseEl, hmiRdOffsetEl, hmiAlBaseEl, hmiMfBaseEl, hmiPerPageEl, hmiStrideEl, hmiEnabledEl, hmiMapPanelEl, hmiSummaryEl, hmiNumAreaEl, hmiNumBaseEl, hmiSpareEl;
 // Setelan peta HMI dikumpulin di satu tempat - dipakai regenerate(), export project JSON, dan import.
 // Tiga pemanggil yang harus setuju bentuknya; dulu pola begini kelewat satu tempat dan setelan
 // diam-diam gak ikut ke-export.
@@ -777,7 +786,10 @@ function hmiSettings() {
     alBase: hmiAlBaseEl ? hmiAlBaseEl.value : '',
     mfBase: hmiMfBaseEl ? hmiMfBaseEl.value : '',
     perPage: hmiPerPageEl ? hmiPerPageEl.value : '',
-    stride: hmiStrideEl ? hmiStrideEl.value : ''
+    stride: hmiStrideEl ? hmiStrideEl.value : '',
+    numArea: hmiNumAreaEl ? hmiNumAreaEl.value : 'D',
+    numBase: hmiNumBaseEl ? hmiNumBaseEl.value : '',
+    spare: hmiSpareEl ? hmiSpareEl.value : ''
   };
 }
 // Spreadsheet komen elemen AL/MF. Ditaruh di PANEL HASIL, bukan di dalam fold Pengaturan:
@@ -2475,6 +2487,9 @@ function importProjectJSON(jsonText) {
   if (hmiMfBaseEl) hmiMfBaseEl.value = hm.mfBase || '';
   if (hmiPerPageEl) hmiPerPageEl.value = hm.perPage || '';
   if (hmiStrideEl) hmiStrideEl.value = hm.stride || '';
+  if (hmiNumAreaEl) hmiNumAreaEl.value = hm.numArea || 'D';
+  if (hmiNumBaseEl) hmiNumBaseEl.value = hm.numBase || '';
+  if (hmiSpareEl) hmiSpareEl.value = hm.spare || '';
   // Project lama gak punya blok hmiMap sama sekali - default-nya AKTIF, bukan mati, biar import
   // project lama tetap keluar kolom AT tanpa harus dicentang manual.
   if (hmiEnabledEl) hmiEnabledEl.checked = hm.enabled === undefined ? true : !!hm.enabled;
@@ -2562,10 +2577,13 @@ hmiMfBaseEl = document.getElementById('hmiMfBase');
 hmiPerPageEl = document.getElementById('hmiPerPage');
 hmiStrideEl = document.getElementById('hmiStride');
 hmiEnabledEl = document.getElementById('hmiEnabled');
+hmiNumAreaEl = document.getElementById('hmiNumArea');
+hmiNumBaseEl = document.getElementById('hmiNumBase');
+hmiSpareEl = document.getElementById('hmiSpare');
 hmiMapPanelEl = document.getElementById('hmiMapPanel');
 hmiSummaryEl = document.getElementById('hmiSummary');
 [alSizeEl, mfSizeEl, stationBlockEl, hmiModeEl, hmiBtnAreaEl, hmiAlAreaEl, hmiPbBaseEl, hmiRdOffsetEl, hmiAlBaseEl, hmiMfBaseEl,
- hmiPerPageEl, hmiStrideEl, hmiEnabledEl].forEach(function (el) {
+ hmiPerPageEl, hmiStrideEl, hmiEnabledEl, hmiNumAreaEl, hmiNumBaseEl, hmiSpareEl].forEach(function (el) {
   el.addEventListener('change', function () { if (lastSplitMsg) regenerate(); });
 });
 timerPhpxEl = document.getElementById('timerPhpx');

@@ -274,7 +274,17 @@ var HMI_CFG = (function(){
         alBase  : num(c.alBase,   300, "base word AL",        0, 511),
         mfBase  : num(c.mfBase,   320, "base word MF",        0, 511),
         perPage : num(c.perPage,    4, "aktuator per screen", 1, 8),
-        stride  : num(c.stride,     1, "word per station",    1, 16)
+        stride  : num(c.stride,     1, "word per station",    1, 16),
+        // Nilai angka (target counter, preset timer, hitungan berjalan) bukan bit - satu UDINT
+        // makan DUA word. Ditaruh di area terpisah dari tombol/lampu supaya blok bit tidak
+        // pernah bertabrakan dengan blok angka.
+        numArea : area(c.numArea, "D", "data angka"),
+        numBase : num(c.numBase,  100, "base word data angka", 0, 4095),
+        // Jatah cadangan per station, dalam persen dari jumlah aktuator yang ADA sekarang.
+        // Tanpa ini alamat dipaskan ke IO list hari ini, dan aktuator yang ditambah setelah
+        // mesin jalan menggeser alamat semua yang di belakangnya - tiap screen NB yang sudah
+        // jadi ikut salah tunjuk. Lebih murah menyisakan lubang sejak awal.
+        spare   : num(c.spare,     30, "spare aktuator (%)",   0, 300)
     };
 })();
 PER_PAGE = HMI_CFG.perPage;
@@ -289,6 +299,8 @@ PER_PAGE = HMI_CFG.perPage;
 //              ada tiba-tiba nunjuk bit yang salah, dan gak ada yang protes sampai mesin gerak.
 //              Jadi jatah DIPERTAHANKAN, dan aktuator yang gak kebagian slot dilaporin satu-satu
 //              lewat hmi_slot_overflow - kurang tombol itu keliatan, salah alamat enggak.
+// Jatah dihitung dari jumlah aktuator PLUS spare, bukan dari yang ada sekarang saja.
+function hmiSlotsNeeded(n){ return n + Math.ceil(n*HMI_CFG.spare/100); }
 (function fitHmiStride(){
     if(!HMI_CFG.on) return;
     var maxWords = 0, worst = "";
@@ -296,8 +308,8 @@ PER_PAGE = HMI_CFG.perPage;
         var devs = groups[k] || [];
         var n = pairUp(devs.filter(function(d){ return d.io==="OUT" && (d.jenis==="CR"||d.jenis==="SOL"); })).length
               + devs.filter(function(d){ return d.io==="OUT" && d.jenis==="SRV_CMD"; }).length;
-        var w = Math.ceil(n*2/16);
-        if(w > maxWords){ maxWords = w; worst = k+" ("+n+" actuators)"; }
+        var w = Math.ceil(hmiSlotsNeeded(n)*2/16);
+        if(w > maxWords){ maxWords = w; worst = k+" ("+n+" actuators + "+(hmiSlotsNeeded(n)-n)+" spare)"; }
     });
     if(maxWords <= HMI_CFG.stride) return;
     if(HMI_CFG.mode === "generate"){
@@ -307,6 +319,7 @@ PER_PAGE = HMI_CFG.perPage;
         HMI_CFG.stride = maxWords;
     } else {
         W("hmi_stride_fixed","","HMI map (manual mode): "+worst+" needs "+maxWords+" button words but only "+HMI_CFG.stride+" is allowed. "+
+          "Lower the spare percentage if you would rather keep one word per station. "+
           "The budget is NOT raised, so the existing NB screens keep pointing at the right bits - the actuators "+
           "that miss out are listed below. Raise 'Words per station' yourself if the screens are going to be "+
           "re-addressed, or switch to Generate mode.");
@@ -316,6 +329,8 @@ PER_PAGE = HMI_CFG.perPage;
 // Tanda "%" itu WAJIB. Sysmac nolak "W485.01" (baris jadi merah di tabel Global Variable) tapi
 // nerima "%W485.01". Dibuktikan langsung di Sysmac Studio, bukan dari dokumentasi.
 function atBit(area, word, bit){ return "%"+area+word+"."+pad(bit,2); }
+// Alamat WORD (bukan bit) - dipakai nilai angka yang dibaca/ditulis HMI. Tanpa ".nn".
+function atWord(area, word){ return "%"+area+word; }
 
 // Array lampu kondisi yang dibaca screen HMI. Indeksnya 0-based (beda dari AL/MF yang 1-based) -
 // itu bentuk yang dipakai project produksi dan yang diharapkan screen-nya. Ukurannya 16 = satu
@@ -329,10 +344,21 @@ function atBit(area, word, bit){ return "%"+area+word+"."+pad(bit,2); }
 var ADV_OK = !!(flow.get("advancedInstructions"));
 
 // Counter Denso: satu counter = 3 rung, dan bentuknya sama untuk semua counter.
-//   1. trigger AND (hitungan < target)            -> tambah 1
-//   2. hitungan <> 0 AND >= ambang peringatan     -> lampu WARNING (mati kalau UP sudah nyala)
-//   3. hitungan <> 0 AND >= target                -> lampu UP
+//   1. trigger (diferensiasi naik) AND (hitungan < batas)  -> tambah 1
+//   2. hitungan <> 0 AND >= ambang peringatan              -> lampu WARNING (mati kalau UP nyala)
+//   3. hitungan <> 0 AND >= target                         -> lampu UP
 // Lampu dipetakan ke PL71 (8 counter, 2 bit tiap counter) lalu lanjut ke PL72 (2 counter).
+//
+// Nama arraynya mengikuti standar Denso, dibaca dari dua project mesin yang jalan
+// (Prepare CE insert3, autowelding) - bukan dikarang: PD071_SET1 target, PD071_SET2 ambang
+// peringatan, PD071_CUR hitungan berjalan, semuanya ARRAY 1-based OF UDINT.
+//
+// Batas di rung 1 itu KONSTANTA besar, bukan targetnya. Dua project itu sama-sama begitu, dan
+// bedanya nyata: dibatasi target, counter berhenti tepat di target dan kelebihan produksi
+// tidak terhitung; dibatasi konstanta, counter terus jalan dan lampu UP yang menandai target
+// tercapai.
+var CNT_SET = "PD071_SET1", CNT_WARN = "PD071_SET2", CNT_CUR = "PD071_CUR";
+var CNT_MAX = "UDINT#99999999";
 var CNT_N = 10;
 var CNT_LAMPS = [ { name:"PL71", size:16, screen:"0071" }, { name:"PL72", size:4, screen:"0072" } ];
 // Slot lampu ke-k (0-based) -> array mana, bit ke berapa. Dua bit per counter: WARNING lalu UP.
@@ -341,6 +367,19 @@ function cntLamp(k){
     while(i<CNT_LAMPS.length && bit>=CNT_LAMPS[i].size){ bit-=CNT_LAMPS[i].size; i++; }
     return i<CNT_LAMPS.length ? { arr:CNT_LAMPS[i].name, warn:bit, up:bit+1 } : null;
 }
+// Timer HMI Denso: bentuknya sama dengan counter, cuma yang menghitung pulsa clock, bukan
+// trigger dari mesin. Dibaca dari P003_HMI/Timers di autowelding.smc2.
+//   1. GTM00n AND pulsa clock (naik) AND (hitungan < batas)  -> tambah 1
+//   2. preset <> 0 AND preset <= hitungan                    -> lampu timer up
+// GTM-nya kontak biasa (dia penahan, bukan pemicu); yang berdiferensiasi naik justru kontak
+// pulsa clock-nya - itu yang membuat satu pulsa = satu hitungan.
+var TMR_N = 6;
+var TMR_SET = "PD081_SET", TMR_CUR = "PD081_CUR", TMR_LAMP = "PL081";
+var TMR_MAX = "UDINT#9999";
+// Timer 1-2 berbasis 0,1 detik, sisanya 1 detik - pembagian yang dipakai project mesin.
+// aP_0_1s itu nama clock 100 ms milik generator ini; di autowelding namanya aP_100ms, sinyal
+// yang sama. Dipakai nama sendiri supaya tidak ada dua clock 100 ms di satu project.
+function tmrClock(i){ return i < 2 ? "aP_0_1s" : "aP_1s"; }
 var COND_ARRAYS = [
     { name:"PL21",  size:16, screen:"0021", doc:"Master on condition indication",
       seed:{} },
@@ -380,6 +419,25 @@ function hmiClaimRange(sym, area, word0, bits, dir, screen, komen){
     for(var j=0;j<bits;j++) HMI_OWNER[at(j)]=sym;
     HMI_AT[sym]=at(0);
     HMI_ROWS.push({ sym:sym, at:at(0)+" .. "+at(bits-1), dir:dir, screen:screen||"", komen:komen||"" });
+}
+// Blok WORD berurutan buat array angka (target counter, preset timer, hitungan berjalan).
+// Satu UDINT = 2 word, jadi ARRAY[1..10] OF UDINT makan 20 word. Dikembalikan word berikutnya
+// yang masih bebas, supaya pemanggilnya bisa menumpuk blok tanpa menghitung sendiri.
+function hmiClaimWords(sym, area, word0, words, dir, screen, komen){
+    if(!HMI_CFG.on || words<=0) return word0;
+    for(var i=0;i<words;i++){
+        var owner=HMI_OWNER[atWord(area,word0+i)];
+        if(owner && owner!==sym){
+            W("hmi_at_conflict","","HMI map: numeric block "+sym+" ("+words+" words from "+area+word0+") clashes with "+
+              owner+" at "+atWord(area,word0+i)+" - "+sym+" gets no address.",{device:sym});
+            return word0+words;
+        }
+    }
+    for(var j=0;j<words;j++) HMI_OWNER[atWord(area,word0+j)]=sym;
+    HMI_AT[sym]=atWord(area,word0);
+    HMI_ROWS.push({ sym:sym, at:atWord(area,word0)+" .. "+atWord(area,word0+words-1),
+                    dir:dir, screen:screen||"", komen:komen||"" });
+    return word0+words;
 }
 // Slot grid buat aktuator ke-idx (0-based) di satu station. Dua bit per slot: M lalu R.
 function hmiSlot(stationNo, idx){
@@ -1667,13 +1725,20 @@ function buildHmi(){
     // waktu jalan, dan itu baru ketahuan pas mesinnya bergerak. Lihat TODO.md 5a.
     var S2=[]; o=1;
     G("GCT","ARRAY[1.."+CNT_N+"] OF BOOL","Counter count trigger");
-    G("CNT_ACT","ARRAY[1.."+CNT_N+"] OF UDINT","Counter present value");
-    G("CNT_SET","ARRAY[1.."+CNT_N+"] OF UDINT","Counter target value");
-    G("CNT_WARN","ARRAY[1.."+CNT_N+"] OF UDINT","Counter warning threshold");
+    G(CNT_CUR, "ARRAY[1.."+CNT_N+"] OF UDINT","Counter present value");
+    G(CNT_SET, "ARRAY[1.."+CNT_N+"] OF UDINT","Counter target value");
+    G(CNT_WARN,"ARRAY[1.."+CNT_N+"] OF UDINT","Counter warning threshold");
     CNT_LAMPS.forEach(function(cl,ci){
         G(cl.name,"ARRAY[0.."+(cl.size-1)+"] OF BOOL","Counter indication, screen "+cl.screen);
         hmiClaimRange(cl.name, HMI_CFG.btnArea, HMI_CFG.cntBase+ci, cl.size, "PLC->HMI", cl.screen, "Counter indication");
     });
+    // Nilai angkanya ikut dipublish: target dan ambang diketik operator di HMI, hitungan
+    // berjalan dibaca balik. Tanpa alamat, layar counter di NB tidak punya apa-apa untuk
+    // ditempel. Satu UDINT = 2 word, jadi blok-bloknya ditumpuk berurutan.
+    var numW = HMI_CFG.numBase;
+    numW = hmiClaimWords(CNT_SET,  HMI_CFG.numArea, numW, CNT_N*2, "HMI<->PLC", "0071", "Counter target value");
+    numW = hmiClaimWords(CNT_WARN, HMI_CFG.numArea, numW, CNT_N*2, "HMI<->PLC", "0071", "Counter warning threshold");
+    numW = hmiClaimWords(CNT_CUR,  HMI_CFG.numArea, numW, CNT_N*2, "PLC->HMI",  "0071", "Counter present value");
     if(!ADV_OK){
         P("COUNTER_NOP","BOOL","No operation, reserved for counter circuits");
         S2.push(series(o++,[["GSB000",false]],"COUNTER_NOP",
@@ -1683,7 +1748,7 @@ function buildHmi(){
         for(var ci2=0; ci2<CNT_N; ci2++){
             var slot=cntLamp(ci2);
             if(!slot){ W("counter_lamp_full","","Counter "+(ci2+1)+" got no lamp slot, skipped."); continue; }
-            var n1=ci2+1, act="CNT_ACT["+n1+"]", set="CNT_SET["+n1+"]", wrn="CNT_WARN["+n1+"]";
+            var n1=ci2+1, act=CNT_CUR+"["+n1+"]", set=CNT_SET+"["+n1+"]", wrn=CNT_WARN+"["+n1+"]";
             var lw=slot.arr+"["+slot.warn+"]", lu=slot.arr+"["+slot.up+"]";
             // Rantai power-flow murni: kontak -> pembanding -> Inc -> rail. Bentuk pin-nya
             // BUKAN tebakan, diambil dari project mesin lewat `reader/cli.js --probe-fb`:
@@ -1691,14 +1756,14 @@ function buildHmi(){
             //   Inc         EN + InOut di <InOutVariables> -> ENO
             // Nama instruksinya pakai simbol (`<`, `<>`, `>=`), sama seperti yang tersimpan di
             // project nyata; lib.js yang meng-escape `<` jadi &lt; waktu menulis XML.
-            var ZERO="UDINT#0";   // literal bertipe - CNT_ACT itu UDINT, "0" telanjang ambigu
-            // 1. hitung naik selama belum sampai target
-            var r1=new Rung(o++, "Counter "+n1+" : count up while below target");
+            var ZERO="UDINT#0";   // literal bertipe - PD071_CUR itu UDINT, "0" telanjang ambigu
+            // 1. hitung naik sampai batas cacah, BUKAN sampai target - lihat catatan CNT_MAX.
+            var r1=new Rung(o++, "Counter "+n1+" : count up");
             // Kontak trigger DIFERENSIASI NAIK. Tanpa itu Inc jalan tiap scan selama GCT
             // masih nyala, jadi satu tekan tombol menambah puluhan hitungan - dan itu tidak
             // kelihatan waktu import, cuma waktu operator memakainya.
             var g1=r1.ct("GCT["+n1+"]", r1.rail(), false, "rising");
-            var lt=r1.blk("<",null,[["EN",g1],["In1",r1.src(act)],["In2",r1.src(set)]],[""]);
+            var lt=r1.blk("<",null,[["EN",g1],["In1",r1.src(act)],["In2",r1.src(CNT_MAX)]],[""]);
             // InOut ditulis sebagai <InOutVariables>, BUKAN didaftar dua kali di Input dan
             // Output. Bentuk ini disalin dari Function0 di contoh resmi Omron (Sample.xml):
             // DataSource -> pin in-out -> DataSink dengan variabel YANG SAMA. Mendaftarnya
@@ -1725,20 +1790,57 @@ function buildHmi(){
         }
     }
 
-    // 3. Setup
+    // 3. Timers - bentuknya sama dengan counter, yang dihitung pulsa clock
     var S3=[]; o=1;
-    P("SETUP_NOP","BOOL","No operation, reserved for setup handling");
-    S3.push(series(o++,[["GSB000",false]],"SETUP_NOP","Product setup / recipe handling belongs here"));
+    for(var ti=0; ti<TMR_N; ti++) G("GTM"+pad(ti+1,3),"BOOL","Timer "+(ti+1)+" count");
+    G(TMR_SET,"ARRAY[0..15] OF UDINT","Timer preset value");
+    G(TMR_CUR,"ARRAY[0..15] OF UDINT","Timer present value");
+    G(TMR_LAMP,"ARRAY[0..9] OF BOOL","Timer up indication, screen 0081");
+    hmiClaimRange(TMR_LAMP, HMI_CFG.btnArea, HMI_CFG.cntBase+CNT_LAMPS.length, 10, "PLC->HMI", "0081", "Timer up indication");
+    numW = hmiClaimWords(TMR_SET, HMI_CFG.numArea, numW, 32, "HMI<->PLC", "0081", "Timer preset value");
+    numW = hmiClaimWords(TMR_CUR, HMI_CFG.numArea, numW, 32, "PLC->HMI",  "0081", "Timer present value");
+    if(!ADV_OK){
+        P("TIMER_NOP","BOOL","No operation, reserved for timer circuits");
+        S3.push(series(o++,[["GSB000",false]],"TIMER_NOP",
+            "Timer circuits need compare / Inc - turn on advanced instructions after the probe file imports cleanly"));
+    } else {
+        for(var t2=0; t2<TMR_N; t2++){
+            var cur=TMR_CUR+"["+t2+"]", pre=TMR_SET+"["+t2+"]", lmp=TMR_LAMP+"["+t2+"]";
+            var Z="UDINT#0";
+            // 1. GTM menahan, pulsa clock yang mencacah. Edge ada di kontak CLOCK, bukan di GTM:
+            // GTM itu "timer ini sedang jalan", jadi kalau edge-nya ditaruh di situ timernya
+            // cuma menghitung satu kali seumur hidup.
+            var q1=new Rung(o++, "Timer "+(t2+1)+" : count up while running");
+            var gt=q1.ct("GTM"+pad(t2+1,3), q1.rail());
+            var ck=q1.ct(tmrClock(t2), gt, false, "rising");
+            var lt2=q1.blk("<",null,[["EN",ck],["In1",q1.src(cur)],["In2",q1.src(TMR_MAX)]],[""]);
+            var inc2=q1.blk("Inc",null,[["EN",lt2[""]]],["ENO"],[["InOut",q1.src(cur)]]);
+            q1.sink(cur, inc2.InOut);
+            q1.rr([inc2.ENO]); S3.push(q1.build());
+            // 2. lampu timer up: preset <> 0 DAN preset sudah tercapai. Syarat "preset <> 0"
+            // yang menjaga timer yang belum disetel supaya lampunya tidak langsung menyala.
+            var q2=new Rung(o++, "Timer "+(t2+1)+" : preset reached");
+            var nz=q2.blk("<>",null,[["EN",q2.rail()],["In1",q2.src(Z)],["In2",q2.src(pre)]],[""]);
+            var le=q2.blk("<=",null,[["EN",nz[""]],["In1",q2.src(pre)],["In2",q2.src(cur)]],[""]);
+            q2.rr([q2.cl(lmp, le[""])]); S3.push(q2.build());
+        }
+    }
 
-    // 4. Memory
+    // 4. Setup
     var S4=[]; o=1;
-    P("MEMORY_NOP","BOOL","No operation, reserved for memory latch");
-    S4.push(series(o++,[["GSB000",false]],"MEMORY_NOP","HMI-level memory latches belong here - none generated yet"));
+    P("SETUP_NOP","BOOL","No operation, reserved for setup handling");
+    S4.push(series(o++,[["GSB000",false]],"SETUP_NOP","Product setup / recipe handling belongs here"));
 
-    var secs=[sect("TP_Control",1,S1),sect("Counters",2,S2),sect("Setup",3,S3),sect("Memory",4,S4)];
+    // 5. Memory
+    var S5=[]; o=1;
+    P("MEMORY_NOP","BOOL","No operation, reserved for memory latch");
+    S5.push(series(o++,[["GSB000",false]],"MEMORY_NOP","HMI-level memory latches belong here - none generated yet"));
+
+    var secs=[sect("TP_Control",1,S1),sect("Counters",2,S2),sect("Timers",3,S3),
+              sect("Setup",4,S4),sect("Memory",5,S5)];
     return { name:"Prg003_HMI.xml", xml:prog("Prg003_HMI",ext,priv,secs,glob),
              stats:"HMI: "+COND_ARRAYS.length+" condition array x"+COND_ARRAYS[0].size
-                  +", counters placeholder" };
+                  +", "+CNT_N+" counters, "+TMR_N+" timers"+(ADV_OK?"":" (placeholder)") };
 }
 
 if(!groups.MAIN||!groups.MAIN.length) W("no_main_devices","","No MAIN devices found, every comment contains a station tag.");
@@ -1784,7 +1886,13 @@ var elNames=Object.keys(ARRAY_ELEMENTS).sort(function(a,b){
 // baris array-level (AL, MF) buat paste awal ke tabel Global Variable, baris per elemen (AL[61], ...) buat isi Comment
 // setelah array di-expand di Susmax Studio - lihat README bagian import
 var TSV_HEAD="Name\tData type\tInitial value\tAT\tRetain\tConstant\tNetwork Publish\tComment";
-function tsvRow(n,t,at,cmt){ return [n,t,"",at||"","False","False","Do not publish",cmt||""].join("\t"); }
+// Retain menyala untuk apa pun yang duduk di H atau D. H itu Holding - alarm dan bit memori
+// tidak boleh hilang waktu power cycle, itu memang gunanya. D menampung angka yang diketik
+// operator (target counter, preset timer); tanpa retain, setelan itu balik ke nol tiap
+// listrik mati dan mesin jalan dengan target 0 tanpa ada yang memberitahu.
+// W biarkan False: itu area kerja tombol/lampu, ditulis ulang tiap scan.
+function retainOf(at){ return /^%(H|D)/.test(String(at||"")) ? "True" : "False"; }
+function tsvRow(n,t,at,cmt){ return [n,t,"",at||"",retainOf(at),"False","Do not publish",cmt||""].join("\t"); }
 var tsv=TSV_HEAD+"\n"
       + gnames.map(function(n){ var g=GLOBALS[n]; return tsvRow(n,g.t,HMI_AT[n],g.d); }).join("\n")
       + (elNames.length ? "\n" + elNames.map(function(n){ return tsvRow(n,"BOOL","",ARRAY_ELEMENTS[n]); }).join("\n") : "");
