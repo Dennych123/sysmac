@@ -111,6 +111,10 @@ function validate(label, files) {
         if(miss.length){ bad++; console.log('['+label+'] UNDECLARED in '+f.name+':', miss.join(', ')); }
     });
     xmlFiles.forEach(f=>{
+        // _Probe_GlobalVars.xml membawa tabel Global Variable-nya SENDIRI - itu justru yang
+        // sedang diuji. Simbol PVn sengaja tidak didaftarkan ke GLOBALS: dia sampah percobaan
+        // buat project kosong, dan menaruhnya di tabel variabel mesin justru yang salah.
+        if(f.name==='_Probe_GlobalVars.xml') return;
         const ext = f.xml.slice(f.xml.indexOf('<ExternalVars>'), f.xml.indexOf('</ExternalVars>'));
         const en  = [...ext.matchAll(/<Variable name="([^"]+)"/g)].map(m=>m[1]);
         const miss = en.filter(n=>!glob.has(n) && !glob.has(n.replace(/\[[^\]]*\]$/,'')));

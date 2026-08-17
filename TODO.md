@@ -7,7 +7,109 @@ Konvensi dan jebakan proyek ada di [CLAUDE.md](CLAUDE.md).
 
 ---
 
-## 1. Undo / redo di editor flowchart
+## 0. Komen elemen array lewat import — SATU pertanyaan terbuka
+
+Kolom AT dan Retain sudah **terbukti** terisi lewat import XML (lihat
+[CLAUDE.md](CLAUDE.md#tabel-global-variable-ikut-di-xml--at-dan-retain-terbukti-jalan)).
+Yang belum: komen per elemen `AL[1..100]` / `MF[1..90]` lewat
+`<smcext:ElementComment>`, padahal bentuknya sudah menyalin `Sample.xml` milik Omron.
+
+`_Probe_GlobalVars.xml` (digenerate tiap run) memuat tujuh tebakan, tiap tebakan pada
+array bernama sendiri, beda satu hal saja satu sama lain. Import ke project KOSONG, expand
+tiap `PVn`, lalu catat mana yang komennya terisi:
+
+| kalau yang terisi | artinya |
+|---|---|
+| salah satu `PV1`–`PV5` | itu bentuk yang benar, pakai di `gvr()` di `js/lib.js` |
+| semua kosong tapi `PV6` terisi | Studio memakai `VariableComment` tapi mengabaikan bagian elemennya |
+| `PV6` kosong juga | `smcext:VariableComment` tidak dipakai waktu import sama sekali |
+| `PV7` ikut kosong | berkasnya tidak ter-import — hasil lain tidak berarti apa-apa |
+
+Kalau jawabannya "tidak bisa", tulis itu di CLAUDE.md sebagai fakta yang sudah diuji,
+hapus `buildProbeVars()` dan `elems` di `gvr()`, dan `ArrayComments.tsv` tetap satu-satunya
+jalan. Yang mahal bukan jawabannya, tapi mencobanya lagi setahun kemudian.
+
+---
+
+## 1. NB-Designer: alarm langsung dari generator
+
+**Format sudah diketahui, tidak perlu reverse engineering.** Project NB-Designer itu folder
+biasa berisi `.nbp` (XML polos) dan **`AlarmLib.csv`** — CSV apa adanya. Contoh nyata ada di
+`C:\Users\denny\Downloads\Prepare HMI CE INSERTl\`, 494 baris, dan isinya sudah teks
+generator ini:
+
+```
+Alarm Lib,V103
+HMIID,AlarmState,BeepDelay,UseTextLib,TextTagName,TextContent,...,TrigAddrType,TrigAddr,...
+0,1,0,0,,AL[3]Air source pressure lost,16,ff0000,0,,0,,0,1,56,400.02,0,0,0,H_bit,...
+                └ TextContent                                    └ TrigAddr = word.bit
+```
+
+Cuma dua kolom yang berubah per baris: `TextContent` (dari `ARRAY_ELEMENTS`) dan `TrigAddr`
+(dari `HMI_CFG.alBase`/`mfBase`, ditulis `word.bit` desimal TANPA awalan `%`). Sisanya
+konstan — `TrigAddrType=56` untuk area H, font, warna. Menghasilkan berkas ini mekanis penuh
+dan bisa diadu ke project NB yang sudah ada sebagai acuan.
+
+Ini yang menghapus salin-tempel alarm ke NB, dan tidak butuh satu pun putaran ke Studio.
+
+---
+
+## 2. Server MCP — jalan masuk buat AI
+
+Alasan sebenarnya bukan kenyamanan: **tools ini tidak akan pernah 100% benar sekali jadi**,
+jadi harus ada tempat untuk fleksibilitas. Yang fleksibel itu INPUT-nya.
+
+**Aturan yang tidak boleh dilanggar: AI tidak pernah menyentuh XML atau ladder.** Ruang
+keluarannya dibatasi ke project JSON. Topologi rung, penamaan, alokasi AL/MF, seal logic,
+pencocokan LSC tetap milik generator.
+
+Alasannya bukan kehati-hatian umum. AI yang menulis rung langsung menghasilkan ladder yang
+**ter-import bersih dan salah waktu jalan** — dan tidak satu pun dari empat gerbang bisa
+menangkap itu, karena bentuknya sah semua. Lewat project JSON, apa pun yang dikarang tetap
+keluar sebagai rung yang sudah teruji.
+
+**Prasyaratnya sudah ada** — `scripts/core.js` (headless) dan warning terstruktur. Yang
+tersisa tinggal pembungkus tipis:
+
+```
+list_devices(io)        daftar device per station + nama solenoid yang SAH
+get_project()           project JSON sekarang
+validate_project(json)  dry-run: warnings terstruktur, TANPA nulis file
+generate(json)          XML + GlobalVariables.tsv
+```
+
+`list_devices` bukan opsional: tanpa itu LLM mengarang nama solenoid dan yang didapat cuma
+warning `unknown_solenoid` — langkahnya hilang diam-diam.
+
+---
+
+## 3. Watcher: Sysmac → git → flowchart
+
+Idenya: sambil menyunting di Sysmac, Ctrl+S memicu pembacaan, perubahannya dicatat dan
+di-commit, flowchart ikut diperbarui.
+
+**Yang sudah diketahui.** Tidak ada penyimpanan project Sysmac yang auto-update di mesin ini
+— yang ada berkas `.smc2` lepas di `Downloads`, dan `New Project.smc2` tertulis pada jam
+kerja, jadi kemungkinan itu project hidup yang di-Ctrl+S. **Belum diverifikasi**: buka
+Studio, Ctrl+S, lihat apakah timestamp berkas itu berubah. Kalau ya, watcher-nya tinggal
+memantau satu berkas; kalau tidak, pemicunya harus "Save As" berkala.
+
+**Keputusan desain yang lebih penting daripada pemicunya: arah kepercayaan harus timpang.**
+Git boleh mencatat SEMUA — itu cuma berkas. Yang boleh balik masuk ke flowchart hanya yang
+bisa diwakili PERSIS. Reader menutup ~54% rung; kalau feedback dipaksa penuh, satu rung yang
+diedit tangan di Studio hilang diam-diam waktu flowchart di-generate ulang — lebih buruk
+daripada tidak ada watcher. Prinsipnya sudah ada di `reader/src/net.js`: yang tidak eksak
+ditolak, bukan ditebak. Rung yang tidak terwakili ditandai "berubah di Studio, perlu
+ditinjau".
+
+**Bagian yang murah dan berdiri sendiri: commit isi yang ter-ekstrak, bukan `.smc2`-nya.**
+`.smc2` itu ZIP — commit binernya bikin `git diff` tidak menunjukkan apa-apa. Ekstrak XML-nya
+(atau dump teks ternormalisasi dari reader) dan commit ITU di sampingnya. Baru kelihatan rung
+mana yang berubah.
+
+---
+
+## 4. Undo / redo di editor flowchart
 
 **Kenapa penting.** Satu-satunya cara membatalkan kesalahan sekarang adalah
 mengulang manual. Menghapus node juga menghapus semua panah yang menempel padanya
@@ -32,7 +134,7 @@ tes yang memeriksa tiap fungsi mutasi benar-benar menambah satu entri riwayat.
 
 ---
 
-## 2. Panel hasil
+## 5. Panel hasil
 
 **Keadaan sekarang.** Tiap file XML tampil sebagai textarea mentah. Untuk menilai
 hasil generate, satu-satunya cara adalah men-scroll XML.
@@ -43,31 +145,7 @@ lagi tampilan utama.
 
 ---
 
-## 3. Server MCP
-
-**Prasyaratnya sudah ada** — `scripts/core.js` (headless) dan warning terstruktur.
-Yang tersisa tinggal pembungkus tipis.
-
-Tool yang direncanakan:
-
-```
-list_devices(io)        daftar device per station + nama solenoid yang SAH
-get_project()           project JSON sekarang
-validate_project(json)  dry-run: warnings terstruktur, TANPA nulis file
-generate(json)          XML + GlobalVariables.tsv
-```
-
-`list_devices` bukan opsional: tanpa itu LLM mengarang nama solenoid dan yang
-didapat cuma warning `unknown_solenoid`, langkahnya hilang diam-diam.
-
-**Aturan yang harus dipegang.** LLM **tidak pernah** menyentuh XML atau ladder —
-ruang keluarannya dibatasi ke project JSON. Topologi rung, penamaan, alokasi
-AL/MF, seal logic, pencocokan LSC tetap milik generator. Itu yang membuat
-hasilnya taat aturan.
-
----
-
-## 4. Node condition yatim hilang saat export
+## 6. Node condition yatim hilang saat export
 
 Node bertipe `condition` yang **tidak dirujuk `after` node manapun** lenyap saat
 export/import. Penyebabnya desain: node condition tidak disimpan di array `nodes`,
@@ -79,7 +157,7 @@ export–import (mis. lewat MCP).
 
 ---
 
-## 5. Manfaatkan pembaca `.smc2` ([reader/](reader/))
+## 7. Manfaatkan pembaca `.smc2` ([reader/](reader/))
 
 Pembacanya sudah jadi dan sekarang ada di dalam repo ini. Yang belum: memakainya.
 
@@ -90,7 +168,7 @@ Pembacanya sudah jadi dan sekarang ada di dalam repo ini. Yang belum: memakainya
    Ketahuan kalau ada yang mengedit tangan dan menyimpang dari standar.
 3. **Tarik IO list dari mesin lama** untuk mesin copy atau retrofit.
 
-### 5a. Ekspor XML: blok fungsi (lanjutan `--xml`)
+### 7a. Ekspor XML: blok fungsi (lanjutan `--xml`)
 
 `reader/cli.js --xml` sudah menulis rung kontak/coil jadi XML yang bisa di-import
 Studio, dan itu **~54% rung**. Sisanya rung berblok fungsi — `MOVE`, `TON`,
@@ -112,18 +190,10 @@ lihat apakah bentuknya sama -> baru digeneralkan. Jangan dibalik. Instruksi yang
 bentuk XML-nya ditebak akan ter-import tanpa keluhan dan salah waktu jalan, dan
 itu jenis kesalahan yang tidak kelihatan sampai mesinnya bergerak.
 
-Temuan yang belum dipakai: XSD-nya punya `<Address address="%W461.00"/>` sebagai anak
-`Variable` (setelah `InitialValue`). Artinya **AT bisa ikut di XML**, tidak harus lewat
-tempel TSV ke tabel Global Variable. Retain TIDAK bisa — atributnya ada di kontainer
-(`GlobalVars`), bukan di tiap variabel, jadi kolom Retain di TSV tetap satu-satunya jalan
-buat retain per-variabel.
+Yang masih ditolak: **kontak edge di titik gabungan** — `Rung.ct()` cuma menerima satu
+sambungan masuk, sementara `ctm()` (banyak sambungan) belum menerima atribut `edge`.
 
-Yang juga masih ditolak: **coil Set/Reset** dan **kontak edge di titik gabungan**
-(`Rung.ct()` cuma menerima satu sambungan masuk). Atribut Set/Reset sekarang sudah
-diketahui dari XSD-nya — `latch="set"` / `latch="reset"` pada `<Coil>` — tinggal
-dipasang di `lib.js` dan divalidasi lewat `scripts/validate_xml.ps1`.
-
-## 6. Panel warning bisa diklik
+## 8. Panel warning bisa diklik
 
 Warning sudah dikelompokkan per station dan membawa `code` + `device`. Langkah
 berikutnya yang murah: klik satu baris warning → gulirkan ke aktuator atau node
@@ -141,3 +211,11 @@ yang bersangkutan. Datanya sudah tersedia, tinggal penyambungnya.
 - Editor IO list mode tabel dengan dropdown jenis
 - Node-RED dicabut; pipeline jalan langsung dari `js/` lewat `scripts/core.js`
 - Penjaga build: karakter kontrol + `node --check`
+- Empat gerbang sebelum Studio: `xsd`, `instr`, `rungwire`, `declared` — semuanya ikut
+  `node tests/run.js`, semuanya menguji dirinya sendiri
+- `index.html` basi ditolak suite (dicek lewat isi, bukan tanggal berkas)
+- `build_html.py` membaca js dengan `encoding='utf-8'` — sebelumnya cp1252 merusak `■`
+- AT dan Retain ikut di XML import, terbukti di Studio
+- Slot cadangan jadi slot utuh: reed switch, LSC, AL, MF, output
+- Angin dua alarm (tekanan jatuh + pressure switch rusak); `EMER_INTLK` dari `LB019`
+- `docs/SYSMAC_INSTRUCTIONS.md`: 353 instruksi, kolom FUN/FB dan pin, dari manual W560

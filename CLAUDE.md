@@ -83,6 +83,27 @@ milik builder yang bersangkutan di tempat simbolnya dipakai. Yang lupa lolos
 XSD, lolos import, dan baru kelihatan sebagai variabel merah di Studio —
 `aP_0_1s` di section Timers kena persis begini. Suite `declared` menjaganya.
 
+**Slot cadangan itu slot UTUH, bukan jatah alamat kosong.** Tiap slot punya semua yang
+dipunya slot terpakai: tombol `PB4xx_nM/R`, lampu `PL4xx_nM/R`, reed switch `AS4xx_nM/R`,
+kombinasi `LSC4xx_nM/R`, alarm `ALL REED SWITCH ON`, `MOTION FAULT`, interlock, bit command,
+dan barisnya di Individual / HMI_Output / Auto_Output. Menambah aktuator nanti berarti
+mengganti sumber sinyal, bukan menulis slot dari nol — dan tidak ada alamat yang bergeser.
+
+Tiga hal yang menempel padanya dan gampang salah:
+
+- **Reed switch cadangan disetir `GSB001` (selalu OFF), bukan `GSB000`.** Dua reed switch
+  yang sama-sama ON itu justru kondisi alarmnya; disetir ON, tiap slot cadangan mengalarm
+  sejak scan pertama.
+- **LSC cadangan TIDAK boleh masuk `homeConds`.** Sumbernya `GSB001`, jadi LSC sisi return
+  selamanya OFF — dimasukkan ke syarat home position, station itu tidak pernah dinyatakan
+  di home dan mesin **tidak pernah bisa start**.
+- **Slot AL dan MF-nya diambil SEKARANG**, bukan nanti waktu aktuatornya dipasang.
+  Dialokasi belakangan, nomor alarm semua yang di belakangnya bergeser — dan nomor itu
+  tercetak di layar NB dan lembar troubleshooting.
+
+Menekan tombol M slot cadangan MEMANG memunculkan motion fault setelah timernya habis. Itu
+jawaban yang benar: slot diperintah bergerak dan tidak bergerak, karena belum ada silindernya.
+
 **Kode warning adalah kontrak.** `W(code, station, message, {device})` di
 `js/gen_all.js`. UI dan konsumen luar menyantol ke `code` dan `device`, bukan ke
 teks pesan. Mengganti kalimat aman; mengganti kode memutus penyorotan blok merah
@@ -164,6 +185,55 @@ Yang sudah dibaca dari XSD dan belum tentu kepikiran dari kode:
 | urutan anak `FbdObject` | `InOutVariables` → `InputVariables` → `OutputVariables`, terikat `xsd:sequence` |
 | coil Set/Reset | atribut `latch="set"` / `latch="reset"` (default `none`) |
 | kontak/coil edge | atribut `edge`, default `none` |
+
+### Tabel Global Variable ikut di XML — AT dan Retain TERBUKTI jalan
+
+Kolom yang dulu ditempel tangan dari TSV punya tempatnya sendiri di XML import. Dua
+sudah **dibuktikan di Studio**, satu belum:
+
+| kolom | caranya | status |
+|---|---|---|
+| AT | `<Address address="%W461.00" />`, anak `VariableDecl` **sesudah** `Type` | terbukti jalan |
+| Retain | atribut `retain="true"` di **kontainer** `<GlobalVars>` | terbukti jalan |
+| Comment | `<Documentation xsi:type="SimpleText">` | sudah lama dipakai |
+| Comment per elemen | `<smcext:ElementComment element="[11]"><smcext:Text id="1">` | **belum jalan**, lihat TODO |
+
+Retain kelihatan mustahil per-variabel karena atributnya di kontainer. Bukan: `GlobalVars`
+itu `maxOccurs="unbounded"`, jadi yang retain masuk kontainer `retain="true"` dan sisanya
+kontainer polos. `Sample.xml` Omron memakai EMPAT kontainer untuk tiap kombinasi
+`constant` × `retain` — jadi ini bentuk yang mereka niatkan.
+
+Urutan anak `Variable` terikat `xsd:sequence`, dan urutannya TIDAK sama dengan urutan
+kolom di tabel Studio:
+
+```
+Documentation  →  AddData  →  Type  →  Address
+```
+
+**Cuma `AllPrograms.xml` yang membawa tabelnya.** Bukan pilihan gaya: tabelnya baru lengkap
+di titik itu. AT untuk `AL`/`MF` diklaim paling akhir, dan komen alarm station terakhir belum
+ada sampai builder terakhir jalan. Berkas per-program yang dirender lebih dulu membawa versi
+setengah jadi, dan dua berkas yang saling menimpa waktu di-import lebih buruk daripada satu
+berkas yang benar. Berkas per-program tetap membawa daftar nama saja.
+
+`prog()` menerima tiga bentuk `glob`: array objek (tabel penuh), array string (markup
+`<Variable>` jadi, dipakai exporter reader yang tidak punya alamat maupun retain), dan
+string (markup kontainer jadi, dipakai probe yang menyusun tabelnya sendiri).
+
+### Cara membuat probe yang menjawab
+
+Berlaku untuk pertanyaan apa pun yang cuma bisa dijawab Studio. Empat aturannya, ketiganya
+pernah dilanggar dan tiap pelanggaran memakan satu putaran:
+
+1. **Semua tebakan dalam SATU berkas**, tiap tebakan pada objek bernama sendiri
+   (`PV2_TANPADOC`, bukan "varian 2"). Namanya kebaca di Studio tanpa membuka berkasnya.
+2. **Tiap varian beda SATU hal saja** dari tetangganya. Dua perbedaan sekaligus = jawaban
+   yang tidak bisa dibaca.
+3. **Sertakan kontrol yang PASTI jalan.** Kalau kontrolnya ikut gagal, berkasnya yang tidak
+   ter-import dan hasil lainnya tidak berarti apa-apa.
+4. **Objeknya harus DIPAKAI di ladder.** Variabel global yang tidak dirujuk rung manapun
+   bisa hilang waktu import — probe-nya masuk, tabelnya kosong, dan yang tercatat jadi
+   "bentuknya ditolak" padahal variabelnya tidak pernah ada.
 
 ## Instruksi di luar kontak/coil — FUN vs FB
 
@@ -248,6 +318,36 @@ kelebihan produksi tidak terhitung. Dua project mesin sama-sama begitu.
 **Timer: edge ada di kontak CLOCK, bukan di GTM.** GTM itu "timer ini sedang jalan"
 (penahan); yang mencacah pulsa clock. Ketuker, timernya menghitung sekali seumur hidup —
 dan itu tidak kelihatan sama sekali dari jumlah rung maupun dari hasil import.
+
+**Kedua TSV itu berkas TEMPEL, bukan berkas baca.** `GlobalVariables.tsv` tanpa baris judul
+(Studio menempelkannya jadi variabel bernama `Name` bertipe `Data type`) dan tanpa baris
+elemen array (`AL[61]` baru bisa diisi SETELAH arraynya di-expand; ratusan baris itu bikin
+blok variabel skalar tidak sejajar dengan yang kebuka di layar). Elemen punya berkasnya
+sendiri, `ArrayComments.tsv`, urutannya persis urutan expand.
+
+## MAIN — alasan di balik gerbang yang tidak kelihatan dari rungnya
+
+**Angin punya DUA alarm.** `AL[3]` tekanan jatuh dan `AL[5]` pressure switch rusak. Yang
+kedua bukan hiasan: switch yang mati nyangkut di posisi "angin ada" TIDAK PERNAH memicu
+`AL[3]` — alarmnya diam selamanya dan mesin jalan tanpa penjaga tekanan. Detektornya
+membandingkan switch dengan perintahnya, simetris dua arah (`MSTR_RDY`+tanpa angin,
+tanpa `MSTR_RDY`+ada angin), lewat SATU timer `T_AIRPS` (3 detik). Tanpa timer, alarm
+menyala tiap master di-ON — tangki sedang mengisi — dan operator belajar mengabaikannya.
+
+**`AL[3]` digerbang `(LB009 · SAFE_CONF · LB019) + LB002`, bukan `LB001`.** Angin dinilai
+HANYA saat angin memang seharusnya ada. Dengan `LB001` (jeda power-on) saja, E-stop ditekan
+atau pintu safety dibuka pun tetap dinilai — padahal di situ anginnya memang SENGAJA dibuang.
+
+**`LB019`, bukan kontak tombol E-stop.** Ini berlaku di dua tempat: gerbang `AL[3]` dan coil
+`EMER_INTLK`. Tombolnya cuma SATU dari lima sebab grup emergency menyala. Dari
+`NOT_EMG_STOP`, interlock lepas begitu tombol ditarik walau fuse masih putus atau safety
+masih terbuka — itu bukan interlock, itu salinan tombol. `LB019` memuat `/AL[3]` di dalamnya
+tapi itu bukan lingkaran: coil `LB019` jauh di bawah rung `AL[3]`, jadi yang terbaca hasil
+scan sebelumnya.
+
+**Tombol silence buzzer namanya `PB_ALM_RST`.** Tiga latch (`LB061`/`LB063`/`LB065`) semuanya
+membungkam alarm, tidak pernah me-reset fault. `genname.js` memetakan keempat ejaan IO list
+(`ALARM RESET`, `ALM RESET`, `FAULT RESET`, `FLT RESET`) ke nama itu.
 
 ## Membaca project Sysmac (.smc2) — `reader/`
 

@@ -1746,10 +1746,10 @@ function buildProbeVars(){
                  + '<smcext:Text id="'+id+'">ELEMEN '+i+' TERISI</smcext:Text></smcext:ElementComment>'; }).join('')
              + '</smcext:VariableComment>';
     }
-    // [nama, keterangan buat dibaca manusia, markup <Variable> lengkap]
+    // [nama, keterangan buat dibaca manusia, markup <Variable> lengkap, tipe]
     var V=[];
     function v(n,why,doc,add,type,addr){
-        V.push({n:n,why:why,x:'      <Variable name="'+n+'">'
+        V.push({n:n,why:why,arr:!type,x:'      <Variable name="'+n+'">'
             +(doc===null?'':'<Documentation xsi:type="SimpleText">'+esc(doc)+'</Documentation>')
             +(add?'<AddData>'+add+'</AddData>':'')
             +'<Type><TypeName>'+(type||AR)+'</TypeName></Type>'
@@ -1774,13 +1774,29 @@ function buildProbeVars(){
     v("PV7_DOCSAJA","Kontrol: Documentation saja, tanpa AddData - jalur yang sudah pasti jalan",
       "DOCUMENTATION TERISI", null, "BOOL");
     var glob='    <GlobalVars>\n'+V.map(function(e){return e.x;}).join('\n')+'\n    </GlobalVars>';
-    // Programnya cuma pelengkap - berkas import wajib punya isi. Rung-rungnya menuliskan daftar
-    // tebakannya supaya yang membukanya di Studio tidak perlu berkas ini lagi buat membacanya.
+    // Tiap variabel WAJIB dipakai di ladder, bukan cuma didaftar di tabel. Percobaan pertama
+    // rung-nya semua menggerakkan satu bit PV_NOP dan tidak menyentuh PV1..PV7 sama sekali -
+    // variabel global yang tidak dirujuk rung manapun bisa hilang waktu import, dan probe yang
+    // variabelnya tidak muncul menjawab "bentuknya ditolak" padahal variabelnya tidak pernah ada.
+    //
+    // Jadi tiap varian dapat rungnya sendiri yang MEMBACA elemennya: dua elemen jadi kontak seri,
+    // dua lagi jadi coil. Empat elemen tersentuh semua, dan rung-nya sekaligus jadi label yang
+    // menerangkan varian itu apa.
     var S=[], o=1;
     S.push(series(o++,[["GSB000",false]],"PV_NOP","Baca tabel Global Variable, bukan rung ini. "
         +"Expand tiap array PVn, lalu lihat kolom Comment elemennya - yang terisi berarti bentuknya dipakai."));
-    V.forEach(function(e){ S.push(series(o++,[["GSB000",false]],"PV_NOP", e.n+" : "+e.why)); });
     var ext=['      '+vr("GSB000","BOOL","Equipment design coil, constant ON")];
+    V.forEach(function(e){
+        ext.push('      '+vr(e.n, e.arr?AR:"BOOL", ""));
+        if(e.arr){
+            var r=new Rung(o++, e.n+" : "+e.why);
+            var c=r.ct(e.n+"[1]", r.ct(e.n+"[0]", r.rail()));
+            r.rr([r.cl(e.n+"[2]", c), r.cl(e.n+"[3]", c)]);
+            S.push(r.build());
+        } else {
+            S.push(series(o++,[[e.n,false]],"PV_NOP", e.n+" : "+e.why));
+        }
+    });
     var priv=['      '+vr("PV_NOP","BOOL","No operation")];
     return { name:"_Probe_GlobalVars.xml",
              xml:prog("P998_ProbeVars",ext,priv,[sect("Probe",1,S)],glob),
