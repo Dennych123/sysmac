@@ -5,6 +5,12 @@ mengikuti standar pemrograman terstruktur PT. Ndeso Indonesia.
 Dipaketkan sebagai `index.html` standalone - satu file, tanpa dependensi
 eksternal, tanpa server, jalan offline dari `file://`.
 
+Arah sebaliknya ada di **[reader/](reader/)**: membaca project `.smc2` yang sudah
+jadi tanpa Sysmac Studio, dan mengekspor rung-nya balik jadi XML yang bisa
+di-import. Jadi lingkarannya tertutup - **baca program yang ada → sunting →
+import balik**, bukan cuma bikin dari nol. Pembangun XML-nya dipakai bersama
+(`js/lib.js`), bukan disalin.
+
 ## Alur
 
 ```
@@ -277,6 +283,7 @@ kecek manual - kepercayaan cocoknya lemah, gampang salah pasang device mirip.
 | `tests/run.js` | Penjalan seluruh suite |
 | `tests/*.test.js` | Harness per-area (editor, warning, array, blok, JSON, grid IO) |
 | `index.html` | Hasil build, jangan diedit langsung |
+| `reader/` | Pembaca `.smc2` + ekspor balik ke XML importable. Suite sendiri: `cd reader && node tests/run.js` |
 
 ## Uji yang dijalankan `test.js`
 
