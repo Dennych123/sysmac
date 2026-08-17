@@ -52,7 +52,9 @@
                                background:#fff;color:var(--fg);width:100%}
   #ioGrid input{font-family:Consolas,monospace}
   #ioGrid .c-addr{width:130px}
-  #ioGrid .c-jenis{width:200px}
+  /* Selebar label terpanjang ("SRV_CMD - Servo command (N positions)"). Kesempitan sedikit saja
+     dan Windows memotong teksnya jadi "...(dipas" - pilihannya jadi tidak bisa dibedakan. */
+  #ioGrid .c-jenis{width:270px}
   #ioGrid .c-io{width:92px}
   #ioGrid .c-st{width:64px}
   #ioGrid .c-del{width:34px}
@@ -280,9 +282,40 @@
   .fold-t{font-size:15px;font-weight:650;color:var(--fg)}
   .fold-sub{font-size:12.5px;color:var(--faint)}
   .fold-sub.attn{color:var(--warn);font-weight:600}
+
+  /* Navigasi samping. Halamannya satu kolom panjang, dan bagian yang paling sering dituju -
+     tombol download - ada di paling bawah. Sebelum ini, tiap habis import project harus
+     menggulir melewati seluruh IO list dan kanvas motion cuma buat mengunduh. */
+  .sidenav{position:fixed;top:0;left:0;bottom:0;width:186px;padding:22px 12px;overflow-y:auto;
+           background:var(--card);border-right:1px solid var(--line);z-index:40}
+  .sidenav .nav-t{font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
+                  color:var(--faint);padding:0 10px 8px}
+  .sidenav a{display:block;padding:7px 10px;margin-bottom:2px;border-radius:6px;font-size:13px;
+             color:var(--muted);text-decoration:none;border-left:2px solid transparent;line-height:1.3}
+  .sidenav a:hover{background:var(--accent-soft);color:var(--accent-dk)}
+  .sidenav a.on{background:var(--accent-soft);color:var(--accent-dk);font-weight:600;
+                border-left-color:var(--accent)}
+  /* Tanda jumlah di samping "Results" - sekaligus penanda bahwa generate sudah jalan. */
+  .sidenav .n{float:right;font-size:11px;color:var(--faint);font-weight:400}
+  .sidenav a.on .n{color:var(--accent-dk)}
+  body{padding-left:214px}
+  /* Layar sempit: nav-nya disembunyikan, bukan dipaksa muat. Halamannya tetap bisa dipakai
+     dengan menggulir seperti sebelum ada nav. */
+  @media (max-width:1100px){ .sidenav{display:none} body{padding-left:28px} }
 </style>
 </head>
 <body>
+<nav class="sidenav" id="sideNav">
+  <div class="nav-t">Sections</div>
+  <a href="#sec-io">I/O list</a>
+  <a href="#sec-settings">Settings</a>
+  <a href="#hmiBox">HMI address map</a>
+  <a href="#confirmModeBox">Confirm mode</a>
+  <a href="#sec-project">Project file</a>
+  <a href="#sec-cond">Conditions</a>
+  <a href="#sec-motion">Motion sequence</a>
+  <a href="#results">Results <span class="n" id="navFileCount"></span></a>
+</nav>
 <div class="topbar">
   <div class="brand">
     <h1>Susmax Program Generator</h1>
@@ -292,7 +325,7 @@
 
 </div>
 
-<div class="sec-head">
+<div class="sec-head" id="sec-io">
   <h2>I/O list</h2>
   <span class="help" data-tip="Four columns: Address, Type, IN/OUT, Comment. A comment containing ST1 / ST2 / ST3 goes into that unit program; no ST tag goes into MAIN. Table mode gives you dropdowns so Type and IN/OUT cannot be mistyped. Text mode takes a TAB-separated paste straight from Excel. Both hold the same list, switch any time.">?</span>
 </div>
@@ -314,7 +347,7 @@
 <div id="err"></div>
 <div id="warnBox" class="warn-box"><b>Warnings</b><div id="warn"></div></div>
 
-<div class="sec-head">
+<div class="sec-head" id="sec-settings">
   <h2>Settings</h2>
   <span class="help" data-tip="These apply to every station. Timer format is T#<number><unit> - T#200MS, T#1S, T#2M. A wrong format falls back to the default and raises a warning instead of going into the ladder. Station names are optional and only show up in the generated comments.">?</span>
 </div>
@@ -365,7 +398,7 @@
 <div id="confirmModePanel" class="stname-panel"></div>
 </details>
 
-<details class="json-io project-json" open>
+<details class="json-io project-json" id="sec-project" open>
   <summary><span>Project file</span>
     <span class="help" data-tip="Everything in one file: I/O list, motion sequences, conditions, station names, timers and the HMI map. Loading a file replaces the whole project that is open and runs Generate again.">?</span></summary>
   <textarea id="projectJsonTa" spellcheck="false"
@@ -374,13 +407,13 @@
   <span class="json-msg" id="projectJsonMsg"></span>
 </details>
 
-<div class="sec-head">
+<div class="sec-head" id="sec-cond">
   <h2>Conditions</h2>
   <span class="help" data-tip="Each station can have as many named condition bits as it needs. One bit = several AND groups joined by OR - the same shape as a Denso condition rung. A term can point at a sensor, any existing bit, or another condition bit. A bit that does not exist yet gets a placeholder so the import never fails. Stations you never touch keep the three generic spare slots.">?</span>
 </div>
 <div id="conditionPanel"></div>
 
-<div class="sec-head">
+<div class="sec-head" id="sec-motion">
   <h2>Motion sequence</h2>
   <span class="help" data-tip="A station can hold several sequence variants, each with its own condition bit - leave it empty and the variant always runs. Only the variant whose condition is true will run. Click a solenoid to drop a step, then drag from the yellow dot to another step to say what has to finish first. A step waiting on two or more others gets an AND/OR badge you can toggle. Drag steps only to tidy the layout.">?</span>
   <span class="help" data-tip="IF/ELSE - one in, two out (Y on the right, N below). Once the decision is taken the branch holds, and the two sides interlock so they can never be on together. SET/RESET memory - a latching bit; every set and reset trigger for one bit is merged into a single rung, so there is no double coil. ALARM - takes an AL slot automatically, latches itself and joins the category group you pick. To merge two branches, drag both Y and N into the same step and set its badge to OR. Click a step to edit its bit, category and comment. Select and press Delete to remove.">blocks</span>
@@ -506,12 +539,15 @@ function buildJsonIORow(ta, msg, getText, doImport, fileName) {
 // membacanya. Tabel ini murni permukaan edit yang baca-tulis teks yang sama, jadi gak ada satu pun
 // jalur lama yang perlu diubah dan tempel-massal dari Excel tetap jalan lewat mode Teks.
 // Daftar jenis diambil dari PRE di genname.js - kalau ada jenis baru di sana, tambahin di sini juga.
+// 2P ("tombol 2 tangan") sengaja TIDAK ada di daftar ini: tidak pernah dipakai dan cuma bikin
+// daftarnya panjang. Prefiksnya masih ada di PRE (genname.js) supaya berkas lama yang terlanjur
+// memakainya tetap terbaca - yang dibuang cuma pilihannya, bukan dukungannya.
 var IO_JENIS = [
   ['PB', 'Push button'], ['SS', 'Selector switch'], ['LS', 'Limit switch'],
   ['CR', 'Relay / contactor'], ['PH', 'Photo sensor'], ['PX', 'Proximity sensor'],
-  ['AS', 'Auto switch silinder (dipasangkan 2 arah)'], ['SRV_LS', 'Feedback posisi servo'],
-  ['PL', 'Pilot lamp'], ['BZ', 'Buzzer'], ['2P', 'Tombol 2 tangan'],
-  ['SOL', 'Solenoid valve'], ['SRV_CMD', 'Command servo (N posisi)']
+  ['AS', 'Auto switch (cylinder, 2 ends)'], ['SRV_LS', 'Servo position feedback'],
+  ['PL', 'Pilot lamp'], ['BZ', 'Buzzer'],
+  ['SOL', 'Solenoid valve'], ['SRV_CMD', 'Servo command (N positions)']
 ];
 var IO_IN_ONLY = { PB:1, SS:1, LS:1, PH:1, PX:1, AS:1, SRV_LS:1, '2P':1 };
 var IO_OUT_ONLY = { PL:1, BZ:1, SOL:1, SRV_CMD:1 };   // CR bisa dua-duanya
@@ -708,7 +744,7 @@ function sortStations(keys) {
   });
 }
 
-var errEl, resEl, statsEl, warnEl, warnBoxEl, motionPanelEl, conditionPanelEl, stationNamesPanelEl, timerPhpxEl, timerMotionEl, confirmModePanelEl, alSizeEl, mfSizeEl, stationBlockEl, arraySizeHintEl;
+var errEl, resEl, statsEl, warnEl, warnBoxEl, motionPanelEl, conditionPanelEl, stationNamesPanelEl, timerPhpxEl, timerMotionEl, confirmModePanelEl, alSizeEl, mfSizeEl, stationBlockEl, arraySizeHintEl, navFileCountEl;
 var advInstrEl;
 var hmiModeEl, hmiBtnAreaEl, hmiAlAreaEl, hmiPbBaseEl, hmiRdOffsetEl, hmiAlBaseEl, hmiMfBaseEl, hmiPerPageEl, hmiStrideEl, hmiEnabledEl, hmiMapPanelEl, hmiSummaryEl;
 // Setelan peta HMI dikumpulin di satu tempat - dipakai regenerate(), export project JSON, dan import.
@@ -1491,6 +1527,9 @@ function renderResults(payload) {
   renderHmiMap(payload.hmiMap);
   lastWarnings = payload.warnings || '';
   lastWarnList = payload.warnList || [];
+  // Jumlah berkas ditulis di sebelah "Results" di nav samping - dari situ kelihatan generate
+  // sudah jalan tanpa perlu menggulir ke bawah dulu buat memastikan.
+  if (navFileCountEl) navFileCountEl.textContent = payload.files.length ? payload.files.length : '';
   renderWarnings(lastWarnList, lastWarnings);
   warnBoxEl.style.display = payload.warnings ? 'block' : 'none';
   // Panel Confirm Mode diwarnai dari warnList generate INI - kalau gak dirender ulang di sini,
@@ -2480,6 +2519,7 @@ function runFullPipeline() {
 
 errEl = document.getElementById('err');
 resEl = document.getElementById('results');
+navFileCountEl = document.getElementById('navFileCount');
 statsEl = document.getElementById('stats');
 warnEl = document.getElementById('warn');
 warnBoxEl = document.getElementById('warnBox');
@@ -2552,6 +2592,47 @@ document.getElementById('genBtn').addEventListener('click', function () {
   }, 'project-susmax.json');
   document.getElementById('projectJsonRow').appendChild(row);
 })();
+// --- Navigasi samping ---
+// Klik = gulir halus ke bagiannya; kalau bagian itu <details> yang tertutup, dibuka dulu -
+// menggulir ke fold yang tertutup cuma memindahkan layar ke garis kosong.
+// Sorotan mengikuti bagian TERAKHIR yang sudah lewat garis 130px dari atas layar. Dipakai
+// ambang, bukan "yang paling dekat tengah", supaya bagian pendek seperti Settings tidak
+// terlewat begitu saja waktu digulir cepat.
+(function () {
+  var nav = document.getElementById('sideNav');
+  if (!nav) return;
+  var links = Array.prototype.slice.call(nav.getElementsByTagName('a'));
+  var targets = links.map(function (a) {
+    return { a: a, el: document.getElementById(a.getAttribute('href').slice(1)) };
+  }).filter(function (t) { return t.el; });
+
+  targets.forEach(function (t) {
+    t.a.addEventListener('click', function (ev) {
+      ev.preventDefault();
+      if (t.el.tagName === 'DETAILS' && !t.el.open) t.el.open = true;
+      t.el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  });
+
+  var pending = false;
+  function mark() {
+    pending = false;
+    var cur = targets[0];
+    targets.forEach(function (t) {
+      if (t.el.getBoundingClientRect().top <= 130) cur = t;
+    });
+    targets.forEach(function (t) { t.a.className = (t === cur) ? 'on' : ''; });
+  }
+  // Handler scroll jalan puluhan kali per detik; membaca getBoundingClientRect tiap kali
+  // memaksa layout dan bikin halaman tersendat waktu kanvas motion sedang besar.
+  window.addEventListener('scroll', function () {
+    if (pending) return;
+    pending = true;
+    requestAnimationFrame(mark);
+  });
+  mark();
+})();
+
 document.addEventListener('mousemove', onDocMouseMove);
 document.addEventListener('mouseup', onDocMouseUp);
 document.addEventListener('keydown', onDocKeyDown);

@@ -33,12 +33,28 @@ function El(tag, id) {
     hasAttribute(k) { return this.attrs[k] !== undefined; },
     querySelector() { return null; },
     querySelectorAll() { return []; },
+    getElementsByTagName(t) { return this.children.filter(c => c.tag === t); },
     getBoundingClientRect() { return { left: 0, top: 0, width: 100, height: 20, right: 100, bottom: 20 }; },
     closest() { return null; },
     focus() {}, select() {}, click() { (this._h.click || []).forEach(f => f()); },
     scrollIntoView() {}
   };
   made.push(el);
+  return el;
+}
+// Nav samping harus punya <a>-nya beneran, kalau tidak kode nav-nya jalan di atas daftar kosong
+// dan tesnya hijau tanpa memeriksa apa pun - persis jebakan querySelectorAll yang dulu bikin bug
+// "t is not a function" lolos. Anchor-nya diambil dari sumber halaman, bukan dikarang di sini.
+function mkEl(id) {
+  const el = El('div', id);
+  if (id === 'sideNav') {
+    const nav = /<nav class="sidenav"[\s\S]*?<\/nav>/.exec(html);
+    [...(nav ? nav[0] : '').matchAll(/<a href="([^"]+)"/g)].forEach(m => {
+      const a = El('a');
+      a.attrs.href = m[1];
+      el.children.push(a);
+    });
+  }
   return el;
 }
 const byId = {};
@@ -48,7 +64,7 @@ global.document = {
   createTextNode: (t) => ({ nodeValue: t }),
   // Semua id yang ADA di halaman dikembalikan sebagai elemen; yang tidak ada tetap null,
   // supaya salah ketik id tetap ketahuan sebagai TypeError - bukan ditutupi tiruan ini.
-  getElementById: (id) => ids.has(id) ? (byId[id] = byId[id] || El('div', id)) : null,
+  getElementById: (id) => ids.has(id) ? (byId[id] = byId[id] || mkEl(id)) : null,
   querySelector: () => null,
   // querySelectorAll HARUS mengembalikan elemen beneran buat selector i18n. Versi pertama tes ini
   // mengembalikan array kosong, jadi applyI18n() tidak pernah menjalankan callback-nya dan bug

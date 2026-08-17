@@ -42,6 +42,16 @@ chk('buildJsonIORow dipakai buat Project JSON',
 // buildJsonIORow yang bikin tombol Open file / Paste / Copy / Download
 chk('buildJsonIORow bikin input file', /type = 'file'|type="file"/.test(html));
 
+// Nav samping: tiap tautan harus menunjuk bagian yang benar-benar ada. Kalau sebuah section
+// diganti id-nya, tautannya cuma tidak melakukan apa-apa waktu diklik - tanpa error, tanpa
+// tanda, dan itu justru bagian yang dipakai buat lompat ke tombol download.
+const navHrefs = [...(/<nav class="sidenav"[\s\S]*?<\/nav>/.exec(html) || [''])[0]
+  .matchAll(/<a href="#([^"]+)"/g)].map(m => m[1]);
+chk('nav samping punya tautan', navHrefs.length >= 6, navHrefs.length + ' tautan');
+const deadLinks = navHrefs.filter(id => html.indexOf('id="' + id + '"') < 0);
+chk('tiap tautan nav menunjuk bagian yang ada', !deadLinks.length, deadLinks.join(', '));
+chk('nav menunjuk hasil generate', navHrefs.indexOf('results') >= 0, navHrefs.join(' '));
+
 // Tombol utama harus ada handler-nya
 [['genBtn', 'Generate'], ['ioTabGrid', 'tab tabel'], ['ioTabText', 'tab teks'],
  ['ioAddRow', 'tambah baris'], ['ioPaste', 'tempel']].forEach(x => {
