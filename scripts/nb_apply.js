@@ -1,7 +1,13 @@
-// Tempel alarm hasil generate ke project NB-Designer.
+// Tempel alarm ke project NB-Designer.
 //
-//   node scripts/nb_apply.js project.json "C:\...\project NB"           lihat dulu, TIDAK menulis
-//   node scripts/nb_apply.js project.json "C:\...\project NB" --write   benar-benar menulis
+//   node scripts/nb_apply.js <sumber> <folder project NB>           lihat dulu, TIDAK menulis
+//   node scripts/nb_apply.js <sumber> <folder project NB> --write   benar-benar menulis
+//
+// <sumber> boleh dua-duanya:
+//   project JSON  -> alarmnya digenerate di sini, selalu sinkron dengan program
+//   AlarmLib.csv  -> berkas yang sudah diunduh dari panel web, dipakai apa adanya
+// Yang kedua ada karena yang memakai panel web sudah memegang berkasnya; memaksa mereka
+// mencari project JSON-nya lagi cuma bikin perintah ini salah ketik.
 //
 // Kenapa ada: alarm NB disimpan sebagai AlarmLib.csv biasa di dalam folder project, jadi 190
 // teks alarm tidak perlu diketik ulang satu per satu di NB-Designer. Yang dikerjakan skrip ini
@@ -20,10 +26,10 @@ const args = process.argv.slice(2);
 const write = args.includes('--write');
 const rest = args.filter(a => a !== '--write');
 if (rest.length < 2) {
-  console.error('pakai: node scripts/nb_apply.js <project.json> <folder project NB> [--write]');
+  console.error('pakai: node scripts/nb_apply.js <project.json | AlarmLib.csv> <folder project NB> [--write]');
   process.exit(2);
 }
-const [projPath, nbArg] = rest;
+const [srcPath, nbArg] = rest;
 
 // Folder project NB itu yang MEMUAT berkas .nbp. Orang biasanya menunjuk folder pembungkusnya
 // (namanya sering sama persis), jadi kalau .nbp tidak ada di situ, dicari satu tingkat ke dalam.
@@ -42,16 +48,27 @@ function findNbDir(dir) {
 const found = findNbDir(path.resolve(nbArg));
 if (found.err) { console.error(found.err); process.exit(2); }
 
-let project;
-try { project = JSON.parse(fs.readFileSync(projPath, 'utf8')); }
-catch (e) { console.error('project JSON tidak terbaca: ' + e.message); process.exit(2); }
-
+// Sumbernya dibedakan dari isinya, bukan dari nama berkasnya: orang menyimpan project JSON
+// dengan nama apa saja, dan CSV yang diunduh browser kadang jadi "AlarmLib (1).csv".
 const warns = [];
-const out = core.generate(project, { onWarn: w => warns.push(w) });
-const csv = out.files.find(f => f.name === 'AlarmLib.csv');
-if (!csv) {
-  console.error('generator tidak menghasilkan AlarmLib.csv - peta HMI kemungkinan dimatikan di project JSON.');
-  process.exit(1);
+let srcRaw;
+try { srcRaw = fs.readFileSync(srcPath, 'utf8'); }
+catch (e) { console.error('sumber tidak terbaca: ' + e.message); process.exit(2); }
+let csv, asal;
+if (/^﻿?Alarm Lib,/.test(srcRaw)) {
+  csv = { xml: srcRaw };
+  asal = 'berkas CSV apa adanya';
+} else {
+  let project;
+  try { project = JSON.parse(srcRaw); }
+  catch (e) { console.error('sumber bukan AlarmLib.csv dan bukan JSON yang sah: ' + e.message); process.exit(2); }
+  const out = core.generate(project, { onWarn: w => warns.push(w) });
+  csv = out.files.find(f => f.name === 'AlarmLib.csv');
+  if (!csv) {
+    console.error('generator tidak menghasilkan AlarmLib.csv - peta HMI kemungkinan dimatikan di project JSON.');
+    process.exit(1);
+  }
+  asal = 'digenerate dari ' + path.basename(srcPath);
 }
 
 const target = path.join(found.dir, 'AlarmLib.csv');
@@ -74,6 +91,7 @@ function cell(line, n) {
 console.log('project NB : ' + found.dir);
 console.log('berkas .nbp: ' + found.nbp);
 console.log('sasaran    : ' + target);
+console.log('sumber     : ' + asal);
 console.log('');
 console.log('alarm sekarang di project : ' + (lama === null ? '(belum ada AlarmLib.csv)' : lama.length));
 console.log('alarm hasil generate      : ' + baru.length

@@ -58,6 +58,30 @@ chk('yang lama dicadangkan utuh', baks().length === 1 && /BARIS LAMA 299/.test(f
 run(proj, luar, '--write');
 chk('jalan kedua bikin cadangan BARU, tidak menimpa yang lama', baks().length === 2, baks().join(' '));
 
+
+// --- sumber boleh AlarmLib.csv yang sudah diunduh, bukan cuma project JSON --------------
+// Yang memakai panel web sudah memegang berkasnya. Memaksa mereka mencari project JSON-nya
+// lagi cuma bikin perintah ini salah ketik - dan itu memang kejadian.
+const csvSrc = path.join(tmp, 'AlarmLib (1).csv');   // nama hasil unduh browser, bukan .json
+fs.copyFileSync(target, csvSrc);                      // isi target sekarang hasil generate
+const isiSebelum = isi();
+const dariCsv = run(csvSrc, luar, '--write');
+chk('menerima AlarmLib.csv sebagai sumber',
+    dariCsv.status === 0 && /berkas CSV apa adanya/.test(dariCsv.stdout), (dariCsv.stderr || '').slice(0, 120));
+chk('isinya sama persis dengan CSV yang diberikan', isi() === isiSebelum);
+// Dibedakan dari ISI, bukan dari nama berkas: project JSON disimpan dengan nama apa saja, dan
+// CSV unduhan sering jadi 'AlarmLib (1).csv'.
+const jsonAneh = path.join(tmp, 'setelan-mesin.txt');
+fs.copyFileSync(proj, jsonAneh);
+const dariJson = run(jsonAneh, luar);
+chk('JSON dengan nama berkas aneh tetap dikenali sebagai project',
+    dariJson.status === 0 && /digenerate dari setelan-mesin.txt/.test(dariJson.stdout),
+    (dariJson.stderr || '').slice(0, 120));
+const sampah = path.join(tmp, 'sampah.csv');
+fs.writeFileSync(sampah, 'ini bukan apa-apa');
+const r5 = run(sampah, luar);
+chk('berkas yang bukan keduanya ditolak',
+    r5.status !== 0 && /bukan AlarmLib.csv dan bukan JSON/.test(r5.stderr), r5.stderr.slice(0, 90));
 // --- yang harus ditolak ---
 const bukan = path.join(tmp, 'bukanNB'); fs.mkdirSync(bukan);
 const r1 = run(proj, bukan);
@@ -66,8 +90,8 @@ chk('dan tidak meninggalkan berkas apa pun di situ', fs.readdirSync(bukan).lengt
 const r2 = run(proj, path.join(tmp, 'tidak-ada'));
 chk('folder tidak ada ditolak', r2.status !== 0 && /folder tidak ada/.test(r2.stderr), r2.stderr.slice(0, 90));
 const r3 = run(path.join(tmp, 'bukan.json'), luar);
-chk('project JSON rusak ditolak sebelum menyentuh apa pun',
-    r3.status !== 0 && /project JSON tidak terbaca/.test(r3.stderr), r3.stderr.slice(0, 90));
+chk('sumber yang tidak ada ditolak sebelum menyentuh apa pun',
+    r3.status !== 0 && /sumber tidak terbaca/.test(r3.stderr), r3.stderr.slice(0, 90));
 // Peta HMI mati = tidak ada alamat = tidak ada yang bisa ditempel. Jangan menulis berkas kosong.
 const projOff = path.join(tmp, 'off.json');
 fs.writeFileSync(projOff, JSON.stringify(Object.assign(JSON.parse(fs.readFileSync(proj, 'utf8')), { hmiMap: { enabled: false } })));

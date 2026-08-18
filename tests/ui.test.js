@@ -68,13 +68,12 @@ chk('buildNbPanel DIPANGGIL waktu hasil dirender',
     html.indexOf('buildNbPanel(payload.files)') >= 0 && html.indexOf('resEl.appendChild(nbp)') >= 0);
 chk('panelnya punya tombol unduh AlarmLib.csv',
     html.indexOf("downloadFile('AlarmLib.csv'") >= 0);
-// Perintah CLI-nya harus utuh sampai ke halaman. Backslash di path itu yang paling gampang
-// hilang: di build_html.py escape wajib ditulis dobel, dan yang tunggal dimakan Python duluan.
+// Placeholder harus KELIHATAN placeholder. Waktu tertulis 'project.json' apa adanya, orang
+// menyalinnya bulat-bulat dan yang didapat 'project.json tidak ditemukan' - itu kejadian.
 const nbCmd = (/return 'node scripts[^\n]*/.exec(html) || ['tidak ketemu'])[0];
-chk('perintah nb_apply tercetak lengkap, backslash path tidak hilang',
+chk('perintah nb_apply memakai placeholder, bukan nama berkas yang kelihatan nyata',
     nbCmd.indexOf('nb_apply.js') >= 0 && nbCmd.indexOf('--write') >= 0
-    && nbCmd.indexOf('C:' + '\\\\') >= 0, nbCmd);
-chk('mengingatkan menutup NB-Designer dulu', html.indexOf('Tutup NB-Designer') >= 0);
+    && nbCmd.indexOf('<AlarmLib.csv') >= 0 && nbCmd.indexOf('<folder project NB>') >= 0, nbCmd);
 
 console.log(fail ? ('\n' + fail + ' GAGAL') : '\nui: semua OK');
 process.exit(fail ? 1 : 0);

@@ -12,8 +12,8 @@ python scripts/build_html.py           # js/*.js + template  ->  index.html
 node tests/run.js                      # SELURUH suite (pipeline + 16 harness)
 node scripts/core.js project.json out/ # generate dari CLI, tanpa browser
 pwsh scripts/validate_xml.ps1          # outputs/*.xml  ->  XSD resmi Sysmac
-node scripts/nb_apply.js p.json <folderNB>          # lihat dulu, TIDAK menulis
-node scripts/nb_apply.js p.json <folderNB> --write  # tempel AlarmLib.csv ke project NB
+node scripts/nb_apply.js <csv|json> <folderNB>          # lihat dulu, TIDAK menulis
+node scripts/nb_apply.js <csv|json> <folderNB> --write  # tempel ke project NB, backup dulu
 ```
 
 `node tests/run.js` membaca `index.html`, jadi **build dulu baru test**. Sekarang

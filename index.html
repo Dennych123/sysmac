@@ -1020,7 +1020,7 @@ function buildNbPanel(files) {
   row.appendChild(nbMsgEl);
 
   var hint = document.createElement('div'); hint.className = 'hint';
-  hint.textContent = 'Taruh di folder project NB-Designer, sebelah berkas .nbp - namanya harus tetap '
+  hint.textContent = 'Unduh lalu taruh di folder project NB-Designer, sebelah berkas .nbp - namanya harus tetap '
     + 'AlarmLib.csv. Tutup NB-Designer dulu: dia memuat berkas ini waktu project dibuka dan menulisnya '
     + 'lagi waktu disimpan. Menimpa akan menghapus alarm yang tidak ada di daftar ini.';
 
@@ -1048,7 +1048,10 @@ function buildNbPanel(files) {
   return box;
 }
 function nbCmdText() {
-  return 'node scripts/nb_apply.js project.json "C:\\path\\ke\\project NB" --write';
+  // Placeholder ditulis dalam kurung siku supaya tidak ada yang menyalinnya bulat-bulat lalu
+  // dapat "project.json tidak ditemukan" - itu kejadian. Contoh path Windows sengaja dibuang:
+  // backslash-nya harus di-escape dobel di template ini, dan itu jebakan yang tidak sepadan.
+  return 'node scripts/nb_apply.js <AlarmLib.csv yang diunduh> <folder project NB> --write';
 }
 function nbCopyCmd() {
   var text = nbCmdText();
