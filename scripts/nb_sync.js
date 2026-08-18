@@ -207,6 +207,13 @@ function escXml(s) {
   console.log('tidak ada di .smc2        : ' + takKetemu + (takKetemu ? '   (dibiarkan apa adanya)' : ''));
   console.log('teks yang berubah         : ' + ubahTeks);
   console.log('alamat yang dipindah      : ' + pindahAlamat + '   (NB ikut PLC, bukan sebaliknya)');
+  // Sisa yang tidak dikenali itu tanda paling jelas bahwa yang dimau mungkin rebuild. Tanpa
+  // disebut di sini, flag-nya cuma ada di komentar berkas dan tidak akan pernah dipakai.
+  if (takKetemu) {
+    console.log('');
+    console.log('Kalau ' + takKetemu + ' alarm itu memang tidak dipakai lagi, --rebuild membuang seluruh');
+    console.log('daftar lalu mengisinya ulang dari .smc2 - hasilnya persis isi PLC, tanpa sisa.');
+  }
   if (belumAda.length) console.log('ada di .smc2 tapi belum ada alarmnya di NB : ' + belumAda.length
     + '   (' + belumAda.slice(0, 4).join(' ') + (belumAda.length > 4 ? ' ...' : '') + ')');
   // Yang teksnya berubah didahulukan: itu yang perlu dibaca orang. Yang cuma pindah alamat
