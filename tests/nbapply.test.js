@@ -99,7 +99,7 @@ const r1 = run(proj, bukan);
 chk('folder tanpa .nbp ditolak', r1.status !== 0 && /bukan folder project NB/.test(r1.stderr), r1.stderr.slice(0, 90));
 chk('dan tidak meninggalkan berkas apa pun di situ', fs.readdirSync(bukan).length === 0, fs.readdirSync(bukan).join(' '));
 const r2 = run(proj, path.join(tmp, 'tidak-ada'));
-chk('folder tidak ada ditolak', r2.status !== 0 && /folder tidak ada/.test(r2.stderr), r2.stderr.slice(0, 90));
+chk('folder tidak ada ditolak', r2.status !== 0 && /tidak ada: /.test(r2.stderr), r2.stderr.slice(0, 90));
 const r3 = run(path.join(tmp, 'bukan.json'), luar);
 chk('sumber yang tidak ada ditolak sebelum menyentuh apa pun',
     r3.status !== 0 && /sumber tidak terbaca/.test(r3.stderr), r3.stderr.slice(0, 90));

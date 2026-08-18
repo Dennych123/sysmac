@@ -17,6 +17,7 @@ const fs = require('fs');
 const path = require('path');
 const { unzip } = require(path.join(__dirname, '..', 'reader', 'src', 'zip.js'));
 const { readProject } = require(path.join(__dirname, '..', 'reader', 'src', 'smc2.js'));
+const { findNbProject } = require(path.join(__dirname, 'nb_common.js'));
 
 const args = process.argv.slice(2);
 const write = args.includes('--write');
@@ -25,7 +26,11 @@ if (rest.length < 2) {
   console.error('pakai: node scripts/nb_sync.js <project.smc2> <project.nbp> [--write]');
   process.exit(2);
 }
-const [smcPath, nbpPath] = rest;
+const [smcPath, nbArg] = rest;
+// Boleh menunjuk berkas .nbp atau folder project - yang ditunjuk orang biasanya foldernya.
+const found = findNbProject(nbArg);
+if (found.err) { console.error(found.err); process.exit(2); }
+const nbpPath = found.nbpPath;
 
 // ---- sisi Sysmac: tabel variabel .smc2 ----------------------------------------------------
 // Bentuknya bukan XML melainkan teks berbaris "[SLWD version=1.0]", satu variabel satu baris:
@@ -102,7 +107,7 @@ function escXml(s) {
   // AddressType pertama milik screen - di project uji itu 'LB', dan laporannya jadi bohong.
   const objPertama = (nbp.match(RE_OBJ) || [])[0] || '';
   const areaNb = (/<AddressType[^>]*>([^<]+)<\/AddressType>/.exec(objPertama) || [])[1] || '?';
-  console.log('.nbp  : ' + total + ' alarm, area ' + areaNb);
+  console.log('.nbp  : ' + found.nbp + '   ' + total + ' alarm, area ' + areaNb);
   // Yang dicocokkan cuma ANGKA word.bit, bukan areanya. Nama area di kedua alat memang beda
   // (Sysmac %W400.00, NB H_bit 400.00) dan tidak ada peta resmi antara keduanya, jadi menebak
   // padanannya lebih berbahaya daripada menyebutkan bedanya dan membiarkan orang memutuskan.
@@ -118,9 +123,22 @@ function escXml(s) {
   console.log('teks yang berubah         : ' + ubah);
   if (contoh.length) { console.log(''); contoh.forEach(c => console.log(c)); }
   if (!cocok) {
+    // Nol cocok hampir selalu berarti base word-nya beda, bukan berkasnya salah. Yang
+    // berguna bukan 'tidak ketemu' melainkan ANGKA yang bikin ketemu, jadi jangkauan
+    // alamat kedua sisi dicetak berikut base yang seharusnya dipakai.
+    const wordNb = [...nbp.matchAll(/<AddressValue\b[^>]*>(\d+)\.\d+<\/AddressValue>/g)]
+                     .map(m => +m[1]).sort((x, y) => x - y);
     console.log('');
-    console.log('TIDAK ADA yang cocok. Alamat di NB dan AT di Sysmac tidak bertemu - periksa base word-nya');
-    console.log('(NB memakai ' + ((RE_ADDR.exec(nbp) || [])[1] || '?') + '.xx, Sysmac ' + arrays[0].word + '.xx).');
+    console.log('TIDAK ADA yang cocok - base word-nya beda, bukan berkasnya yang salah.');
+    console.log('  NB     : word ' + wordNb[0] + ' .. ' + wordNb[wordNb.length - 1]);
+    arrays.forEach(a => {
+      const akhir = a.word + Math.floor((Math.max.apply(null, Object.keys(a.els).map(Number)) - 1) / 16);
+      console.log('  Sysmac : ' + a.nama + ' word ' + a.word + ' .. ' + akhir);
+    });
+    console.log('');
+    console.log('Samakan salah satu sisi. Yang biasanya benar: setel base di panel HMI ke angka NB,');
+    console.log('generate ulang, import lagi ke Sysmac - PLC dan NB ikut bergeser bersamaan.');
+    console.log('  ' + arrays.map(a => a.nama.toLowerCase() + 'Base = ' + wordNb[0]).join('   '));
   }
 
   if (!write) {

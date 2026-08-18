@@ -24,6 +24,7 @@
 const fs = require('fs');
 const path = require('path');
 const core = require(path.join(__dirname, 'core.js'));
+const { findNbProject } = require(path.join(__dirname, 'nb_common.js'));
 
 const args = process.argv.slice(2);
 const write = args.includes('--write');
@@ -34,21 +35,7 @@ if (rest.length < 2) {
 }
 const [srcPath, nbArg] = rest;
 
-// Folder project NB itu yang MEMUAT berkas .nbp. Orang biasanya menunjuk folder pembungkusnya
-// (namanya sering sama persis), jadi kalau .nbp tidak ada di situ, dicari satu tingkat ke dalam.
-function findNbDir(dir) {
-  if (!fs.existsSync(dir) || !fs.statSync(dir).isDirectory()) return { err: 'folder tidak ada: ' + dir };
-  const nbp = d => fs.readdirSync(d).filter(f => f.toLowerCase().endsWith('.nbp'));
-  if (nbp(dir).length) return { dir: dir, nbp: nbp(dir)[0] };
-  const subs = fs.readdirSync(dir)
-    .filter(f => { try { return fs.statSync(path.join(dir, f)).isDirectory() && f !== 'temp'; } catch (e) { return false; } })
-    .map(f => path.join(dir, f))
-    .filter(d => nbp(d).length);
-  if (subs.length === 1) return { dir: subs[0], nbp: nbp(subs[0])[0] };
-  if (subs.length > 1) return { err: 'ada ' + subs.length + ' folder project NB di dalam sini, tunjuk salah satu:\n  ' + subs.join('\n  ') };
-  return { err: 'tidak ada berkas .nbp di ' + dir + ' maupun satu tingkat di dalamnya - ini bukan folder project NB-Designer' };
-}
-const found = findNbDir(path.resolve(nbArg));
+const found = findNbProject(nbArg);
 if (found.err) { console.error(found.err); process.exit(2); }
 
 // Sumbernya dibedakan dari isinya, bukan dari nama berkasnya: orang menyimpan project JSON
