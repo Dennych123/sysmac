@@ -1,5 +1,44 @@
 # Yang belum dikerjakan
 
+## BESOK (19 Agustus 2026) - dua hal, urutannya begini
+
+**1. MCP dipakai sungguhan.** Servernya sudah terdaftar di scope user dan `✓ Connected`:
+
+```bash
+claude mcp add-json susmax -s user '{"command":"node","args":["<repo>/scripts/mcp.js"],"env":{"SUSMAX_WS":"<folder project>"}}'
+```
+
+Yang belum pernah dijalankan: alur nyata dari terminal. Cobanya begini, dan yang dicari bukan
+"jawabannya bagus" tapi apakah alatnya dipilih dengan benar - `track_smc2` SEBELUM mengubah,
+`validate_project` sebelum `generate`, `restore_smc2` waktu hasilnya salah. Kalau modelnya
+melewatkan track dulu, deskripsi alatnya yang perlu diperbaiki, bukan orangnya yang diminta
+mengingat.
+
+Yang masih kurang di sisi alat: **menyunting project JSON per bagian** (mis. `add_motion_step`).
+Sekarang AI harus mengirim project JSON UTUH - satu salah ketik di bagian yang tidak disentuh
+ikut terkirim.
+
+**2. Simulator ke simulasi fisika (butir 3f).** Pintunya sudah terbukti terbuka: simulator Sysmac
+membuka OPC UA di `opc.tcp://127.0.0.1:4840`, variabel global ter-publish otomatis
+(`GlobalVars.<nama>`), dan `tools/opcua/browse.js` sudah bisa baca/tulis/pantau.
+
+Mulai dari SATU silinder, bukan seluruh mesin:
+
+```
+sim fisika  --(sensor)-->  tulis AS_*        di NX yang sedang disimulasikan
+sim fisika  <--(aktuator)- baca SOL_*        -> gerakkan silindernya di sim
+```
+
+Kalau satu silinder sudah bergerak dua arah dengan reed switch yang benar, sisanya cuma
+pengulangan. Jangan mulai dengan seluruh station: yang gagal di sana tidak bisa dibedakan antara
+salah alamat, salah arah, atau fisika sim-nya sendiri.
+
+Sebelum mulai: jalankan simulasinya DULU (menu OPC UA abu-abu selama simulator belum Run), dan
+centang `None` di Security policy lalu Transfer to simulator.
+
+---
+
+
 Diurut dari yang paling berdampak. Tiap butir menyertakan alasannya, supaya bisa
 dinilai ulang — bukan sekadar daftar perintah.
 
