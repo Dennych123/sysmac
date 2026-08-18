@@ -28,7 +28,12 @@ fs.writeFileSync(proj, JSON.stringify({
 const luar = path.join(tmp, 'NB'), dalam = path.join(luar, 'Proj');
 fs.mkdirSync(dalam, { recursive: true });
 fs.writeFileSync(path.join(dalam, 'Proj.nbp'), '<NBProject/>');
-const target = path.join(dalam, 'AlarmLib.csv');
+// Sasarannya BUKAN AlarmLib.csv: nama itu sering sudah dipakai berkas Export milik orangnya,
+// dan menimpanya tidak menambah apa pun ke NB - alarmnya ada di dalam .nbp, masuknya lewat
+// tombol Import di dialog Alarm Setting.
+const target = path.join(dalam, 'AlarmLib-generated.csv');
+const punyaOrang = path.join(dalam, 'AlarmLib.csv');
+fs.writeFileSync(punyaOrang, 'Alarm Lib,V103' + String.fromCharCode(10) + 'HDR' + String.fromCharCode(10));
 // Sengaja LEBIH BANYAK dari yang bakal digenerate: itu keadaan yang harus diperingatkan,
 // karena kelebihannya hilang dari panel begitu ditimpa.
 const lamaRows = Array.from({ length: 300 }, (_, i) => 'BARIS LAMA ' + i);
@@ -43,13 +48,19 @@ chk('menemukan folder project di dalam pembungkusnya', /Proj\.nbp/.test(kering.s
 chk('tanpa --write, berkasnya TIDAK disentuh', /BARIS LAMA 299/.test(isi()) && !/AL001_/.test(isi()));
 chk('tanpa --write, tidak bikin cadangan', baks().length === 0, baks().join(' '));
 chk('memberi tahu belum menulis apa-apa', /Belum ada yang ditulis/.test(kering.stdout));
-chk('mengingatkan menutup NB-Designer dulu', /Tutup NB-Designer/.test(kering.stdout));
+chk('menerangkan cara memasukkannya lewat Import', /Import MENGGANTI seluruh daftar/.test(kering.stdout));
 // Alarm lama yang tidak punya pengganti = hilang dari panel. Harus disebut, bukan didiamkan.
-chk('memperingatkan baris lama yang bakal hilang', /TIDAK punya penggantinya/.test(kering.stdout));
+chk('memperingatkan Import mengganti, bukan menambah', /Alarm lama yang/.test(kering.stdout));
+// Berkas Export milik orangnya sendiri tidak boleh ikut tersentuh.
+chk('AlarmLib.csv milik orangnya tidak disentuh',
+    fs.readFileSync(punyaOrang, 'utf8').indexOf('HDR') >= 0 && !/AL001_/.test(fs.readFileSync(punyaOrang, 'utf8')));
 
 // --- dengan --write ---
 const tulis = run(proj, luar, '--write');
 chk('menulis dengan --write', tulis.status === 0 && /DITULIS/.test(tulis.stdout), (tulis.stderr || '').slice(0, 120));
+chk('menyebut langkah Export sebelum Import', /tombol Export dulu/.test(tulis.stdout));
+chk('AlarmLib.csv milik orangnya TETAP tidak disentuh setelah --write',
+    !/AL001_/.test(fs.readFileSync(punyaOrang, 'utf8')));
 chk('isinya berganti', /AL001_/.test(isi()));
 chk('BOM UTF-8 ikut tertulis', isi().charCodeAt(0) === 0xFEFF);
 chk('yang lama dicadangkan utuh', baks().length === 1 && /BARIS LAMA 299/.test(fs.readFileSync(path.join(dalam, baks()[0]), 'utf8')),

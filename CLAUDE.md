@@ -52,9 +52,26 @@ dengan yang lulus.
 
 ## Alarm NB-Designer
 
-Project NB-Designer itu folder biasa: `.nbp` XML polos, dan **`AlarmLib.csv`** CSV apa adanya
-di sebelahnya. Jadi teks alarm tidak perlu diketik ulang di NB-Designer - generator menulis
-berkas itu, `scripts/nb_apply.js` menaruhnya di folder yang benar.
+Alarm NB **TIDAK dibaca dari berkas di folder project**. Tempatnya di dalam `.nbp` sendiri,
+sebagai elemen `<AlarmObject>`. CSV yang dihasilkan generator itu format **Export/Import**
+dialog "Alarm Setting", jadi masuknya lewat tombol **Import** di dialog itu.
+
+Ini sempat salah dikira satu sesi penuh: kebetulan ada `AlarmLib.csv` di folder project - milik
+orangnya, hasil Export sendiri - dan disangka itu yang dibaca NB. Menyalin berkas ke folder
+**tidak mengubah apa pun** di NB; yang berubah cuma berkas orang lain yang kebetulan bernama
+sama. Makanya `scripts/nb_apply.js` menulis ke `AlarmLib-generated.csv`, bukan `AlarmLib.csv`.
+
+Medan CSV-nya cocok satu-satu dengan atribut `<AlarmObject>` di `.nbp`, dan itu yang memastikan
+bentuknya benar:
+
+```
+<AddressType SystemID="56">H_bit</AddressType>                 TrigAddrType + token area
+<AddressValue Type="Bit" CodeType="0">416.00</AddressValue>    TrigAddr
+<Font Size="16" Color="0xff0000">AL257</Font>                  TextSize, TextColor, TextContent
+```
+
+**Import MENGGANTI seluruh daftar alarm, bukan menambah.** Export dulu kalau daftar yang
+sekarang masih dipakai.
 
 Empat hal yang menentukan berkasnya diterima atau tidak, semuanya dibaca dari project NB yang
 jalan di mesin (`Prepare HMI CE INSERTl`), bukan dikarang:

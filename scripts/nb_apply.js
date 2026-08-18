@@ -9,14 +9,17 @@
 // Yang kedua ada karena yang memakai panel web sudah memegang berkasnya; memaksa mereka
 // mencari project JSON-nya lagi cuma bikin perintah ini salah ketik.
 //
-// Kenapa ada: alarm NB disimpan sebagai AlarmLib.csv biasa di dalam folder project, jadi 190
-// teks alarm tidak perlu diketik ulang satu per satu di NB-Designer. Yang dikerjakan skrip ini
-// cuma menaruh berkasnya di tempat yang benar - isinya dibuat generator, sama persis dengan
-// yang keluar di browser.
+// Kenapa ada: 190 teks alarm tidak perlu diketik ulang satu per satu di NB-Designer.
 //
-// Default TIDAK menulis. Menimpa AlarmLib.csv menghapus alarm yang tidak ada di daftar baru,
-// dan itu tidak ketahuan sampai layar NB dibuka. Jadi jalan pertama selalu memperlihatkan apa
-// yang akan berubah; --write baru mengerjakannya, dan yang lama disalin dulu ke .bak bertanggal.
+// PENTING soal cara masuknya. Alarm NB TIDAK dibaca dari berkas di folder project - tempatnya
+// di dalam .nbp sendiri, sebagai elemen <AlarmObject>. CSV ini format Export/Import dialog
+// "Alarm Setting", jadi memasukkannya lewat tombol Import di dialog itu, BUKAN dengan menyalin
+// berkas ke folder project. Menyalin ke folder tidak mengubah apa pun di NB - itu sudah dicoba,
+// dan yang berubah cuma berkas milik orang yang kebetulan bernama sama.
+//
+// Jadi yang dikerjakan skrip ini: menyiapkan berkasnya di sebelah project supaya gampang
+// ditemukan waktu menekan Import. Namanya sengaja BUKAN AlarmLib.csv - nama itu sering sudah
+// dipakai berkas ekspor milik orangnya sendiri.
 'use strict';
 const fs = require('fs');
 const path = require('path');
@@ -71,7 +74,10 @@ if (/^﻿?Alarm Lib,/.test(srcRaw)) {
   asal = 'digenerate dari ' + path.basename(srcPath);
 }
 
-const target = path.join(found.dir, 'AlarmLib.csv');
+// Nama berkasnya sengaja dibedakan. AlarmLib.csv sering sudah ada di folder project sebagai
+// hasil Export milik orangnya - menimpanya tidak menambah apa pun ke NB (alarmnya di .nbp),
+// yang hilang cuma catatan mereka.
+const target = path.join(found.dir, 'AlarmLib-generated.csv');
 const rowsOf = s => s.replace(/^\uFEFF/, '').split(/\r?\n/).filter(Boolean).slice(2);
 const baru = rowsOf(csv.xml);
 const lama = fs.existsSync(target) ? rowsOf(fs.readFileSync(target, 'utf8')) : null;
@@ -93,14 +99,13 @@ console.log('berkas .nbp: ' + found.nbp);
 console.log('sasaran    : ' + target);
 console.log('sumber     : ' + asal);
 console.log('');
-console.log('alarm sekarang di project : ' + (lama === null ? '(belum ada AlarmLib.csv)' : lama.length));
+console.log('alarm sekarang di project : lihat sendiri di NB-Designer, Alarm Setting'
+  + (lama === null ? '' : '   (berkas ini sebelumnya berisi ' + lama.length + ' baris)'));
 console.log('alarm hasil generate      : ' + baru.length
   + '   ' + cell(baru[0], 15) + ' .. ' + cell(baru[baru.length - 1], 15));
-if (lama && lama.length > baru.length) {
-  console.log('');
-  console.log('PERHATIAN: ' + (lama.length - baru.length) + ' baris yang ada sekarang TIDAK punya penggantinya.');
-  console.log('           Menimpa berarti alarm itu hilang dari panel. Periksa dulu apakah masih dipakai.');
-}
+console.log('');
+console.log('Import MENGGANTI seluruh daftar alarm di project, bukan menambah. Alarm lama yang');
+console.log('tidak ada di daftar ini akan hilang - pakai Export dulu kalau mau menyimpannya.');
 console.log('');
 console.log('tiga baris pertama yang akan ditulis:');
 baru.slice(0, 3).forEach(r => console.log('   ' + cell(r, 15) + '   ' + cell(r, 5)));
@@ -109,8 +114,6 @@ warns.filter(w => w.code === 'nb_area_unknown').forEach(w => console.log('\nPERI
 if (!write) {
   console.log('');
   console.log('Belum ada yang ditulis. Tambahkan --write kalau sudah cocok.');
-  console.log('Tutup NB-Designer dulu: dia memuat AlarmLib.csv waktu project dibuka dan');
-  console.log('menulisnya lagi waktu disimpan, jadi perubahan bisa ketimpa balik.');
   process.exit(0);
 }
 
@@ -125,4 +128,9 @@ if (lama !== null) {
 }
 fs.writeFileSync(target, csv.xml, 'utf8');
 console.log('DITULIS    : ' + baru.length + ' alarm ke ' + target);
-console.log('Buka project di NB-Designer, lihat Alarm Library.');
+console.log('');
+console.log('Cara memasukkannya ke NB-Designer:');
+console.log('  1. buka project, menu alarm -> Alarm Setting');
+console.log('  2. tombol Export dulu kalau daftar yang sekarang masih mau disimpan');
+console.log('  3. tombol Import, pilih berkas di atas');
+console.log('  4. OK, lalu simpan project');

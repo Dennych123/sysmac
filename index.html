@@ -1020,9 +1020,9 @@ function buildNbPanel(files) {
   row.appendChild(nbMsgEl);
 
   var hint = document.createElement('div'); hint.className = 'hint';
-  hint.textContent = 'Unduh lalu taruh di folder project NB-Designer, sebelah berkas .nbp - namanya harus tetap '
-    + 'AlarmLib.csv. Tutup NB-Designer dulu: dia memuat berkas ini waktu project dibuka dan menulisnya '
-    + 'lagi waktu disimpan. Menimpa akan menghapus alarm yang tidak ada di daftar ini.';
+  hint.textContent = 'Unduh, lalu di NB-Designer buka Alarm Setting dan tekan Import. BUKAN dengan '
+    + 'menyalin berkas ke folder project - alarm NB tersimpan di dalam .nbp, bukan dibaca dari folder. '
+    + 'Import MENGGANTI seluruh daftar alarm, jadi tekan Export dulu kalau yang sekarang masih dipakai.';
 
   var cmd = document.createElement('div'); cmd.className = 'nb-cmd';
   cmd.textContent = nbCmdText();
