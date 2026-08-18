@@ -37,12 +37,28 @@ function cap(f) {
  */
 function mulai(opts) {
   const kunci = path.resolve(opts.file);
-  if (AKTIF.has(kunci)) return status(kunci);
+
+  // Sudah dipantau: setelannya DIGANTI, bukan diabaikan.
+  //
+  // Dulu di sini `return status(kunci)` - permintaan kedua dengan setelan baru (mis. "alarm ikut
+  // ditulis ke HMI" yang baru dicentang) dijawab "sudah dipantau" dan callback lamanya tetap
+  // dipakai. Akibatnya persis yang paling menyesatkan: centangnya menyala, pemantauannya hidup,
+  // dan tidak ada satu pun yang menulis ke HMI - tanpa pesan galat.
+  const ada = AKTIF.get(kunci);
+  if (ada) {
+    ada.rel = opts.rel || ada.rel;
+    ada.pesanFn = opts.pesan;
+    ada.catatFn = opts.catat;
+    return status(kunci);
+  }
 
   const st = {
     file: kunci, rel: opts.rel, sejak: Date.now(),
     terakhirCap: cap(kunci), berubahPada: 0, menunggu: false,
     commit: 0, gagal: 0, pesanTerakhir: null, galatTerakhir: null, nbTerakhir: null, sibuk: false,
+    // Disimpan di state, bukan dipegang closure: setelan yang diganti harus benar-benar dipakai
+    // putaran berikutnya, bukan cuma tercatat di suatu tempat.
+    pesanFn: opts.pesan, catatFn: opts.catat,
   };
 
   st.timer = setInterval(async () => {
@@ -59,8 +75,8 @@ function mulai(opts) {
 
     st.sibuk = true;
     try {
-      const judul = await opts.pesan();
-      const hasil = await opts.catat(judul);
+      const judul = await st.pesanFn();
+      const hasil = await st.catatFn(judul);
       if (hasil && hasil.changed) {
         st.commit++;
         st.pesanTerakhir = hasil.message;

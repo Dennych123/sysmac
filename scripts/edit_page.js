@@ -309,13 +309,16 @@ function ubahAutoNb(){
     $('autoNb').checked = false;
     return;
   }
-  if (!PANTAU) return;                     // setelannya dipakai waktu pemantauan dinyalakan
-  // Pemantauan dimulai ulang supaya setelannya ikut - dihentikan dulu, jadi tidak pernah ada
-  // dua pemantau untuk berkas yang sama.
-  api('watch/stop',{path:PLC, nb:HMI}).catch(function(){}).then(function(){
-    return api('watch/start',{path:PLC, nb:HMI, nbWrite:$('autoNb').checked});
-  }).then(function(){ log('setelan pemantauan diperbarui'); cekPantau(); },
-          function(e){ log('gagal: ' + e.message, true); });
+  // Setelannya DIKIRIM sekarang juga, tidak menunggu pemantauan dinyalakan ulang dan tidak
+  // bergantung pada tebakan halaman soal sedang dipantau atau tidak. Dulu di sini ada
+  // "if (!PANTAU) return" - dan PANTAU baru disegarkan tiap 8 detik, jadi mencentang tepat
+  // sesudah menyalakan pemantauan diam-diam tidak berlaku sama sekali.
+  api('watch/start',{path:PLC, nb:HMI, nbWrite:$('autoNb').checked}).then(function(){
+    log($('autoNb').checked
+      ? 'tulis otomatis ke HMI aktif - simpan di Studio, alarmnya menyusul sendiri'
+      : 'tulis otomatis ke HMI dimatikan');
+    cekPantau();
+  }, function(e){ log('gagal: ' + e.message, true); });
 }
 
 // ------------------------------------------------------------------ riwayat

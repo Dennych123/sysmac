@@ -588,6 +588,34 @@ dan tebakan dari protokol bikin alat yang siap dipakai kelihatan mati. `/api/pin
 yang boleh dipanggil lintas asal; sisanya menolak `Origin` asing - server lokal yang menerima
 perintah dari halaman web mana pun itu lubang, bukan alat.
 
+## Keadaan sekarang (sesi 18 Agustus 2026)
+
+Aplikasi lokal sudah jadi jalan utama. Yang HARUS diingat sebelum menyentuh apa pun:
+
+| | |
+|---|---|
+| server memuat kode SEKALI | ubah `scripts/*.js` -> **tutup jendela Susmax, jalankan lagi**. `/api/ping` melaporkan `stale:true` dan halaman menampilkan spanduk merah, tapi itu penanda - bukan pemuat ulang |
+| port 7654 dipakai | jendela lama masih hidup. Pesannya menyebut tiga jalan keluar; jangan tambahkan retry otomatis |
+| tes JANGAN menyentuh setelan asli | `SUSMAX_SETTINGS` dialihkan ke temp di `tests/api.test.js`. Sudah pernah kejadian: folder kerja penggunanya berubah jadi folder temp yang lalu dihapus |
+| uji dengan SALINAN project | `git/track`, `nb/sync --write`, `git/restore` semuanya menulis. Uji di `scratchpad`, bukan di `C:/Users/denny/Downloads/testintegrate` |
+
+Yang sudah terbukti jalan end-to-end (diuji di salinan project mesin):
+
+```
+project/scan  -> PLC + HMI dari satu folder
+Studio simpan -> tercatat "otomatis: 2 program, 403 rung logika, 903 variabel, 425 komen alarm"
+              -> HMI ditulis: 50 teks, 200 alamat (cadangan .bak dibuat)
+git/restore   -> .smc2 kembali persis byte-nya
+```
+
+**Setelan pemantauan yang diganti WAJIB berlaku.** `watcher.mulai()` dulu menjawab "sudah
+dipantau" dan tetap memakai callback lama, jadi mencentang "alarm ikut ditulis ke HMI" SESUDAH
+pemantauan menyala tidak berpengaruh apa pun: centangnya menyala, pemantauannya hidup, dan tidak
+ada yang menulis ke HMI - tanpa satu pun pesan galat. Sekarang `mulai()` mengganti `pesanFn`/
+`catatFn` pemantau yang ada, dan fungsi itu dibaca dari state (bukan dipegang closure) supaya
+yang baru benar-benar dipakai putaran berikutnya. Halaman juga tidak lagi menunggu tebakannya
+sendiri soal "sedang dipantau atau tidak" - setelannya langsung dikirim.
+
 ## Satu FOLDER PROJECT, bukan daftar path
 
 Halaman `/edit` meminta SATU folder: folder mesinnya. `.smc2` dan folder project NB-Designer

@@ -188,6 +188,16 @@ const gagal = (nama, isi) => panggil(nama, isi).then(
       daftarTrack.items.some(x => x.smc2 === 'pantau.smc2'),
       JSON.stringify(daftarTrack.items).slice(0, 90));
 
+  // Setelan pemantauan yang DIGANTI harus benar-benar berlaku. Dulu `watcher.mulai()` menjawab
+  // "sudah dipantau" dan memakai callback lama, jadi mencentang "alarm ikut ditulis ke HMI"
+  // sesudah pemantauan menyala tidak berpengaruh apa pun - centangnya menyala, pemantauannya
+  // hidup, dan tidak ada yang menulis ke HMI. Tanpa pesan galat sama sekali.
+  const w2b = await panggil('watch/start', { path: 'pantau.smc2', message: 'setelan baru' });
+  chk('watch/start kedua tidak bikin pemantau ganda', w2b.watching === true, JSON.stringify(w2b).slice(0, 70));
+  const semua = await panggil('watch/status', {});
+  const berapa = (semua.files || []).filter(f => /pantau\.smc2$/.test(f.file)).length;
+  chk('satu berkas = satu pemantau, walau start dipanggil dua kali', berapa === 1, berapa + ' pemantau');
+
   const w3 = await panggil('watch/stop', { path: 'pantau.smc2' });
   chk('pemantauan bisa dihentikan', w3.watching === false, JSON.stringify(w3));
 
