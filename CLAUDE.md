@@ -196,7 +196,7 @@ sudah **dibuktikan di Studio**, satu belum:
 | AT | `<Address address="%W461.00" />`, anak `VariableDecl` **sesudah** `Type` | terbukti jalan |
 | Retain | atribut `retain="true"` di **kontainer** `<GlobalVars>` | terbukti jalan |
 | Comment | `<Documentation xsi:type="SimpleText">` | sudah lama dipakai |
-| Comment per elemen | `<smcext:ElementComment element="[11]"><smcext:Text id="1">` | **belum jalan**, lihat TODO |
+| Comment per elemen | `<smcext:ElementComment>` | **TIDAK BISA — sudah diuji, jangan dicoba lagi** |
 
 Retain kelihatan mustahil per-variabel karena atributnya di kontainer. Bukan: `GlobalVars`
 itu `maxOccurs="unbounded"`, jadi yang retain masuk kontainer `retain="true"` dan sisanya
@@ -218,7 +218,22 @@ berkas yang benar. Berkas per-program tetap membawa daftar nama saja.
 
 `prog()` menerima tiga bentuk `glob`: array objek (tabel penuh), array string (markup
 `<Variable>` jadi, dipakai exporter reader yang tidak punya alamat maupun retain), dan
-string (markup kontainer jadi, dipakai probe yang menyusun tabelnya sendiri).
+string (markup kontainer jadi, buat penyusun tabel sendiri).
+
+**Komen per elemen array TIDAK bisa lewat import. Sudah dibuktikan, jangan diulang.**
+`Sample.xml` memakai `<smcext:ElementComment>` dan XSD-nya menerimanya, tapi Studio
+**membuang seluruh `smcext:VariableComment`** waktu import — komen elemen maupun komen
+variabel. Diuji dengan tujuh varian sekaligus (`_Probe_GlobalVars.xml`, sudah dihapus):
+lima bentuk `ElementComment` yang berbeda semuanya kosong, dan yang menutup perkara adalah
+kontrolnya — varian yang memakai `VariableComment` TANPA `ElementComment` ikut kosong,
+sementara varian `<Documentation>` biasa terisi. Jadi bukan bentuk `ElementComment`-nya yang
+salah; jalur `AddData` untuk komen memang tidak dipakai.
+
+Bandingkan: `AddData` yang LAIN jelas dipakai — `smcext:ConnectionPointInOrder` di rung dan
+`smcext:DeviceInfo` di header. Yang diabaikan khusus `VariableComment`.
+
+Konsekuensinya `ArrayComments.tsv` tetap satu-satunya jalan buat komen `AL[n]`/`MF[n]`,
+ditempel setelah arraynya di-expand di Studio.
 
 ### Cara membuat probe yang menjawab
 

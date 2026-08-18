@@ -1722,88 +1722,6 @@ function progMulti(title,blocks,globVars){
 
 
 
-// ============================================================ probe komen elemen array
-// Pertanyaannya tinggal SATU. Import sudah terbukti mengisi kolom AT (<Address>) dan kolom
-// Retain (kontainer <GlobalVars retain="true">) - dua-duanya dicoba di Studio dan jadi. Yang
-// belum: komen per elemen AL[1..100], padahal bentuknya sudah menyalin Sample.xml milik Omron.
-//
-// Berarti bedanya ada di rincian yang tidak bisa dilihat XSD. Menebak rincian itu satu per satu
-// berarti satu putaran ke Studio untuk tiap tebakan. Berkas ini menaruh semuanya sekaligus,
-// tiap tebakan pada variabel bernama sendiri: satu kali import, lalu tinggal dibaca nama mana
-// yang komen elemennya terisi.
-//
-// Dua kontrol ikut supaya jawabannya tidak ambigu. PV6 memakai komen tingkat VARIABEL lewat
-// jalur AddData yang sama - kalau itu pun kosong, yang tidak dipakai Studio adalah
-// smcext:VariableComment secara keseluruhan, bukan cuma bagian elemennya. PV7 memakai
-// Documentation biasa, jalur yang sudah pasti jalan - kalau PV7 ikut kosong, berarti berkasnya
-// yang tidak ter-import dan semua hasil lain tidak berarti apa-apa.
-function buildProbeVars(){
-    var D='<Data name="https://www.ia.omron.com/Smc IEC61131_10_Ed1_0_SmcExt1_0_Spc1_0.xsd" handleUnknown="discard">';
-    var AR='ARRAY[0..3] OF BOOL';
-    function elem(id){
-        return '<smcext:VariableComment>'
-             + [0,1,2,3].map(function(i){ return '<smcext:ElementComment element="['+i+']">'
-                 + '<smcext:Text id="'+id+'">ELEMEN '+i+' TERISI</smcext:Text></smcext:ElementComment>'; }).join('')
-             + '</smcext:VariableComment>';
-    }
-    // [nama, keterangan buat dibaca manusia, markup <Variable> lengkap, tipe]
-    var V=[];
-    function v(n,why,doc,add,type,addr){
-        V.push({n:n,why:why,arr:!type,x:'      <Variable name="'+n+'">'
-            +(doc===null?'':'<Documentation xsi:type="SimpleText">'+esc(doc)+'</Documentation>')
-            +(add?'<AddData>'+add+'</AddData>':'')
-            +'<Type><TypeName>'+(type||AR)+'</TypeName></Type>'
-            +(addr?'<Address address="'+addr+'" />':'')
-            +'</Variable>'});
-    }
-    // --- komen per elemen: lima tebakan yang berbeda hanya pada satu hal masing-masing ---
-    v("PV1_KOSONGDOC","Documentation kosong + ElementComment id=1 (bentuk yang SEKARANG dipakai)",
-      "", D+elem(1)+'</Data>');
-    v("PV2_TANPADOC","Documentation tidak ditulis sama sekali - persis Sample.xml Omron",
-      null, D+elem(1)+'</Data>');
-    v("PV3_ADADOC","Documentation berisi teks + ElementComment id=1",
-      "Array probe dengan komen", D+elem(1)+'</Data>');
-    v("PV4_ID2","Tanpa Documentation, ElementComment id=2 - kalau id itu nomor kolom komen",
-      null, D+elem(2)+'</Data>');
-    v("PV5_PUBDULU","Urutan Data dibalik: GlobalVariableAdditionalProperties dulu, seperti Sample.xml",
-      null, D+'<smcext:GlobalVariableAdditionalProperties networkPublish="DoNotPublish" /></Data>'+D+elem(1)+'</Data>');
-    // Kontrol: komen tingkat variabel, bukan elemen. Kalau ini pun kosong, yang tidak dipakai
-    // Studio adalah smcext:VariableComment secara keseluruhan - bukan cuma bagian elemennya.
-    v("PV6_VARCOMMENT","Kontrol: VariableComment tanpa ElementComment (komen variabel, bukan elemen)",
-      null, D+'<smcext:VariableComment><smcext:Text id="1">KOMEN VARIABEL TERISI</smcext:Text></smcext:VariableComment></Data>',"BOOL");
-    v("PV7_DOCSAJA","Kontrol: Documentation saja, tanpa AddData - jalur yang sudah pasti jalan",
-      "DOCUMENTATION TERISI", null, "BOOL");
-    var glob='    <GlobalVars>\n'+V.map(function(e){return e.x;}).join('\n')+'\n    </GlobalVars>';
-    // Tiap variabel WAJIB dipakai di ladder, bukan cuma didaftar di tabel. Percobaan pertama
-    // rung-nya semua menggerakkan satu bit PV_NOP dan tidak menyentuh PV1..PV7 sama sekali -
-    // variabel global yang tidak dirujuk rung manapun bisa hilang waktu import, dan probe yang
-    // variabelnya tidak muncul menjawab "bentuknya ditolak" padahal variabelnya tidak pernah ada.
-    //
-    // Jadi tiap varian dapat rungnya sendiri yang MEMBACA elemennya: dua elemen jadi kontak seri,
-    // dua lagi jadi coil. Empat elemen tersentuh semua, dan rung-nya sekaligus jadi label yang
-    // menerangkan varian itu apa.
-    var S=[], o=1;
-    S.push(series(o++,[["GSB000",false]],"PV_NOP","Baca tabel Global Variable, bukan rung ini. "
-        +"Expand tiap array PVn, lalu lihat kolom Comment elemennya - yang terisi berarti bentuknya dipakai."));
-    var ext=['      '+vr("GSB000","BOOL","Equipment design coil, constant ON")];
-    V.forEach(function(e){
-        ext.push('      '+vr(e.n, e.arr?AR:"BOOL", ""));
-        if(e.arr){
-            var r=new Rung(o++, e.n+" : "+e.why);
-            var c=r.ct(e.n+"[1]", r.ct(e.n+"[0]", r.rail()));
-            r.rr([r.cl(e.n+"[2]", c), r.cl(e.n+"[3]", c)]);
-            S.push(r.build());
-        } else {
-            S.push(series(o++,[[e.n,false]],"PV_NOP", e.n+" : "+e.why));
-        }
-    });
-    var priv=['      '+vr("PV_NOP","BOOL","No operation")];
-    return { name:"_Probe_GlobalVars.xml",
-             xml:prog("P998_ProbeVars",ext,priv,[sect("Probe",1,S)],glob),
-             stats:"PROBE VARS: "+V.length+" varian komen elemen - import ke project KOSONG, expand tiap PVn, "
-                  +"lalu laporkan nama mana yang komen elemennya terisi" };
-}
-
 // ============================================================ probe instruksi
 // File kecil berisi SATU rung per instruksi baru. Gunanya cuma satu: di-import ke project kosong
 // di Susmax Studio buat membuktikan bentuk XML-nya benar, SEBELUM 30 rung counter digenerate
@@ -2169,9 +2087,6 @@ function buildHmi(){
 if(!groups.MAIN||!groups.MAIN.length) W("no_main_devices","","No MAIN devices found, every comment contains a station tag.");
 files.push(buildInitial());
 if(!ADV_OK) files.push(buildProbe());
-// Selalu ikut selama pertanyaan komen elemen belum terjawab. Kecil, namanya berawalan _Probe_
-// jadi tidak ikut ke AllPrograms.xml, dan hilang begitu jawabannya sudah dipakai.
-files.push(buildProbeVars());
 files.push(buildMain(groups.MAIN||[]));
 files.push(buildHmi());
 ukeys.forEach(function(k){ files.push(buildUnit(k,groups[k])); });
@@ -2258,9 +2173,10 @@ files.push({ name:"GlobalVariables.tsv", xml:tsv,
                                  +", "+PER_PAGE+" actuators/screen, "+HMI_CFG.stride+" word/station"
                                : "\nHMI AT: disabled") });
 
-// Tabel Global Variable LENGKAP ikut ke AllPrograms.xml: nama, tipe, komen, AT, retain, dan
-// komen tiap elemen AL/MF. Semua kolom yang selama ini ditempel tangan dari TSV punya
-// tempatnya sendiri di XML import - lihat globalVarBlocks() di lib.js.
+// Tabel Global Variable ikut ke AllPrograms.xml: nama, tipe, komen, AT, dan retain. Lima kolom
+// yang dulu ditempel tangan dari TSV, sekarang terisi sendiri waktu import - dibuktikan di
+// Studio. Komen per ELEMEN array tidak ikut: Studio membuang smcext:VariableComment waktu
+// import, sudah diuji, dan itu tetap lewat ArrayComments.tsv. Lihat globalVarBlocks() di lib.js.
 //
 // Kenapa cuma di sini dan tidak di berkas per-program: tabelnya baru LENGKAP di titik ini.
 // AT untuk AL/MF diklaim beberapa baris di atas, dan komen alarm station terakhir baru ada
@@ -2270,20 +2186,9 @@ files.push({ name:"GlobalVariables.tsv", xml:tsv,
 //
 // TSV-nya TIDAK dihapus. Ini jalur baru yang belum dibuktikan Studio menerimanya - XSD lolos
 // bukan jaminan, itu pelajaran dari (DefinitionError). TSV tetap jalur yang sudah terbukti.
-function elemsOf(n){
-    var out=null;
-    elNames.forEach(function(e){
-        var m=/^(\D+)\[(\d+)\]$/.exec(e);
-        if(!m || m[1]!==n) return;
-        (out=out||{})["["+m[2]+"]"]=ARRAY_ELEMENTS[e];
-    });
-    return out;
-}
 var globVars=gnames.map(function(n){
     var g=GLOBALS[n], at=HMI_AT[n]||"";
-    var e={ name:n, type:g.t, doc:g.d, at:at, retain:retainOf(at)==="True" };
-    var els=elemsOf(n); if(els) e.elems=els;
-    return e;
+    return { name:n, type:g.t, doc:g.d, at:at, retain:retainOf(at)==="True" };
 });
 // Probe SENGAJA tidak ikut ke AllPrograms.xml. Dia alat uji buat project KOSONG; kalau ikut
 // masuk file gabungan, program uji itu ikut ke-import ke project mesin.

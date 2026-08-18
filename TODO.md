@@ -7,30 +7,6 @@ Konvensi dan jebakan proyek ada di [CLAUDE.md](CLAUDE.md).
 
 ---
 
-## 0. Komen elemen array lewat import — SATU pertanyaan terbuka
-
-Kolom AT dan Retain sudah **terbukti** terisi lewat import XML (lihat
-[CLAUDE.md](CLAUDE.md#tabel-global-variable-ikut-di-xml--at-dan-retain-terbukti-jalan)).
-Yang belum: komen per elemen `AL[1..100]` / `MF[1..90]` lewat
-`<smcext:ElementComment>`, padahal bentuknya sudah menyalin `Sample.xml` milik Omron.
-
-`_Probe_GlobalVars.xml` (digenerate tiap run) memuat tujuh tebakan, tiap tebakan pada
-array bernama sendiri, beda satu hal saja satu sama lain. Import ke project KOSONG, expand
-tiap `PVn`, lalu catat mana yang komennya terisi:
-
-| kalau yang terisi | artinya |
-|---|---|
-| salah satu `PV1`–`PV5` | itu bentuk yang benar, pakai di `gvr()` di `js/lib.js` |
-| semua kosong tapi `PV6` terisi | Studio memakai `VariableComment` tapi mengabaikan bagian elemennya |
-| `PV6` kosong juga | `smcext:VariableComment` tidak dipakai waktu import sama sekali |
-| `PV7` ikut kosong | berkasnya tidak ter-import — hasil lain tidak berarti apa-apa |
-
-Kalau jawabannya "tidak bisa", tulis itu di CLAUDE.md sebagai fakta yang sudah diuji,
-hapus `buildProbeVars()` dan `elems` di `gvr()`, dan `ArrayComments.tsv` tetap satu-satunya
-jalan. Yang mahal bukan jawabannya, tapi mencobanya lagi setahun kemudian.
-
----
-
 ## 1. NB-Designer: alarm langsung dari generator
 
 **Format sudah diketahui, tidak perlu reverse engineering.** Project NB-Designer itu folder
@@ -219,3 +195,11 @@ yang bersangkutan. Datanya sudah tersedia, tinggal penyambungnya.
 - Slot cadangan jadi slot utuh: reed switch, LSC, AL, MF, output
 - Angin dua alarm (tekanan jatuh + pressure switch rusak); `EMER_INTLK` dari `LB019`
 - `docs/SYSMAC_INSTRUCTIONS.md`: 353 instruksi, kolom FUN/FB dan pin, dari manual W560
+
+## Sudah dicoba dan TIDAK bisa (jangan dicoba lagi)
+
+- **Komen per elemen array lewat import XML.** `smcext:ElementComment` ada di XSD dan dipakai
+  `Sample.xml`, tapi Studio membuang seluruh `smcext:VariableComment` waktu import. Diuji tujuh
+  varian sekaligus; yang menutup perkara kontrolnya — varian yang memakai `VariableComment`
+  TANPA `ElementComment` ikut kosong, sementara `<Documentation>` biasa terisi. Jadi bukan
+  bentuk `ElementComment`-nya. Komen `AL[n]`/`MF[n]` tetap lewat `ArrayComments.tsv`.

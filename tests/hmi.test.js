@@ -154,9 +154,12 @@ chk('globalRows ikut di payload buat panel UI',
     p.globalRows?p.globalRows.length+' baris vs '+gLines.length+' baris TSV':'kosong');
 
 // ---- tabel Global Variable ikut di AllPrograms.xml ---------------------------------------
-// Semua kolom yang selama ini ditempel tangan punya tempatnya di XML import: AT lewat
-// <Address>, retain lewat atribut KONTAINER (makanya kontainernya dua), komen elemen lewat
-// smcext:ElementComment. Dibaca dari XSD resmi dan dari Sample.xml milik Omron.
+// AT lewat <Address>, retain lewat atribut KONTAINER (makanya kontainernya dua). Dua-duanya
+// sudah dibuktikan terisi waktu import di Studio, bukan cuma lolos XSD.
+//
+// Komen per ELEMEN array sengaja TIDAK ada di sini: Studio membuang smcext:VariableComment
+// waktu import - sudah diuji dengan tujuh varian, termasuk kontrol tanpa ElementComment yang
+// ikut kosong. Komen elemen tetap lewat ArrayComments.tsv. Jangan ditambahkan lagi ke XML.
 const allx=p.files.find(f=>f.name==='AllPrograms.xml').xml;
 const gvBlocks=allx.match(/<GlobalVars[^>]*>/g)||[];
 chk('AllPrograms.xml punya dua kontainer GlobalVars', gvBlocks.length===2, gvBlocks.join(' '));
@@ -181,18 +184,20 @@ chk('semua simbol ada di salah satu kontainer',
 const atCount=(allx.match(/<Address address="/g)||[]).length;
 chk('tiap AT punya <Address> di XML', atCount===p.hmiMap.rows.length,
     atCount+' Address vs '+p.hmiMap.rows.length+' baris peta HMI');
-// Urutan anak terikat xsd:sequence - Documentation, AddData, Type, Address. Ketuker = ditolak XSD.
+// Urutan anak terikat xsd:sequence - Documentation, Type, Address. Ketuker = ditolak XSD.
 const alVar=(/<Variable name="AL">([\s\S]*?)<\/Variable>/.exec(gvRet)||['',''])[1];
 chk('urutan anak Variable sesuai xsd:sequence',
     (alVar.match(/<(Documentation|AddData|Type|Address)\b/g)||[]).join(' ')
-      === '<Documentation <AddData <Type <Address',
+      === '<Documentation <Type <Address',
     (alVar.match(/<(Documentation|AddData|Type|Address)\b/g)||[]).join(' '));
-chk('AL bawa komen tiap elemennya',
-    (alVar.match(/<smcext:ElementComment /g)||[]).length===p.arrayInfo.alSize,
-    (alVar.match(/<smcext:ElementComment /g)||[]).length+' / '+p.arrayInfo.alSize);
-chk('komen elemen isinya sama dengan ArrayComments.tsv',
-    new RegExp('<smcext:ElementComment element="\\[11\\]"><smcext:Text id="1">AL011_').test(alVar),
-    (alVar.match(/element="\[11\]"[^<]*<smcext:Text[^>]*>([^<]*)/)||[])[1]);
+// Regresi: jalur yang sudah terbukti dibuang Studio jangan sampai kembali diam-diam. Selain
+// tidak berguna, 190 ElementComment bikin AllPrograms.xml membengkak tanpa hasil apa pun.
+chk('tidak ada komen elemen di XML (Studio membuangnya)',
+    !/smcext:(VariableComment|ElementComment)/.test(allx),
+    (allx.match(/smcext:\w+/g)||[]).filter((v,i,a)=>a.indexOf(v)===i).join(' '));
+chk('komen elemen tetap ada di ArrayComments.tsv',
+    /AL\[11\]\t[^\t]*\t[^\t]*\t[^\t]*\t[^\t]*\t[^\t]*\t[^\t]*\tAL011_/.test(
+      p.files.find(f=>f.name==='ArrayComments.tsv').xml));
 // Berkas per-program tetap bentuk lama: tabelnya baru LENGKAP di AllPrograms, dan dua berkas
 // yang membawa versi setengah jadi bakal saling menimpa waktu di-import.
 const one=p.files.find(f=>/^Prg0\d\d_ST/.test(f.name)).xml;

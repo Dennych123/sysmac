@@ -170,25 +170,23 @@ function vr(n,t,d){return '<Variable name="'+n+'"><Documentation xsi:type="Simpl
 //   Retain      <GlobalVars retain="true">       atribut KONTAINER, bukan per variabel -
 //                                                makanya kontainernya dipisah dua
 //   Komen       <Documentation>                  sudah dipakai
-//   Komen elemen <smcext:ElementComment element="[11]">   buat AL[11], MF[7], dst
-//   Publish     <smcext:GlobalVariableAdditionalProperties networkPublish="..." />
 //
 // `GlobalVars` boleh maxOccurs="unbounded", itu yang membuat retain per-variabel bisa: yang
 // retain masuk kontainer retain="true", sisanya kontainer polos. Sample.xml Omron memakai
 // EMPAT kontainer buat kombinasi constant x retain, jadi ini bentuk yang mereka niatkan.
+//
+// Yang TIDAK bisa dan sudah dibuktikan: komen per ELEMEN array (AL[11], MF[7]). XSD-nya punya
+// smcext:ElementComment dan Sample.xml memakainya, tapi Studio membuang seluruh
+// smcext:VariableComment waktu import - komen elemen MAUPUN komen variabel. Diuji tujuh varian
+// sekaligus; yang menutup perkara adalah kontrolnya, varian tanpa ElementComment ikut kosong.
+// Jangan dicoba lagi. Komen elemen tetap lewat ArrayComments.tsv. Lihat CLAUDE.md.
 var SMC_DATA='<Data name="https://www.ia.omron.com/Smc IEC61131_10_Ed1_0_SmcExt1_0_Spc1_0.xsd" handleUnknown="discard">';
 // Urutan anak WAJIB: Documentation, AddData, Type, Address (xsd:sequence, lihat
 // IdentifiedObjectBase -> TextualObjectBase -> VariableDeclPlain -> VariableDecl).
 function gvr(e){
-  var add='';
-  var els=e.elems||null, keys=els?Object.keys(els):[];
-  if(keys.length){
-    add+=SMC_DATA+'<smcext:VariableComment>'
-       + keys.map(function(k){ return '<smcext:ElementComment element="'+esc(k)+'">'
-           + '<smcext:Text id="1">'+esc(els[k])+'</smcext:Text></smcext:ElementComment>'; }).join('')
-       + '</smcext:VariableComment></Data>';
-  }
-  if(e.publish) add+=SMC_DATA+'<smcext:GlobalVariableAdditionalProperties networkPublish="'+esc(e.publish)+'" /></Data>';
+  var add=e.publish
+    ? SMC_DATA+'<smcext:GlobalVariableAdditionalProperties networkPublish="'+esc(e.publish)+'" /></Data>'
+    : '';
   return '<Variable name="'+e.name+'">'
        + '<Documentation xsi:type="SimpleText">'+esc(e.doc||'')+'</Documentation>'
        + (add?'<AddData>'+add+'</AddData>':'')
