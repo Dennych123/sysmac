@@ -213,8 +213,23 @@ function parseVars(t) {
       if (k > 0) rec[part.slice(0, k).trim()] = part.slice(k + 1).trim();
     }
     if (rec.N) {
-      out.push({ name: rec.N, type: rec.D || '', address: rec.AT || '',
-                 group: rec.G || '', comment: rec.Com || '' });
+      const v = { name: rec.N, type: rec.D || '', address: rec.AT || '',
+                  group: rec.G || '', comment: rec.Com || '' };
+      // Komen PER ELEMEN array ada di medan EC=, bentuknya XML kecil di dalam satu sel:
+      //   EC=<ECs><EC EK="[11]" C="Dual sensor fault, ..." /></ECs>
+      // Ini yang kelihatan di kolom Comment tabel variabel Sysmac waktu array di-expand,
+      // dan satu-satunya tempat teks alarm AL[n]/MF[n] tersimpan di dalam .smc2.
+      if (rec.EC && rec.EC.indexOf('<EC ') >= 0) {
+        const els = {};
+        const re = /<EC EK="\[(\d+)\]" C="([^"]*)"/g;
+        let m;
+        while ((m = re.exec(rec.EC))) {
+          els[+m[1]] = m[2].replace(/&quot;/g, '"').replace(/&lt;/g, '<')
+                           .replace(/&gt;/g, '>').replace(/&amp;/g, '&');
+        }
+        if (Object.keys(els).length) v.elementComments = els;
+      }
+      out.push(v);
     }
   }
   return out;
