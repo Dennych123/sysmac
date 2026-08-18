@@ -144,7 +144,10 @@ function escXml(s) {
       if (!semua.length) return;
       const cetak = semua[0];
       const objs = urut.map((k, i) => cetak
-        .replace(new RegExp('^<' + t + ' ID="\d+"'), '<' + t + ' ID="' + i + '"')
+        // [0-9] bukan backslash-d: pola ini pernah ditulis lewat heredoc yang memakan
+        // backslash-nya, jadi regexnya berubah jadi 'd+' dan ID tidak pernah diganti -
+        // 190 objek ber-ID sama, dan NB cuma menyimpan satu entri per ID.
+        .replace(new RegExp('^<' + t + ' ID="[0-9]+"'), '<' + t + ' ID="' + i + '"')
         .replace(RE_ADDR, m0 => m0.replace(/>\d+\.\d+</, '>' + peta[k].addr + '<'))
         .replace(RE_TEXT, (_, x, __, z) => x + escXml(k + peta[k].teks.replace(/^(AL|MF)\d+_\s*/, '')) + z));
       const tandai = '@@' + t + '@@';

@@ -45,6 +45,35 @@ const e = findNbProject(dua);
 chk('dua project sekaligus: menolak dan menyebutkan pilihannya',
     !!e.err && /ada 2 folder project/.test(e.err) && /P1/.test(e.err) && /P2/.test(e.err), e.err);
 
+// --- nb_sync --rebuild: ID tiap objek WAJIB unik ------------------------------------------
+// NB-Designer menyimpan satu entri per ID. Waktu regex penomorannya rusak (heredoc memakan
+// backslash di '\\d+'), 190 objek keluar dengan ID sama dan NB cuma menampilkan SATU alarm -
+// berkasnya sendiri kelihatan benar, jadi tidak ada yang menunjukkan sebabnya.
+const { spawnSync } = require('child_process');
+const nbDir = mk('SyncUji');
+const OBJ = (tag, id, addr, teks) =>
+  '<' + tag + ' ID="' + id + '" HMIID="0"><Address><RegAddr><AddressType SystemID="56">H_bit</AddressType>'
+  + '<AddressValue Type="Bit" Length="1" CodeType="0">' + addr + '</AddressValue></RegAddr></Address>'
+  + '<Content><Font Size="16">' + teks + '</Font></Content></' + tag + '>';
+fs.writeFileSync(path.join(nbDir, 'U.nbp'),
+  '<NBProject><AlarmObjects>' + OBJ('AlarmObject', 7, '400.00', 'lama') + '</AlarmObjects>'
+  + '<EventObjects>' + OBJ('EventObject', 9, '400.00', 'lama') + '</EventObjects></NBProject>');
+const smc = path.join(__dirname, '..', 'reader', 'tests', 'fixtures', 'synthetic.smc2');
+if (fs.existsSync(smc)) {
+  const r = spawnSync(process.execPath,
+    [path.join(__dirname, '..', 'scripts', 'nb_sync.js'), smc, path.join(nbDir, 'U.nbp'), '--rebuild', '--write'],
+    { encoding: 'utf8' });
+  const isi = fs.readFileSync(path.join(nbDir, 'U.nbp'), 'utf8');
+  const ids = [...isi.matchAll(/<AlarmObject ID="(\d+)"/g)].map(m => m[1]);
+  if (ids.length > 1) {
+    chk('rebuild memberi ID unik ke tiap objek', new Set(ids).size === ids.length,
+        ids.slice(0, 6).join(' '));
+  } else {
+    chk('fixture .smc2 tidak punya komen elemen - tes ID dilewati', true,
+        String(r.stdout).split(String.fromCharCode(10))[0]);
+  }
+}
+
 fs.rmSync(tmp, { recursive: true, force: true });
 console.log(fail ? '\n' + fail + ' GAGAL' : '\nsemua lulus');
 process.exit(fail ? 1 : 0);
