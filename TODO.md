@@ -144,8 +144,8 @@ address space selesai dibangun. OPC UA itu standar terbuka; kliennya matang dan 
 Artinya simulasi fisika di luar (Gazebo, atau web sim sendiri) bisa disambungkan dua arah ke
 program NX yang sedang disimulasikan, TANPA menyentuh internal Studio sama sekali.
 
-**Sudah terbukti jalan di NX1P2.** Dugaan awal bahwa OPC UA cuma ada di NX102 ke atas
-salah, dan sudah dicoret di CLAUDE.md. Tidak perlu mengganti device.
+**Sudah terbukti jalan di NX1P2.** Menunya abu-abu selama simulasi belum di-Run - itu sebabnya,
+bukan modelnya. Dugaan awal soal NX102 salah dan sudah dicoret di CLAUDE.md.
 
 ### Sambungannya ke generator: kolom Network Publish
 
