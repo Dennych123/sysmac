@@ -432,7 +432,7 @@ Empat hal yang masing-masing sempat memakan waktu, semuanya sudah dibuktikan di 
 | | |
 |---|---|
 | **Global variable ter-publish OTOMATIS** | Tidak perlu menyetel Network Publish satu-satu, dan generator TIDAK perlu menulis `networkPublish`. Path-nya `GlobalVars.<nama>` — `GlobalVars.GSB000`, `GlobalVars.PB411_1M` |
-| **Menunya abu-abu di NX1P2** | OPC UA server cuma ada di NX102/NX502/NJ5/NY. Generator menulis `modelName="NX1P2"` di `js/lib.js` — ganti device buat simulasi |
+| **NX1P2 BISA** | Sempat kucatat di sini bahwa OPC UA cuma ada di NX102 ke atas dan itu **salah** — dibantah langsung di mesin ini dengan project NX1P2. Menu yang abu-abu waktu pertama dibuka BUKAN karena modelnya; sebabnya belum diketahui pasti, jadi jangan ditebak lagi. Tidak perlu mengganti device |
 | **Centang `None` di Security policy, lalu Transfer to simulator** | Tanpa `None`, sambungan wajib Sign + sertifikat klien dipercaya lewat Certificate management. Yang ditolak karena sertifikat memberi pesan yang **terlihat seperti salah password** — itu yang bikin UaExpert kelihatan rusak |
 | **Anonymous login = Permit** | Kalau Prohibit, pakai `--user <nama> --pass <sandi>`. Kredensial controller, jangan ditulis di repo |
 

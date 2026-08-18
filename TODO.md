@@ -144,9 +144,8 @@ address space selesai dibangun. OPC UA itu standar terbuka; kliennya matang dan 
 Artinya simulasi fisika di luar (Gazebo, atau web sim sendiri) bisa disambungkan dua arah ke
 program NX yang sedang disimulasikan, TANPA menyentuh internal Studio sama sekali.
 
-**Menunya abu-abu kalau controllernya NX1P2** - OPC UA server cuma ada di NX102/NX502/NJ5/NY.
-Generator kita menulis `modelName="NX1P2"` di `js/lib.js`; ganti device ke NX102 buat
-keperluan simulasi.
+**Sudah terbukti jalan di NX1P2.** Dugaan awal bahwa OPC UA cuma ada di NX102 ke atas
+salah, dan sudah dicoret di CLAUDE.md. Tidak perlu mengganti device.
 
 ### Sambungannya ke generator: kolom Network Publish
 
