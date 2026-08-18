@@ -7,57 +7,42 @@ Konvensi dan jebakan proyek ada di [CLAUDE.md](CLAUDE.md).
 
 ---
 
-## 1. NB-Designer: alarm langsung dari generator
+## 1. NB-Designer: alarm langsung dari generator - SUDAH
 
-**Format sudah diketahui, tidak perlu reverse engineering.** Project NB-Designer itu folder
-biasa berisi `.nbp` (XML polos) dan **`AlarmLib.csv`** — CSV apa adanya. Contoh nyata ada di
-`C:\Users\denny\Downloads\Prepare HMI CE INSERTl\`, 494 baris, dan isinya sudah teks
-generator ini:
+`node scripts/nb_apply.js <project.json|AlarmLib.csv> <folder NB> [--write]` menyiapkan
+`AlarmLib-generated.csv` (89 medan per baris, koma di teks dikutip, BOM UTF-8) buat tombol
+Import di dialog Alarm Setting. `node scripts/nb_sync.js <x.smc2> <folder NB> [--write]` menulis
+komen alarm langsung ke `.nbp`. Dua-duanya tidak menulis apa pun tanpa `--write` dan selalu
+mencadangkan yang lama.
 
-```
-Alarm Lib,V103
-HMIID,AlarmState,BeepDelay,UseTextLib,TextTagName,TextContent,...,TrigAddrType,TrigAddr,...
-0,1,0,0,,AL[3]Air source pressure lost,16,ff0000,0,,0,,0,1,56,400.02,0,0,0,H_bit,...
-                └ TextContent                                    └ TrigAddr = word.bit
-```
-
-Cuma dua kolom yang berubah per baris: `TextContent` (dari `ARRAY_ELEMENTS`) dan `TrigAddr`
-(dari `HMI_CFG.alBase`/`mfBase`, ditulis `word.bit` desimal TANPA awalan `%`). Sisanya
-konstan — `TrigAddrType=56` untuk area H, font, warna. Menghasilkan berkas ini mekanis penuh
-dan bisa diadu ke project NB yang sudah ada sebagai acuan.
-
-Ini yang menghapus salin-tempel alarm ke NB, dan tidak butuh satu pun putaran ke Studio.
+Yang perlu diingat dan sudah salah sekali: **alarm NB tidak dibaca dari berkas di folder
+project**; masuknya lewat tombol Import. Menyalin berkas ke folder tidak mengubah apa pun. Detail
+bentuk medannya ada di CLAUDE.md bagian "Alarm NB-Designer".
 
 ---
 
-## 2. Server MCP — jalan masuk buat AI
 
-Alasan sebenarnya bukan kenyamanan: **tools ini tidak akan pernah 100% benar sekali jadi**,
-jadi harus ada tempat untuk fleksibilitas. Yang fleksibel itu INPUT-nya.
+## 2. Server MCP - SUDAH, dan batasnya sudah dicabut
 
-**Aturan yang tidak boleh dilanggar: AI tidak pernah menyentuh XML atau ladder.** Ruang
-keluarannya dibatasi ke project JSON. Topologi rung, penamaan, alokasi AL/MF, seal logic,
-pencocokan LSC tetap milik generator.
+`node scripts/mcp.js --ws <folder kerja>`, JSON-RPC 2.0 di atas stdio, tanpa dependensi.
+**13 alat**: generator (`list_devices`, `get_project`, `validate_project`, `generate`), berkas
+(`list_files`, `find_files`, `read_file`, `write_file`), project (`read_smc2`, `diff_smc2`), dan
+riwayat (`track_smc2`, `history`, `restore_smc2`).
 
-Alasannya bukan kehati-hatian umum. AI yang menulis rung langsung menghasilkan ladder yang
-**ter-import bersih dan salah waktu jalan** — dan tidak satu pun dari empat gerbang bisa
-menangkap itu, karena bentuknya sah semua. Lewat project JSON, apa pun yang dikarang tetap
-keluar sebagai rung yang sudah teruji.
+Aturan lama "AI tidak boleh menyentuh XML" **dicabut** atas permintaan pemilik repo. AI boleh
+membaca dan menulis berkas apa pun di dalam folder kerja. Yang menggantikan larangan itu jaring
+pengaman: catat dulu (`track_smc2`), ubah, validasi, dan kalau salah kembalikan persis byte-nya
+(`restore_smc2`). Semua tulis dicadangkan ke `.bak` bertanggal.
 
-**Prasyaratnya sudah ada** — `scripts/core.js` (headless) dan warning terstruktur. Yang
-tersisa tinggal pembungkus tipis:
+Alat berkas/smc2/git DISALURKAN ke `scripts/api.js` - modul yang sama dengan yang dipakai halaman
+`/edit`. Dua jalur dengan logika sendiri-sendiri pasti berbeda perilaku, dan yang berbeda
+diam-diam itu yang paling mahal.
 
-```
-list_devices(io)        daftar device per station + nama solenoid yang SAH
-get_project()           project JSON sekarang
-validate_project(json)  dry-run: warnings terstruktur, TANPA nulis file
-generate(json)          XML + GlobalVariables.tsv
-```
-
-`list_devices` bukan opsional: tanpa itu LLM mengarang nama solenoid dan yang didapat cuma
-warning `unknown_solenoid` — langkahnya hilang diam-diam.
+Yang belum: alat MENYUNTING project JSON per bagian (mis. `add_motion_step`) - sekarang AI
+mengirim project JSON utuh.
 
 ---
+
 
 ## 3. Lingkaran tertutup: project JSON jadi acuan, mesin jadi hasil build
 
@@ -72,24 +57,32 @@ JSON** yang jadi acuan, semua perubahan lewat situ dan `.smc2` jadi hasil build.
 bawah menuju yang kedua, bertahap, dan tiap langkah berguna sendiri walau langkah berikutnya
 tidak pernah dikerjakan.
 
-### 3a. `smc2_diff` - menjawab "apa yang berubah"
+### 3a. `smc2_diff` - SUDAH ADA
 
-Bandingkan dua `.smc2`, atau `.smc2` vs yang akan digenerate. Keluarannya: variabel
-ditambah/dihapus, komen berubah, jumlah rung per section, alokasi AL/MF bergeser.
+`node scripts/smc2_diff.js LAMA.smc2 BARU.smc2` (juga `cd reader && node cli.js A --diff B`,
+dan tombol "Bandingkan" di aplikasi lokal). Melaporkan program/section ditambah-dihapus, rung
+per section, variabel ditambah-dihapus-berubah (tipe, AT, grup, komen), komen elemen AL/MF, dan
+alarm yang PINDAH NOMOR. Hanya baca. Suite `reader/tests/diff.test.js`.
 
-Tidak menulis apa pun, jadi tidak ada risikonya. Bahannya sudah lengkap: `readProject()`
-sudah mengembalikan variabel berikut `elementComments`, dan `core.generate()` menghasilkan
-sisi pembandingnya.
+Yang belum: sisi `.smc2` **vs yang akan digenerate**. Bahannya ada - `core.generate()`
+menghasilkan XML + TSV, tinggal dibaca jadi bentuk yang sama dengan `readProject()`. Itu yang
+membuat "apa yang berubah di Studio sejak generate terakhir" bisa dijawab tanpa menyimpan
+salinan `.smc2` kemarin.
 
-### 3b. Git yang diff-nya kebaca
+### 3b. Git yang diff-nya kebaca - SEBAGIAN SUDAH
 
-`.smc2` itu ZIP - commit binernya bikin `git diff` tidak menunjukkan apa-apa. Yang di-commit
-harus **isi yang diekstrak** (atau dump teks ternormalisasi dari reader), di samping
-`.smc2`-nya. Baru kelihatan rung mana yang berubah.
+`node scripts/smc2_extract.js x.smc2 history/ --clean` membongkar `.smc2` jadi teks deterministik
+(satu berkas per section, variabel dan komen alarm terurut, koordinat tidak ikut). Commit folder
+itu di samping `.smc2`-nya dan `git diff` menunjukkan rung mana yang berubah.
+`tests/smc2extract.test.js` menjaga sifat yang paling menentukan: jalan dua kali harus
+menghasilkan berkas yang sama persis - kalau tidak, riwayatnya penuh diff palsu dan berhenti
+dibaca.
 
-Lalu watcher: tiap save `.smc2` -> ekstrak -> commit dengan pesan hasil `smc2_diff`. Belum
-diverifikasi apakah Ctrl+S di Studio memperbarui berkas `.smc2` yang bisa dipantau - buka
-Studio, Ctrl+S, lihat apakah timestamp-nya berubah. Kalau tidak, pemicunya "Save As" berkala.
+Yang belum: **watcher**. Tiap `.smc2` disimpan -> ekstrak -> commit dengan pesan hasil
+`smc2_diff --brief`. Dan yang harus diperiksa dulu di mesin: apakah Ctrl+S di Studio memang
+memperbarui berkas `.smc2` yang bisa dipantau (buka Studio, Ctrl+S, lihat timestamp-nya). Kalau
+tidak, pemicunya "Save As" berkala.
+
 
 ### 3c. MCP (lihat butir 2)
 
@@ -147,18 +140,16 @@ program NX yang sedang disimulasikan, TANPA menyentuh internal Studio sama sekal
 **Sudah terbukti jalan di NX1P2.** Menunya abu-abu selama simulasi belum di-Run - itu sebabnya,
 bukan modelnya. Dugaan awal soal NX102 salah dan sudah dicoret di CLAUDE.md.
 
-### Sambungannya ke generator: kolom Network Publish
+### Kolom Network Publish - TERNYATA TIDAK PERLU
 
-OPC UA hanya menampilkan variabel yang **dipublikasi**. Sekarang kita menulis kebalikannya -
-`tsvRow()` di `js/gen_all.js` selalu `"Do not publish"`. Plumbing-nya sudah ada dan belum
-terpakai: `gvr()` di `js/lib.js` bisa menulis
+Dugaan awal: OPC UA cuma menampilkan variabel yang dipublikasi, jadi generator harus menulis
+`networkPublish`. **Salah** - di simulator, variabel global ter-publish OTOMATIS dengan path
+`GlobalVars.<nama>`; sudah dibuktikan di mesin ini (lihat CLAUDE.md). Jadi butir ini dicoret,
+dan `tsvRow()` boleh tetap `"Do not publish"`.
 
-```xml
-<smcext:GlobalVariableAdditionalProperties networkPublish="PublishOnly" />
-```
-
-Jadi tinggal satu setelan (mis. "publikasikan simbol yang punya AT") dan seluruh
-tombol/lampu/AL/MF kelihatan dari OPC UA tanpa diklik satu per satu di Studio.
+Yang masih terbuka: apakah controller SUNGGUHAN (bukan simulator) juga begitu. Kalau tidak,
+`gvr()` di `js/lib.js` sudah bisa menulis `<smcext:GlobalVariableAdditionalProperties
+networkPublish="PublishOnly" />` - tinggal satu setelan, bukan pekerjaan baru.
 
 ### Urutannya - tiap langkah membuktikan yang berikutnya
 
@@ -172,53 +163,53 @@ simulator HMI, jauh lebih tertutup. Baru di situ reverse engineering masuk akal.
 
 ---
 
-## 4. Undo / redo di editor flowchart
+## 4. Undo / redo di editor flowchart - SUDAH
 
-**Kenapa penting.** Satu-satunya cara membatalkan kesalahan sekarang adalah
-mengulang manual. Menghapus node juga menghapus semua panah yang menempel padanya
-— tidak bisa dikembalikan.
+Ctrl+Z / Ctrl+Shift+Z (dan Ctrl+Y), plus tombol Undo/Redo di kepala panel Motion sequence.
 
-**Kenapa belum dikerjakan.** Undo/redo yang setengah jadi lebih berbahaya daripada
-tidak ada: kalau ada satu jalur mutasi yang terlewat, undo menghasilkan graph yang
-tidak konsisten tanpa tanda apa pun. Harus lengkap atau tidak sama sekali.
+**Rancangannya diganti dari yang tertulis dulu, dan itu yang bikin bisa selesai.** Rencana lama
+menuntut SEMUA pemanggil lewat satu `mutate(fn)` - dan kelengkapan daftar itu bagian yang paling
+gampang gagal diam-diam. Yang dipakai sekarang: `checkpoint()` menyimpan SNAPSHOT seluruh state
+(motion, condition, nama station, override aktuator, counter) dan membandingkannya dengan yang
+terakhir dicatat. Kalau sama, tidak mencatat apa-apa.
 
-**Rancangan yang disepakati.** Satu titik masuk `mutate(fn)` yang menyimpan
-snapshot `motionState` + `conditionState` sebelum tiap perubahan, lalu Ctrl+Z /
-Ctrl+Shift+Z. **Semua** pemanggil harus lewat situ:
+Akibatnya titik pemanggilan tidak perlu lengkap: panggilan berlebih jadi no-op, dan panggilan
+yang TERLEWAT cuma menggabungkan dua perubahan jadi satu langkah undo - tidak pernah menghasilkan
+state yang tidak konsisten. Satu panggilan di `regenerate()` sudah menutup hampir semua jalur,
+karena tiap perubahan yang sampai ke layar lewat situ.
 
-`addMotionNode` `addBlockNode` `addConditionNode` `removeNode` `addEdge`
-`removeEdge` `moveNode` `toggleJoin` `setNodeField` `setNodeComment`
-`addVariant` `removeVariant` `setVariantCondition` `setVariantComment`
-`importSequenceJSON` `importConditionJSON` `importProjectJSON`
-plus drag START/END (`variant.startPos` / `endPos`).
+Satu jebakan yang sudah kena dan dijaga tesnya: `histApply()` memanggil `regenerate()`, yang
+memanggil `checkpoint()` - tanpa penjaga `histRestoring`, undo mencatat dirinya sendiri sebagai
+langkah baru dan riwayatnya tumbuh tiap kali di-undo (Ctrl+Z tidak pernah sampai ke awal).
+Ketahuan sebagai tes yang menggantung, bukan sebagai tes merah.
 
-Kelengkapan daftar itu bagian yang paling menentukan. Sebaiknya ditutup dengan
-tes yang memeriksa tiap fungsi mutasi benar-benar menambah satu entri riwayat.
+`tests/undo.test.js` menjaga: langkah kosong tidak dicatat, undo/redo memulihkan state DAN
+menggambar ulang, perubahan baru membuang jalur redo, Condition ikut dipulihkan, dan riwayatnya
+dibatasi.
+
+
+## 5. Panel hasil - SEBAGIAN SUDAH
+
+Ringkasan per program sudah ada di paling atas hasil: program, section, jumlah rung per section,
+dan section kosong ditandai. Dihitung dari XML yang BARU ditulis, bukan dari hitungan terpisah -
+dua sumber angka untuk hal yang sama selalu berakhir beda. Dijaga `tests/overview.test.js`, yang
+mengadu angkanya ke XML sungguhan hasil `scripts/core.js`.
+
+Yang belum: **daftar bit yang dipakai per section**, dan **tautan lompat ke section** di dalam
+XML. Yang kedua butuh XML-nya ditampilkan bukan sebagai textarea mentah.
+
+---
+
+## 6. Node condition yatim hilang saat export - SUDAH
+
+Node `condition` yang tidak dirujuk `after` node manapun sekarang ikut selamat, berikut komentar
+dan posisinya. Tidak perlu medan JSON baru: `conditionPositions`/`conditionComments` sudah ditulis
+buat SEMUA node condition waktu export, termasuk yang yatim - yang kurang cuma pembacaannya waktu
+import. Dijaga `tests/editor.test.js` bagian 3b, dan sudah dibuktikan tesnya memang menangkap:
+dijalankan ke versi TANPA perbaikan, node yatimnya hilang.
 
 ---
 
-## 5. Panel hasil
-
-**Keadaan sekarang.** Tiap file XML tampil sebagai textarea mentah. Untuk menilai
-hasil generate, satu-satunya cara adalah men-scroll XML.
-
-**Yang diusulkan.** Ringkasan per program: jumlah rung per section, daftar bit
-yang dipakai, dan tautan lompat ke section. XML tetap bisa dibuka, tapi bukan
-lagi tampilan utama.
-
----
-
-## 6. Node condition yatim hilang saat export
-
-Node bertipe `condition` yang **tidak dirujuk `after` node manapun** lenyap saat
-export/import. Penyebabnya desain: node condition tidak disimpan di array `nodes`,
-melainkan dibangun ulang dari rujukan `after`, jadi yang menggantung sendirian
-tidak punya jejak.
-
-Keterbatasan lama, bukan regresi. Terasa kalau alur kerjanya bolak-balik
-export–import (mis. lewat MCP).
-
----
 
 ## 7. Manfaatkan pembaca `.smc2` ([reader/](reader/))
 
@@ -256,15 +247,31 @@ itu jenis kesalahan yang tidak kelihatan sampai mesinnya bergerak.
 Yang masih ditolak: **kontak edge di titik gabungan** — `Rung.ct()` cuma menerima satu
 sambungan masuk, sementara `ctm()` (banyak sambungan) belum menerima atribut `edge`.
 
-## 8. Panel warning bisa diklik
+## 8. Panel warning bisa diklik - SUDAH
 
-Warning sudah dikelompokkan per station dan membawa `code` + `device`. Langkah
-berikutnya yang murah: klik satu baris warning → gulirkan ke aktuator atau node
-yang bersangkutan. Datanya sudah tersedia, tinggal penyambungnya.
+Klik satu baris warning melompat ke aktuatornya (baris Confirm Mode) atau ke kotak station di
+panel Motion, membuka `<details>` yang menutupinya, lalu menyorotnya sesaat. Pencocokannya lewat
+penanda `data-dev`/`data-st`, bukan lewat teks yang tampil - teks judul ikut nama station yang
+diketik orang. `tests/warnjump.test.js` menjaganya, termasuk kasus yang paling gampang salah:
+warning tingkat station TIDAK boleh mendarat di aktuator pertama milik station itu.
+
+Yang belum: lompat ke NODE motion yang bersangkutan (bukan cuma kotak stationnya).
 
 ---
 
 ## Sudah selesai (jangan dikerjakan ulang)
+
+- `smc2_diff`: bandingkan dua `.smc2`, memisahkan perubahan logika / tata letak / alamat, dan
+  menandai alarm yang pindah nomor (butir 3a)
+- `smc2_extract`: `.smc2` jadi teks deterministik yang bisa di-commit, `git diff`-nya kebaca (3b)
+- Undo/redo editor flowchart lewat snapshot state + `checkpoint()` diff-based (butir 4)
+- Server MCP tanpa dependensi: 13 alat (generator + berkas + smc2 + git), folder kerja terkurung
+- Aplikasi lokal jadi server penuh: API `fs/smc2/git`, halaman `/edit` buat catat-lihat-kembalikan
+- Riwayat `.smc2` lewat git: `track_smc2` menyimpan berkas aslinya, `restore_smc2` mengembalikan persis byte-nya
+- Node condition yatim ikut selamat lewat export-import (butir 6)
+- Ringkasan hasil generate + warning yang bisa diklik (butir 5 dan 8)
+- Satu jalan masuk: panel **All tools & docs** di `index.html` + `scripts/app.js` melayani
+  generator, pembaca `.smc2`, dan dokumen; `tests/hub.test.js` menjaga tautnya tetap hidup
 
 - Pencocokan LSC — dulu `STOPPER-2/3/4` semua tersambung ke sensor `STOPPER-5`
 - Blok flowchart: IF/ELSE (hold + mutex), SET/RESET memory, ALARM

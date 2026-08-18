@@ -16,6 +16,10 @@ node scripts/app.js                    # aplikasi lokal, 127.0.0.1:7654 (atau kl
 node scripts/nb_sync.js <smc2> <folderNB> [--rebuild] [--write]   # komen alarm .smc2 -> .nbp
 node scripts/nb_apply.js <csv|json> <folderNB>          # lihat dulu, TIDAK menulis
 node scripts/nb_apply.js <csv|json> <folderNB> --write  # tempel ke project NB, backup dulu
+node scripts/smc2_diff.js LAMA.smc2 BARU.smc2           # apa yang berubah di Studio (hanya baca)
+node scripts/smc2_extract.js x.smc2 history/ --clean    # .smc2 -> teks yang kebaca `git diff`
+node scripts/app.js --ws C:/kerja                      # aplikasi lokal + API, folder kerja disetel
+node scripts/mcp.js --ws C:/kerja                      # server MCP, folder kerja yang sama
 ```
 
 `node tests/run.js` membaca `index.html`, jadi **build dulu baru test**. Sekarang
@@ -279,6 +283,11 @@ salah; jalur `AddData` untuk komen memang tidak dipakai.
 Bandingkan: `AddData` yang LAIN jelas dipakai — `smcext:ConnectionPointInOrder` di rung dan
 `smcext:DeviceInfo` di header. Yang diabaikan khusus `VariableComment`.
 
+Di sisi BACA, komen elemen itu didaftar ke tabel simbol dengan nama yang dipakai rung -
+`AL[3]`, bukan `AL` (`setSymbols` di `reader/src/symbols.js`). Salah kunci = rung yang memegang
+`AL[3]` tergambar tanpa komentar sementara Studio menampilkannya, dan itu terbaca seperti
+komennya memang tidak ada.
+
 Konsekuensinya `ArrayComments.tsv` tetap satu-satunya jalan buat komen `AL[n]`/`MF[n]`,
 ditempel setelah arraynya di-expand di Studio.
 
@@ -516,6 +525,333 @@ cd reader && node cli.js "Prepare CE insert3.smc2" --probe-fb
 koordinat saja dan menandai hasilnya `~`. Cukup untuk dibaca manusia, TIDAK boleh
 dipakai untuk menulis program.
 
+## Pindah laptop - yang perlu dan yang TIDAK perlu
+
+```bash
+git clone <repo>            # atau salin foldernya
+node scripts/doctor.js      # periksa kesiapan mesin, sebelum bingung sendiri
+python scripts/build_html.py
+cd reader && node build.js && cd ..
+node scripts/app.js --ws "<folder project>"
+```
+
+**Docker TIDAK dipakai, dan itu keputusan sadar.** Yang bikin repo ini butuh mesin Windows-nya
+justru bagian yang paling dipakai:
+
+| | |
+|---|---|
+| dialog pilih berkas | WinForms lewat PowerShell - tidak ada di container Linux |
+| XSD resmi | milik Sysmac Studio yang terpasang di mesin (`C:\Program Files\OMRON\...`), tidak boleh disalin ke repo |
+| project `.smc2` dan `.nbp` | ada di disk Windows; container butuh bind mount + terjemahan path, dan tiap path yang salah jadi berkas yang tidak ketemu |
+| NB-Designer & Studio | aplikasi Windows yang memang harus dibuka orangnya |
+
+Yang dibungkus Docker tinggal generator headless - bagian yang justru sudah tanpa dependensi dan
+jalan di mana saja. Jadi Docker menambah lapisan tepat di tempat yang tidak bermasalah, dan
+mematikan tepat di tempat yang bermasalah.
+
+Yang IKUT pindah sendiri: riwayat project (`*-history/`) dan `.susmax-tracked.json` ada di dalam
+folder project. Yang TIDAK ikut: folder kerja tersimpan (`~/.susmax/settings.json`) dan
+pendaftaran MCP - dua-duanya setelan per-mesin, tinggal disetel ulang sekali.
+
+`scripts/doctor.js` memeriksa yang di luar repo: Node >= 18 (DecompressionStream - pembaca
+`.smc2` bergantung padanya), `git` di PATH, halaman yang sudah dibuild, plus yang opsional
+(Python buat build ulang, PowerShell buat dialog, XSD Studio, CLI claude buat MCP). Yang gagal
+di mesin baru hampir tidak pernah kodenya - selalu hal di luar repo, dan gejalanya menyesatkan.
+
+## Menjalankan aplikasi lokal
+
+```bash
+node scripts/app.js                        # folder kerja = folder repo ini
+node scripts/app.js --ws "C:/kerja/mesinA" # folder kerja = folder project
+SUSMAX_WS=C:/kerja/mesinA node scripts/app.js
+```
+
+Atau klik dua kali `Susmax.cmd` (meneruskan argumen: `Susmax.cmd --ws "C:/kerja/mesinA"`).
+Lalu buka <http://127.0.0.1:7654> - dari situ generator, pembaca `.smc2`, alat NB, dan
+Edit assistance semuanya ketemu.
+
+**DUA git, jangan tertukar:**
+
+| | isinya | dibuat oleh |
+|---|---|---|
+| git repo INI | kode generator/reader/scripts | kamu, seperti biasa |
+| git repo per PROJECT | riwayat `.smc2` satu mesin: berkas aslinya + teks ekstraknya | otomatis oleh `git/track`, di dalam folder kerja |
+
+Yang kedua sengaja repo TERPISAH dan berada di folder project, bukan di dalam repo ini: riwayat
+program mesin pelanggan bukan bagian dari kode alat, dan ukurannya megabyte per commit.
+`git/track` menuntut folder riwayat jadi repo SENDIRI - lihat catatan di bawah soal home yang
+ternyata sebuah repo git.
+
+**Halaman menampilkan status server sendiri** (`/api/ping`). Ditanyakan ke servernya, BUKAN
+ditebak dari `location.protocol`: halaman sering dibuka dari `file://` sementara servernya jalan,
+dan tebakan dari protokol bikin alat yang siap dipakai kelihatan mati. `/api/ping` satu-satunya
+yang boleh dipanggil lintas asal; sisanya menolak `Origin` asing - server lokal yang menerima
+perintah dari halaman web mana pun itu lubang, bukan alat.
+
+## Pantau otomatis: dipicu simpanan Studio, bukan penjadwal
+
+`watch/start` memantau berkas `.smc2` dan mencatat versinya sendiri tiap kali Studio menyimpan.
+Empat keputusan yang menentukan catatannya benar:
+
+| | |
+|---|---|
+| POLLING stat, bukan `fs.watch` | Studio menulis berkas sementara lalu me-rename. Penonton yang menempel ke inode berhenti dapat kabar setelah rename pertama, dan berhentinya DIAM |
+| tunggu berkasnya DIAM 3 detik | menyimpan project 5 MB butuh waktu; commit di tengah tulisan menyimpan ZIP separuh, dan itu baru ketahuan waktu dibutuhkan |
+| `readProject` DULU sebelum commit | kalau tidak bisa dibuka, berkasnya belum utuh - jangan dicatat sebagai versi yang sah |
+| catat keadaan SEBELUM disunting saat pemantauan dimulai | versi itulah yang dicari waktu suntingannya salah; menunggu simpanan pertama berarti versi itu tidak pernah ada di riwayat |
+
+Judul commit DIHITUNG dari diff terhadap versi sebelumnya, bukan "auto-save" - riwayat berisi
+seratus baris "auto-save" tidak menjawab satu pun pertanyaan yang bikin orang membukanya.
+
+**Judul menyusul pakai `git notes`, BUKAN `commit --amend`.** Amend mengganti hash, dan hash yang
+berubah bikin daftar riwayat yang sedang dilihat orang menunjuk commit yang sudah tidak ada -
+termasuk tombol "Kembalikan" di sebelahnya.
+
+Sinkron NB berkelanjutan menumpang pemicu yang SAMA (`watch/start` dengan `nb`). Dua pemantau
+untuk satu berkas pasti berbeda pendapat soal "sudah selesai ditulis belum", dan yang satu akan
+membaca project yang separuh.
+
+## Dialog pilih berkas dibuka SERVER
+
+**Dialognya butuh jendela pemilik yang BENAR-BENAR DITAMPILKAN.** `ShowDialog(New-Object Form)`
+memakai form tanpa handle jendela - itu bukan pemilik yang sah, dialognya tidak muncul sama
+sekali, dan dari halaman yang kelihatan cuma "menunggu dialog..." selamanya. Form 1x1 ber-TopMost
+di-`Show()` dulu, lalu ditutup lagi (jendela yang tertinggal menahan proses PowerShell-nya hidup).
+
+**`claude` TIDAK boleh dijalankan lewat `shell: true` maupun sebagai `.cmd`.** Yang pertama
+memunculkan DEP0190 - argumen tidak di-escape, cuma disambung; pesan obrolan datang dari halaman,
+dan pesan yang memuat `&` di jalur shell itu jalan masuk buat menjalankan perintah lain. Yang
+kedua ditolak Node versi baru (EINVAL), justru karena alasan yang sama. Yang dipakai
+`bin/claude.exe` milik paketnya, dicari sekali lalu diingat.
+
+`<input type="file">` tidak pernah memberi path lengkap - itu batas keamanan browser, bukan
+sesuatu yang bisa disiasati. Yang tersisa cuma menyalin path dengan tangan, dan itu jalur paling
+sering salah ketik di seluruh alat ini. `pick/file` dan `pick/folder` membuka dialog Windows lewat
+PowerShell `-STA` (WinForms menolak tampil di MTA, dan penolakannya berupa proses yang selesai
+tanpa hasil - tidak bisa dibedakan dari "menekan Cancel"). `TopMost` wajib: tanpa itu dialognya
+muncul di BELAKANG browser dan yang kelihatan cuma halaman yang menggantung.
+
+## AI dikerjakan dari TERMINAL, bukan dari kotak chat di halaman
+
+Kotak chat di halaman sempat ada (`chat/ask`, jembatan ke `claude -p`) lalu **dicabut**. Tiga
+alasannya, dan ketiganya tidak bisa diperbaiki dengan menambah tombol:
+
+1. tidak bisa ganti model, tidak ada konsol penuh, tidak ada riwayat yang bisa dibaca ulang
+2. konteksnya nyasar - `claude -p` dengan `cwd` folder kerja ikut membaca riwayat git folder
+   induk, jadi jawabannya menyebut project lain yang kebetulan ada di repo home
+3. satu kotak teks tidak bisa menampilkan apa yang sedang dikerjakan alatnya
+
+Gantinya: terminal memakai server MCP yang sama dengan halaman.
+
+```bash
+claude mcp add susmax -e SUSMAX_WS=<folder project> -- node "<repo>/scripts/mcp.js"
+```
+
+**Folder kerjanya lewat `-e SUSMAX_WS`, BUKAN `--ws`.** `claude mcp add` ikut mem-parse flag
+sesudah `--`, jadi `--ws` ditolaknya duluan (`error: unknown option '--ws'`) dan tidak pernah
+sampai ke skripnya. `--ws` tetap jalan kalau `mcp.js` dipanggil langsung dari terminal.
+
+Alat yang dipanggilnya PERSIS sama dengan tombol di halaman (`watch_start`, `diff_smc2`,
+`restore_smc2`, `nb_sync`, ...) karena dua-duanya lewat `scripts/api.js`. Itu yang membuat hasil
+lewat terminal dan lewat halaman tidak bisa berbeda.
+
+
+## Aplikasi lokal: server, folder kerja, dan riwayat git
+
+Alat-alat repo ini bukan lagi halaman yang menunggu berkasnya di-drag. `scripts/app.js` melayani
+semuanya dan punya API yang dipakai halaman MAUPUN MCP:
+
+| | |
+|---|---|
+| `scripts/ws.js` | folder kerja + `amanPath()` - satu-satunya tempat baca/tulis diizinkan |
+| `scripts/api.js` | `fs/*`, `smc2/*`, `git/*` - satu modul, dipakai dua jalur masuk |
+| `scripts/edit_page.js` | halaman `/edit`: pantau otomatis, riwayat, pemulihan, panel tanya AI |
+| `scripts/watcher.js` | pemantau simpanan Studio (polling + tunggu diam + buka dulu) |
+| `scripts/pick.js` | dialog pilih berkas/folder Windows, dibuka server |
+| `nb/sync`, `nb/alarm` | alat NB-Designer ikut di API dan MCP, bukan cuma tombol di `/tools` |
+| `scripts/mcp.js` | 13 alat MCP; yang berkas/smc2/git disalurkan ke `api.js` yang sama |
+
+**Aturan lama "AI tidak boleh menyentuh XML" SUDAH DICABUT** atas permintaan pemilik repo. AI
+boleh membaca dan menulis berkas apa pun - XML, `.smc2` - selama di dalam folder kerja.
+
+Yang menggantikannya jaring pengaman, bukan larangan:
+
+1. `track_smc2` mencatat versi sekarang SEBELUM apa pun diubah - berikut berkas `.smc2`-nya
+   sendiri, bukan cuma teks ekstraknya.
+2. `restore_smc2` mengembalikannya PERSIS byte-nya.
+3. Semua tulis dicadangkan ke `.bak` bertanggal yang tidak pernah menimpa cadangan sebelumnya.
+
+Peringatannya tetap berlaku dan tetap ditulis di `mcp.js`: ladder yang salah tetap **ter-import
+bersih dan salah waktu mesin bergerak**, dan empat gerbang memeriksa BENTUK, bukan maksud. Bedanya
+sekarang kesalahan itu bisa dibatalkan, bukan dicegah.
+
+**`git/track` WAJIB memakai repo SENDIRI, bukan repo yang kebetulan ada di atasnya.** Ini sudah
+kejadian di mesin ini: `C:/Users/denny` ternyata sebuah repo git, jadi folder riwayat di bawah
+home menampilkan riwayat home dan `git add` menyentuh index-nya. Pemeriksaannya bukan
+"apakah di dalam work tree" melainkan "`rev-parse --show-toplevel` PERSIS folder ini".
+
+**Kurungan folder kerja diperiksa SETELAH `resolve`, bukan dengan menyaring `..` di teksnya.**
+Penyaringan teks selalu bisa dilewati (`..%2f`, symlink); hasil resolve tidak bisa berbohong soal
+di mana berkasnya benar-benar berada. `realpath` dipakai kalau berkasnya ada - symlink di dalam
+root yang menunjuk keluar itu jalan keluar yang paling gampang terlewat.
+
+
+## Undo/redo editor: snapshot, dan penjaga yang WAJIB ada
+
+`checkpoint()` menyimpan snapshot SELURUH state editor lalu membandingkannya dengan yang terakhir
+dicatat; kalau sama, tidak mencatat apa-apa. Itu sebabnya titik pemanggilannya tidak perlu
+lengkap - panggilan berlebih no-op, yang terlewat cuma menggabung langkah. Undo yang menyusun
+kebalikan tiap operasi TIDAK dipakai: satu jalur mutasi yang terlewat di situ menghasilkan graph
+tidak konsisten tanpa tanda apa pun.
+
+**`histRestoring` jangan dihapus.** `histApply()` memanggil `regenerate()`, dan `regenerate()`
+memanggil `checkpoint()`. Tanpa penjaga itu, undo mencatat dirinya sendiri sebagai perubahan baru:
+riwayatnya tumbuh tiap kali di-undo dan Ctrl+Z tidak pernah sampai ke awal. Bentuk kegagalannya
+bukan tes merah melainkan tes yang MENGGANTUNG (`while (undo())` tidak pernah habis) - itu yang
+terjadi waktu ditulis.
+
+## Tiga halaman, satu jalan masuk: home.html
+
+| berkas | isi | dibangun oleh |
+|---|---|---|
+| `home.html` | halaman UTAMA - daftar seluruh alat repo | `scripts/build_html.py` |
+| `index.html` | generator, dengan navigasi sampingnya sendiri | `scripts/build_html.py` |
+| `reader/smc2-viewer.html` | pembaca `.smc2` | `cd reader && node build.js` |
+
+`scripts/app.js` melayani `/` = `home.html`, `/index.html` = generator, `/tools` = halaman alat NB.
+Kartu alat cuma ada di SATU tempat (`TOOLS_CARDS` di `build_html.py`); disalin ke dua halaman,
+yang satu selalu ketinggalan dan menampilkan perintah yang sudah pindah.
+
+Navigasi samping generator hilang total di bawah 1100px - sekarang bersembunyi di balik tombol
+`#navToggle`, bukan `display:none`. Nav yang lenyap tanpa jejak terbaca seperti fitur rusak.
+
+## Pembaca `.smc2`: gambar ladder punya batas ANGKA, bukan selera
+
+`src/ladder.js` menggambar rung. Tiga angka di `LAD` tidak boleh diubah tanpa menghitung ulang,
+dan ketiganya sudah pernah salah:
+
+| | |
+|---|---|
+| `RH` >= 73 | nama boleh 2 baris di ATAS simbol (18+11), komentar 3 baris di BAWAH (22+11+11). Di bawah 73, komentar rung ini bertumpuk dengan nama rung berikutnya |
+| minimum kolom = 2 | dulu 5, jadi rung berisi dua kontak pun memaksa rel kanan ke ~1000px dan coil-nya jatuh di luar layar |
+| `railL` ikut operand kiri blok fungsi | operand pin masukan ditulis di LUAR kotak, ke kiri. Tanpa ruang tambahan, teksnya jatuh di koordinat NEGATIF - di luar viewBox dan terpotong, dan yang kelihatan cuma ekornya |
+
+Tinggi rung ikut kotak blok fungsi (`HDR + pin*PINH`), bukan tetap - instruksi berpin banyak
+(`AryByteTo`: In/Size/Order/OutVal) lebih tinggi dari satu baris ladder dan pin bawahnya terpotong
+rung berikutnya.
+
+**Studio MENGHILANGKAN `X`/`Y` yang nilainya 0.** `{"Ix":9,"X":3}` itu palang di kolom 3 baris 0.
+Menuntut kedua medan ada bikin palang baris pertama terbuang diam-diam, dan yang tersisa cuma
+palang paling kanan - cabangnya tergambar jadi satu kotak besar sampai ujung rung. Aturan ini
+berlaku untuk elemen juga: elemen di kolom 0 tidak punya `X`.
+
+**Satu baris bisa punya BEBERAPA potongan yang tidak bersambung** - seal di kolom 0-2 dan kontak
+cabang OR di kolom 4, di baris yang sama. Diambil min-max, dua potongan itu jadi satu kabel
+panjang melintasi ruang kosong: kabel yang di Studio tidak ada, dan yang membacanya mengira dua
+cabang itu satu jalur. Tiap potongan digambar sendiri, dari pembukanya (rel kalau mulai kolom 0,
+kalau tidak palang di kolom itu) sampai tepi kiri kolom berikutnya.
+
+**Panjang kabel baris cabang ditentukan `HLink`, bukan palang yang melintasinya.** Studio mengisi
+kolom kosong sebuah baris dengan elemen `HLink` (tanpa nama, jadi tidak digambar) - posisinya yang
+menyatakan sampai kolom mana kabelnya nyambung. Palang yang menyambung baris 0-2 LEWAT DI ATAS
+baris 1; dianggap batas kanan baris 1, cabang pendek tergambar sampai ujung rung.
+
+**Palang cabang digambar dari `VLs`, bukan ditebak.** `.smc2` Studio >= 1.66 membawa daftar ruas
+vertikal: satu ruas menyambung baris Y dan Y+1 di TEPI KIRI kolom X. Itu susunan yang sebenarnya.
+Yang ditebak dari koordinat menaruh titik gabung di kolom yang salah - gambarnya tetap tampak
+wajar, cuma menceritakan rangkaian LAIN dari yang dijalankan mesin. Heuristik lama tetap ada buat
+berkas Studio <= 1.56 yang memang tidak menyimpan VLs; jangan dihapus.
+
+**Studio cuma menyimpan palang PENUTUP cabang.** Pembukanya rel kiri itu sendiri - kedua baris
+berangkat dari rel. Kabel baris cabang karena itu harus dimulai dari `railL`, bukan `colX(0)`:
+selisih 12px-nya bikin cabang tergambar menggantung, seolah tidak tersambung ke mana-mana.
+
+**Lebar kolom dihitung PER KOLOM.** Kolom berisi blok fungsi butuh ruang buat kotak + operand pin
+di kiri dan kanan; kolom kontak tidak. Satu lebar untuk seluruh rung bikin satu `TON` melebarkan
+kolom kontaknya juga - rung 4 kolom jadi ~760px dan butuh gulir mendatar tanpa alasan. Lebar
+kotaknya sendiri DIBATASI terpisah (`fbW`), tidak lagi `CW - 8`: kalau ikut lebar kolom,
+melebarkan kolom ikut melebarkan kotak dan ruang operand tidak pernah bertambah - itu yang bikin
+`AIR SOURCE CONF` dan `T#3S` tertumpuk jadi `AIR SOURCE CON#3S`.
+
+**Nama instance FB ditulis di atas kotak** (`LT012` di atas `TON`), seperti Studio. Tanpa itu dua
+timer berbeda tergambar sama persis.
+
+**Komentar operand punya DUA tingkat, dan yang kedua gampang terlupa.** `cmtOf()` di
+`reader/src/symbols.js`: komen per ELEMEN (`AL[3]`, medan `EC=`) menang; kalau tidak ada, dipakai
+komen ARRAY-nya (`PL032` → semua `PL032[n]`), persis seperti yang ditampilkan Studio. Tanpa
+tingkat kedua, seluruh rung lampu/tombol tergambar tanpa komentar dan terbaca seperti project
+yang memang tidak berkomentar. Arraynya JANGAN di-expand ke tabel simbol - ada array 4000 elemen
+di project nyata.
+
+**Komentar dipatah maksimal 4 baris** (`CMT_LN`). Dulu 3, dan komentar Denso rutin sepanjang
+"Auto start condition indication, page 2": yang hilang justru penunjuk halamannya, tanpa tanda
+apa pun - dua lampu yang bedanya cuma nomor halaman terbaca sama persis. `RH` ikut naik ke 88
+karena itu.
+
+**Warna operand itu INFORMASI, bukan hiasan** - dan tiga-tiganya harus ikut ke elemen array:
+
+| tampilan | artinya |
+|---|---|
+| hitam | variabel lokal program itu |
+| ungu | variabel global |
+| merah + stabilo | punya AT - dipetakan ke alamat memori/IO, jadi dibaca/ditulis dari luar program (HMI, unit IO) |
+
+`isGlobal()` dan `addrOf()` di `symbols.js` MEWARISKAN dari nama array: `PL031[2]` ikut `PL031`.
+Tanpa pewarisan, operand yang dibaca HMI tergambar hitam seolah bit internal program itu sendiri.
+Stabilo digambar sebagai `<rect class="hl">` sendiri - SVG tidak punya background buat teks.
+
+**Operand di PIN blok fungsi juga sasaran klik**, bukan cuma kotaknya. Justru operand di pin yang
+paling sering ditanya ("angka ini ditulis siapa?"). Konstanta (`T#3S`, `UINT#44`, angka) dilewati:
+itu nilai, bukan variabel, dan silang-rujuknya selalu kosong - dibuat bisa diklik cuma
+menghasilkan panel kosong yang terbaca seperti fitur rusak.
+
+**Sasaran klik itu `<rect class="hit">` transparan seukuran sel, bukan teks namanya.**
+`fill:transparent`, BUKAN `fill:none` - yang kedua tidak menerima klik sama sekali di SVG, jadi
+kotaknya ada tapi tidak pernah kena. Tanpa kotak itu yang bisa diklik cuma garis setebal 1,6px.
+
+Tab Rung disusun seperti Studio: pohon project (bisa disembunyikan), SATU section sekali jalan,
+satu scrollbar mendatar di bawah (`.srungs{overflow:auto}` + `.rung{width:max-content}` - tanpa
+yang kedua rung lebar cuma meluber tanpa scrollbar dan sisi kanannya tidak bisa dicapai), dan dok
+Cross Reference yang tiap barisnya melompat ke program/section/rung-nya.
+
+## Membandingkan dua .smc2 - `reader/diff.js`
+
+`node scripts/smc2_diff.js LAMA.smc2 BARU.smc2` (hanya baca; `--brief` = satu baris, `--json`
+= terstruktur). Yang dipisah dengan sengaja, karena akibatnya beda jauh:
+
+| kelas | artinya |
+|---|---|
+| logika | susunan elemen rung berubah - mesin bergerak lain |
+| tata letak | cuma koordinat/komentar rung - tidak ada akibat runtime |
+| alamat | AT bergeser, atau nomor alarm pindah - **NB menunjuk bit lain, tanpa satu pun keluhan** |
+
+Pemisahan itu bukan hiasan: kalau rung yang cuma digeser di kanvas ikut dihitung perubahan
+logika, tiap kali orang merapikan tata letak seluruh section tampak berubah dan laporannya
+berhenti dibaca - lalu perubahan yang sungguhan tenggelam di dalamnya.
+
+Alarm yang PINDAH NOMOR dilaporkan terpisah dari yang teksnya disunting, dan cuma kalau
+pindahannya tidak ambigu (satu kandidat). Nomor alarm tercetak di layar NB dan lembar
+troubleshooting; yang bergeser membuat semuanya salah tunjuk sekaligus.
+
+## `.smc2` supaya `git diff`-nya kebaca - `scripts/smc2_extract.js`
+
+`.smc2` itu ZIP; di-commit apa adanya git cuma bilang "binary files differ". Skrip ini membongkar
+isinya jadi teks: satu berkas per section, plus `program.txt`, `variables.tsv`, dan
+`arraycomments.tsv`. Commit folder itu DI SAMPING `.smc2`-nya.
+
+Tiga keputusan bentuknya, dan ketiganya menentukan riwayatnya berguna atau tidak:
+
+| | |
+|---|---|
+| satu berkas per section | satu berkas raksasa bikin tiap perubahan kecil tampil sebagai diff panjang, dan yang berubah tenggelam |
+| urutan dipatok (baris, kolom) | ikut urutan simpan Studio = menyimpan ulang tanpa mengubah apa pun sudah menghasilkan diff palsu, dan riwayat penuh diff palsu berhenti dibaca |
+| koordinat TIDAK ikut | menggeser kotak di kanvas bukan perubahan program. Beda tata letak ada di `smc2_diff.js`, yang memang memisahkannya |
+
+Flag yang mengubah ARTI rung (NC, Set/Reset, edge) WAJIB ikut tertulis. Yang terlewat bikin dua
+program berbeda menghasilkan teks yang sama - diff bersih, mesin bergerak lain.
+`tests/smc2extract.test.js` menjaga itu, plus sifat yang paling menentukan: **jalan dua kali harus
+menghasilkan berkas yang sama persis.**
+
 ## Peta file
 
 | File | Isi |
@@ -531,6 +867,11 @@ dipakai untuk menulis program.
 | `scripts/nb_sync.js` | komen alarm `.smc2` -> `.nbp`, Alarm + Event Setting |
 | `scripts/nb_apply.js` `nb_common.js` | menyiapkan AlarmLib.csv, pencari project NB |
 | `scripts/smc2_comment.js` `smc2_write.js` | menulis balik komen elemen ke `.smc2` |
+| `scripts/smc2_diff.js` `reader/diff.js` | bandingkan dua `.smc2`, hanya baca |
+| `scripts/smc2_extract.js` | `.smc2` -> teks deterministik buat di-commit |
+| `scripts/mcp.js` | server MCP: 13 alat (generator + berkas + smc2 + git) |
+| `scripts/ws.js` `api.js` | folder kerja + API bersama halaman dan MCP |
+| `scripts/edit_page.js` | halaman `/edit`: catat, lihat riwayat, kembalikan |
 | `scripts/app.js` + `Susmax.cmd` | aplikasi lokal 127.0.0.1, membungkus skrip di atas |
 
 ## Cara harness UI bekerja

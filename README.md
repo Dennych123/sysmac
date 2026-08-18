@@ -1,17 +1,163 @@
-# Susmax-program-generator
+# Susmax Program Generator
 
-Generator program Imron Susmax Studio (IEC 61131-10 XML) dari IO list,
-mengikuti standar pemrograman terstruktur PT. Ndeso Indonesia.
-Dipaketkan sebagai `index.html` standalone - satu file, tanpa dependensi
-eksternal, tanpa server, jalan offline dari `file://`.
+**IO list masuk, program PLC Omron Sysmac yang siap di-import keluar.** Ditambah
+alat-alat yang dipakai setelah programnya masuk mesin: pembaca project `.smc2`,
+pembanding dua versi, sinkron alarm ke HMI NB-Designer, dan jembatan OPC UA ke
+simulator.
 
-Arah sebaliknya ada di **[reader/](reader/)**: membaca project `.smc2` yang sudah
-jadi tanpa Sysmac Studio, dan mengekspor rung-nya balik jadi XML yang bisa
-di-import. Jadi lingkarannya tertutup - **baca program yang ada → sunting →
-import balik**, bukan cuma bikin dari nol. Pembangun XML-nya dipakai bersama
-(`js/lib.js`), bukan disalin.
+Buka **`home.html`** - dari situ semua alatnya ketemu. Tanpa dependensi, tanpa server, jalan
+offline dari `file://`.
 
-## Alur
+```
+tanpa npm install  ·  tanpa node_modules  ·  35 suite tes  ·  divalidasi ke XSD resmi Omron
+```
+
+---
+
+## Sekali jalan, dari 85 baris IO list
+
+```bash
+node scripts/core.js project.json out/          # 0,24 detik
+```
+
+| keluar | isi |
+|---|---|
+| **6 program, 591 rung** | MAIN, Initial, HMI, dan satu program per station - lengkap dengan section Device_Input, LSCombination, Individual, AutoRunning, Auto_Output, Fault, HMI_Output |
+| **394 variabel global** | nama, tipe, komentar, kolom **AT**, dan **Retain** - ikut di dalam XML, bukan ditempel tangan |
+| **190 alarm + motion fault** | teks alarmnya jadi, nomornya stabil, siap disinkronkan ke layar NB |
+| **AlarmLib.csv** | 89 medan per baris, format Import dialog Alarm Setting NB-Designer |
+
+Yang di layar sama persis dengan yang di CLI: `index.html` dan `scripts/core.js`
+menjalankan `js/*.js` yang sama, bukan dua salinan yang mirip.
+
+---
+
+## Yang bikin ini bukan sekadar penghasil template
+
+Sysmac Studio menolak import dengan pesan yang **tidak menyebut sebabnya** -
+kadang tanpa nomor baris sama sekali. Jadi tiap kelas kesalahan punya penjaganya
+sendiri, dan semuanya ikut `node tests/run.js`:
+
+| gerbang | menangkap | kalau lolos, Studio bilang |
+|---|---|---|
+| `xsd` | bentuk elemen salah | `(Import failed)`, tanpa baris |
+| `instr` | FUN dikasih instance / FB tanpa instance / minta ENO yang tidak ada | `(DefinitionError)<nama>` |
+| `rungwire` | ref ke id yang tidak ada, titik keluar nganggur | "invalid connection" - atau **rung kosong tanpa keluhan** |
+| `declared` | operand dipakai tapi tidak dideklarasi di program itu | tidak bilang apa-apa; variabelnya merah setelah semua masuk |
+
+Tiap gerbang **menguji dirinya sendiri**: satu berkas yang sengaja dirusak harus
+tertangkap. Validator yang berhenti memvalidasi kelihatannya persis sama dengan
+yang lulus.
+
+Dan yang lebih menentukan lagi: **bentuk XML-nya tidak ditebak.** Susunan pin tiap
+instruksi dibaca dari project yang JALAN DI MESIN lewat `--probe-fb`, XSD-nya milik
+Sysmac Studio sendiri, dan yang belum terbukti import bersih tetap dimatikan
+(`ADV_OK`). Yang sudah dicoba dan TIDAK bisa juga dicatat - lengkap dengan
+kontrolnya - supaya tidak dicoba lagi tahun depan.
+
+---
+
+## Alat di repo ini
+
+Semuanya bisa dibuka dari `index.html` (panel **All tools & docs** di bawah halaman),
+atau dijalankan sendiri dari terminal.
+
+| alat | buat apa |
+|---|---|
+| **[Generator](index.html)** | IO list + flowchart &rarr; XML importable + tabel variabel |
+| **[Pembaca `.smc2`](reader/)** | buka project Sysmac **tanpa Sysmac Studio**, tampilannya seperti Studio: pohon project yang bisa disembunyikan, satu section sekali jalan, dan Cross Reference yang tiap barisnya melompat ke rung-nya |
+| **`scripts/smc2_diff.js`** | bandingkan dua `.smc2`: rung logika vs geser kanvas vs **alamat/nomor alarm yang bergeser** |
+| **`scripts/smc2_extract.js`** | `.smc2` jadi teks deterministik yang bisa di-commit - `git diff` akhirnya menunjukkan rung mana yang berubah, bukan "binary files differ" |
+| **`scripts/nb_sync.js`** | komen alarm `.smc2` &rarr; project NB-Designer, langsung ke `.nbp` |
+| **`scripts/nb_apply.js`** | siapkan `AlarmLib-generated.csv` buat tombol Import di dialog Alarm Setting |
+| **`scripts/smc2_comment.js`** | komen elemen `AL[n]`/`MF[n]` ditulis balik ke `.smc2` - satu-satunya jalan, karena Studio membuang `smcext:VariableComment` waktu import |
+| **`tools/opcua/browse.js`** | baca/tulis variabel program NX yang sedang **disimulasikan**, lewat OPC UA |
+| **`scripts/mcp.js`** | server MCP tanpa dependensi - 13 alat: generator, berkas, baca/banding `.smc2`, dan riwayat git |
+| **Edit assistance** (`/edit`) | catat versi `.smc2` sebelum menyunting, lihat riwayatnya, kembalikan persis byte-nya |
+| **`scripts/validate_xml.ps1`** | validasi ke XSD resmi yang dipasang Sysmac Studio |
+| **`scripts/app.js`** + `Susmax.cmd` | aplikasi lokal 127.0.0.1: semua di atas lewat halaman, tanpa mengetik path |
+| **[docs/SYSMAC_INSTRUCTIONS.md](docs/SYSMAC_INSTRUCTIONS.md)** | 353 instruksi, kolom FUN/FB, susunan pin - dari manual W560, dicocokkan ke project nyata |
+
+Editornya punya **undo/redo** (Ctrl+Z / Ctrl+Shift+Z) - snapshot seluruh state, jadi tidak ada
+jalur mutasi yang bisa terlewat diam-diam. Di panel hasil, tiap generate langsung menyebut apa yang jadi: **program, section, dan jumlah
+rung per section** - section yang tidak punya satu rung pun ditandai kuning, karena yang kosong
+itulah yang perlu dilihat dan di XML mentah bentuknya cuma ketiadaan. Baris **warning bisa
+diklik**: langsung melompat ke aktuator atau station yang diadukan, dengan sorotan sesaat.
+
+Yang menulis berkas **tidak menulis apa pun tanpa `--write`**, dan selalu
+mencadangkan yang lama ke `.bak` bertanggal yang tidak pernah menimpa cadangan
+sebelumnya.
+
+---
+
+## Lingkarannya tertutup
+
+```
+   IO list  ──▶  flowchart  ──▶  XML  ──▶  Sysmac Studio  ──▶  MESIN
+                                              │
+        smc2_diff  ◀── .smc2 ◀── disunting di Studio
+        nb_sync    ──▶  layar NB-Designer (alarm, nomor, teks)
+        OPC UA     ◀──▶  simulator NX  ◀──▶  simulasi fisika di luar
+```
+
+Generator bukan cuma kepakai di awal project. Begitu mesin jalan, `.smc2`-nya bisa
+dibaca balik, dibandingkan dengan versi kemarin, dan alarmnya disinkronkan ke HMI -
+tanpa Sysmac Studio, tanpa menyalin apa pun dengan tangan.
+
+Pembangun XML-nya **dipakai bersama** (`js/lib.js`), bukan disalin: parser `.smc2`
+pernah ditulis dua kali dan diam-diam drift, dan drift di sisi TULIS menghasilkan
+berkas yang ter-import mulus tapi salah.
+
+---
+
+## Mulai
+
+```bash
+python scripts/build_html.py     # js/*.js + template  ->  index.html
+node tests/run.js                # 27 suite generator
+cd reader && node tests/run.js   # 8 suite pembaca .smc2
+```
+
+### Pindah ke laptop lain
+
+```bash
+git clone <repo> && cd repo
+node scripts/doctor.js       # periksa Node, git, halaman yang sudah dibuild, XSD Studio, dll
+python scripts/build_html.py
+cd reader && node build.js && cd ..
+```
+
+Tanpa Docker, dan itu disengaja: dialog pilih berkas, XSD resmi Sysmac Studio, project `.smc2`
+dan `.nbp` semuanya ada di mesin Windows-nya. Yang bisa dibungkus container justru bagian yang
+sudah tanpa dependensi. Riwayat project ikut pindah bersama folder project-nya; folder kerja dan
+pendaftaran MCP disetel ulang sekali per mesin.
+
+### Menjalankan aplikasinya
+
+```bash
+node scripts/app.js                          # folder kerja = folder repo ini
+node scripts/app.js --ws "C:/kerja/mesinA"   # folder kerja = folder project
+```
+
+Atau klik dua kali **`Susmax.cmd`** (argumen diteruskan: `Susmax.cmd --ws "C:/kerja/mesinA"`),
+lalu buka <http://127.0.0.1:7654>. Dari situ generator, pembaca `.smc2`, alat NB-Designer, dan
+Edit assistance semuanya ketemu. Tiap halaman menampilkan sendiri apakah servernya hidup dan
+folder kerjanya yang mana &mdash; ditanyakan ke servernya, bukan ditebak.
+
+`home.html` dan pembaca `.smc2` tetap bisa dibuka langsung dari disk; yang butuh baca/tulis
+berkas menyala begitu servernya jalan.
+
+**Dua git, dan sengaja terpisah:** repo ini menyimpan KODE-nya; tiap project mesin punya repo
+riwayatnya sendiri di dalam folder kerja, dibuat otomatis waktu `.smc2`-nya dicatat. Riwayat
+program mesin pelanggan bukan bagian dari kode alat.
+
+Sebelum mengubah kode, baca **[CLAUDE.md](CLAUDE.md)** - isinya jebakan yang tidak
+kelihatan dari kode dan menyebabkan kerusakan senyap kalau dilanggar. Pekerjaan yang
+belum selesai ada di **[TODO.md](TODO.md)**.
+
+---
+
+## Alur pipeline
 
 ```
 IO list (TSV)  ->  Parse  ->  Generate Name  ->  Validate  ->  Split per Station
@@ -21,46 +167,48 @@ IO list (TSV)  ->  Parse  ->  Generate Name  ->  Validate  ->  Split per Station
                                         Prg011_ST2.xml   (jumlah unit dinamis)
                                         ...
                                         AllPrograms.xml       (semua program jadi satu)
-                                        GlobalVariables.tsv   (paste ke tabel global Susmax)
+                                        GlobalVariables.tsv   (paste ke tabel global Sysmac)
 ```
 
 Kolom IO list: `Alamat | Jenis | IN/OUT | Komentar`, dipisah TAB.
-Komentar yang memuat `ST<n>` (`ST1`, `ST2`, ..., gak dibatasin 3) masuk ke program unit,
-sisanya masuk ke program MAIN.
+Komentar yang memuat `ST<n>` (`ST1`, `ST2`, ..., tidak dibatasi 3) masuk ke program
+unit, sisanya masuk ke program MAIN.
 
-## Cara build
+Standar penamaan, alokasi alarm, dan bentuk section mengikuti standar pemrograman
+terstruktur PT. Denso Indonesia - dibaca dari project mesin yang jalan, bukan dari
+dokumentasi.
+
+## Perintah
 
 ```bash
-python3 scripts/build_html.py           # -> index.html standalone, tinggal dibuka di browser
+python scripts/build_html.py            # -> index.html standalone
 node tests/run.js                       # SELURUH suite: pipeline + harness per-area
 node scripts/core.js project.json out/  # generate dari CLI, tanpa browser
 node scripts/app.js                     # aplikasi lokal (atau klik dua kali Susmax.cmd)
+pwsh scripts/validate_xml.ps1           # outputs/*.xml -> XSD resmi Sysmac
 ```
 
-Setelah program masuk mesin, tiga perintah ini yang dipakai. Semuanya TIDAK menulis
-apa-apa tanpa `--write`, dan selalu mencadangkan yang lama ke `.bak` bertanggal:
+Setelah program masuk mesin:
 
 ```bash
+node scripts/smc2_diff.js LAMA.smc2 BARU.smc2                    # apa yang berubah di Studio
 node scripts/nb_sync.js <project.smc2> <project NB> [--rebuild]  # komen alarm -> Alarm + Event Setting
 node scripts/smc2_comment.js <project.smc2> <ArrayComments.tsv>  # komen elemen AL/MF -> .smc2
 node scripts/nb_apply.js <csv|json> <project NB>                 # siapkan AlarmLib.csv buat Import
 ```
 
-`tests/run.js` membaca `index.html`, jadi build dulu baru test kalau yang diubah
-ada di `scripts/build_html.py`.
+`tests/run.js` membaca `index.html`, jadi **build dulu baru test**. Suite-nya menolak
+jalan kalau `index.html` tidak memuat isi `js/*.js` yang terakhir - dicek lewat isi,
+bukan tanggal berkas.
 
-Sebelum mengubah kode, baca **[CLAUDE.md](CLAUDE.md)** - berisi jebakan yang tidak
-kelihatan dari kode (escape Python di template, aturan seal contact, kontrak kode
-warning). Daftar pekerjaan yang belum selesai ada di **[TODO.md](TODO.md)**.
+`index.html` itu hasil build. Jangan diedit langsung: edit `js/*.js` atau
+`scripts/build_html.py` lalu build ulang.
 
-`index.html` menempel semua logic `js/*.js` jadi satu file lewat `build_html.py` -
-tempel IO list, klik Generate, download hasilnya. Jangan edit `index.html`
-langsung: edit `js/*.js` lalu build ulang.
+---
 
-`scripts/core.js` menjalankan pipeline yang sama di Node, langsung dari `js/*.js`
-tanpa build apa pun. Dipakai `test.js`, dan bisa dipakai sendiri buat batch/CI.
-`js/gen_all.js` butuh helper dari `js/lib.js` - keduanya digabung otomatis, jadi
-jangan menyalin isi lib ke file generator.
+# Detail
+
+Bagian di bawah ini rinciannya - fitur per fitur, format JSON-nya, dan batasannya.
 
 ### Pengaturan (nama station, timer default)
 
@@ -70,9 +218,9 @@ bukan cuma satu tempat: `LB400_A`/`LB400_B` ("ST1 Conveyor Feed, Automatic
 motion start seal"), broadcast status ke program lain (`GB0xx_00` dkk,
 "ST1 Conveyor Feed unit at home position"), referensi ke station LAIN di
 Station_Input program masing-masing, sampai status bit di MAIN. Nama-nya
-juga nempel ke **nama Program Susmax-nya sendiri** dan nama file XML-nya
+juga nempel ke **nama Program Sysmac-nya sendiri** dan nama file XML-nya
 (`Prg010_ST1_Conveyor_Feed`, bukan cuma `Prg010_ST1`) - spasi/karakter
-aneh di nama otomatis diganti underscore (Susmax gak terima spasi di nama
+aneh di nama otomatis diganti underscore (Sysmac tidak terima spasi di nama
 Program). Timer
 debounce PH/PX (`T#200MS`) dan motion-fault (`T#5S`) juga bisa disetel
 di sini, berlaku buat SEMUA station - format harus persis `T#<angka><unit>`
@@ -136,7 +284,7 @@ Condition section cuma punya 3 slot cadangan generik (`LB300`-`LB302`,
 gerbangnya sama semua - `LB105 AND LB160 AND AUTO_MODE`). Sekarang tiap
 station boleh punya sejumlah bit Condition **bernama**, masing-masing bit
 = OR dari beberapa **OR group**, tiap group = AND dari beberapa **term**
-(bit + tombol AND/NOT buat toggle negate) - persis pola Ndeso PATTERN 3 di
+(bit + tombol AND/NOT buat toggle negate) - persis pola Denso PATTERN 3 di
 project asli (`P&P Take Out Lowering Auto Start Condition` = groupA OR
 groupB, tiap group AND beberapa sensor/status bit). "+ Condition" nambah
 bit baru, "+ OR group" nambah kombinasi syarat baru, "+ term" nambah
@@ -241,19 +389,19 @@ cuma nempel di editor/JSON, gak ikut ke XML.
 Bit eksternal (Condition/kondisi, `after` refs) yang direferensikan graph
 tapi belum kedeklarasi di manapun (bukan device/global asli, bukan spare
 Condition section) OTOMATIS dideklarasikan sebagai private BOOL placeholder
-biar Susmax gak nolak "operand tidak terdeklarasi" - logic yang bener-bener
+biar Sysmac tidak menolak "operand tidak terdeklarasi" - logic yang bener-bener
 nge-drive nilainya (kondisi, counter, dst) tetap harus ditulis manual di
 section lain. Deklarasi ini muncul cuma kalau bit itu kepake jadi kontak di
 rung beneran (root/prev satu-satunya sebuah node, atau bagian dari join).
 
-Codegen: idiom Ndeso TR0 cmd+confirm (`js/lib.js` -> `motionStep`) tetap
+Codegen: idiom Denso TR0 cmd+confirm (`js/lib.js` -> `motionStep`) tetap
 dipakai per node - cmd bit break-nya `ANDNOT` bit confirm node itu sendiri
 (bukan `ANDNOT` LSC), jadi cmd tetap ON sampai posisi beneran kekonfirmasi.
 Kalau sebuah node punya 2+ dependency, satu rung AND (`series`) atau OR
 (`orMany`) dibikin dulu buat gabungin jadi satu bit, baru bit itu jadi TR0
 buat `motionStep`-nya. Graph di-topological-sort di `gen_all.js` sebelum
 diproses, jadi urutan drag-connect di editor gak ngaruh ke kebenaran hasil.
-Tiap varian yang punya Condition dipilih pakai pola Ndeso PATTERN 3
+Tiap varian yang punya Condition dipilih pakai pola Denso PATTERN 3
 select+latch (bukan gerbang pass-through biasa): sekali di cycle start
 (`LB400`), kondisi-nya di-sample (`LB400 AND <condition>`), lalu di-LATCH
 ke bit sendiri (`LB401`, `LB402`, dst - satu per varian ber-condition) yang
@@ -291,7 +439,7 @@ kecek manual - kepercayaan cocoknya lemah, gampang salah pasang device mirip.
 | `scripts/core.js` | Runner pipeline headless (modul + CLI) |
 | `scripts/test.js` | Uji pipeline end-to-end |
 | `tests/run.js` | Penjalan seluruh suite |
-| `tests/*.test.js` | Harness per-area (editor, warning, array, blok, JSON, grid IO) |
+| `tests/*.test.js` | Harness per-area (editor, warning, array, blok, JSON, grid IO, taut panel Tools) |
 | `index.html` | Hasil build, jangan diedit langsung |
 | `reader/` | Pembaca `.smc2` + ekspor balik ke XML importable. Suite sendiri: `cd reader && node tests/run.js` |
 | `scripts/nb_sync.js` | Komen alarm `.smc2` -> `.nbp` (Alarm + Event Setting), dicocokkan lewat penanda AL[n] |
@@ -299,7 +447,9 @@ kecek manual - kepercayaan cocoknya lemah, gampang salah pasang device mirip.
 | `scripts/nb_common.js` | Pencari project NB - satu aturan, dipakai dua skrip di atas |
 | `scripts/smc2_comment.js` | Komen elemen AL/MF ditulis balik ke `.smc2` |
 | `scripts/smc2_write.js` | Pengemas ulang container `.smc2` (ZIP) |
-| `scripts/app.js` + `Susmax.cmd` | Aplikasi lokal: yang di CLI, lewat halaman |
+| `scripts/smc2_diff.js` + `reader/diff.js` | Bandingkan dua `.smc2` - hanya baca; memisahkan perubahan logika, tata letak, dan alamat/nomor alarm yang bergeser |
+| `scripts/app.js` + `Susmax.cmd` | Aplikasi lokal: yang di CLI, lewat halaman; sekaligus melayani generator, pembaca, dan dokumen |
+| `tests/hub.test.js` | Menjaga tiap taut dan tiap perintah di panel Tools `index.html` benar-benar hidup |
 
 ## Uji yang dijalankan `test.js`
 
@@ -310,7 +460,7 @@ kecek manual - kepercayaan cocoknya lemah, gampang salah pasang device mirip.
    silang antar Condition)
 2. Setiap operand pada rung terdeklarasi di program tersebut
 3. Setiap `ExternalVars` punya padanan pada tabel global
-4. Tidak ada kontak menggantung (penyebab `import failed` di Susmax Studio)
+4. Tidak ada kontak menggantung (penyebab `import failed` di Sysmac Studio)
 5. Blok array AL/MF gak pernah penuh walau actuator/AS-pair banyak (ukuran
    dinamis, bukan lebar tetap)
 
@@ -321,7 +471,7 @@ manggil fungsi state-nya langsung - buat mastiin drag-connect, penolakan
 cycle, dan hapus via keyboard bener-bener jalan lewat kode yang sama yang
 dipanggil browser, bukan cuma lewat jalur pintas testing.
 
-## Urutan import ke Susmax Studio
+## Urutan import ke Sysmac Studio
 
 1. Import `AllPrograms.xml` - nama, tipe, komen, **AT**, dan **Retain** ikut di dalamnya
 2. Komen elemen `AL[n]`/`MF[n]`: jalankan `scripts/smc2_comment.js` ke `.smc2`-nya,
@@ -340,7 +490,7 @@ external variable has not been registered".
   disusun lewat panel Motion Sequence di `index.html`. Station yang belum
   disentuh tetap dapat kerangka placeholder `LB410` ke atas.
 - Motion Sequence belum mendukung overlay step-mode manual (`PB_STEP_MODE`
-  di project Ndeso asli - tombol jog per step).
+  di project Denso asli - tombol jog per step).
 - Aktuator yang gak punya alamat CH fisik (servo axis, dll) bisa dimasukin
   sebagai baris IO list "virtual" (alamat bebas asal gak bentrok, mis.
   `VS0_00`) - buat servo N-posisi (LEFT/RIGHT/CENTER dst) pakai jenis
