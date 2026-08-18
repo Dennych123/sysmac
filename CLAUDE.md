@@ -12,6 +12,8 @@ python scripts/build_html.py           # js/*.js + template  ->  index.html
 node tests/run.js                      # SELURUH suite (pipeline + 16 harness)
 node scripts/core.js project.json out/ # generate dari CLI, tanpa browser
 pwsh scripts/validate_xml.ps1          # outputs/*.xml  ->  XSD resmi Sysmac
+node scripts/app.js                    # aplikasi lokal, 127.0.0.1:7654 (atau klik Susmax.cmd)
+node scripts/nb_sync.js <smc2> <folderNB> [--rebuild] [--write]   # komen alarm .smc2 -> .nbp
 node scripts/nb_apply.js <csv|json> <folderNB>          # lihat dulu, TIDAK menulis
 node scripts/nb_apply.js <csv|json> <folderNB> --write  # tempel ke project NB, backup dulu
 ```
