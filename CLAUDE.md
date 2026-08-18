@@ -9,9 +9,11 @@ Daftar pekerjaan yang belum selesai ada di [TODO.md](TODO.md).
 
 ```bash
 python scripts/build_html.py           # js/*.js + template  ->  index.html
-node tests/run.js                      # SELURUH suite (pipeline + 15 harness)
+node tests/run.js                      # SELURUH suite (pipeline + 16 harness)
 node scripts/core.js project.json out/ # generate dari CLI, tanpa browser
 pwsh scripts/validate_xml.ps1          # outputs/*.xml  ->  XSD resmi Sysmac
+node scripts/nb_apply.js p.json <folderNB>          # lihat dulu, TIDAK menulis
+node scripts/nb_apply.js p.json <folderNB> --write  # tempel AlarmLib.csv ke project NB
 ```
 
 `node tests/run.js` membaca `index.html`, jadi **build dulu baru test**. Sekarang
@@ -47,6 +49,32 @@ diam-diam berarti ada yang rusak.
 Tiap gerbang menguji dirinya sendiri: satu berkas/rung/kotak yang sengaja dirusak
 harus tertangkap. Validator yang berhenti memvalidasi kelihatannya persis sama
 dengan yang lulus.
+
+## Alarm NB-Designer
+
+Project NB-Designer itu folder biasa: `.nbp` XML polos, dan **`AlarmLib.csv`** CSV apa adanya
+di sebelahnya. Jadi teks alarm tidak perlu diketik ulang di NB-Designer - generator menulis
+berkas itu, `scripts/nb_apply.js` menaruhnya di folder yang benar.
+
+Empat hal yang menentukan berkasnya diterima atau tidak, semuanya dibaca dari project NB yang
+jalan di mesin (`Prepare HMI CE INSERTl`), bukan dikarang:
+
+| | |
+|---|---|
+| 89 medan per baris | disimpan sebagai DAFTAR medan di `NB_ROW`, bukan satu string - sebagai string, satu potongan yang terlewat memendekkan baris tanpa kelihatan dan semua kolom setelahnya bergeser |
+| koma di teks alarm | WAJIB dikutip. `"Dual sensor fault, both ends detected"` itu teks nyata; tanpa dikutip satu koma menggeser semua medan, dan yang paling parah bergeser alamat pemicunya |
+| BOM UTF-8 | ada di berkas acuan; itu yang dipakai NB-Designer mengenali encoding-nya |
+| kode area | H=`56`/`H_bit`, W=`53`/`W_bit`. Dua medan menyebut area dan HARUS cocok. Area lain belum pernah dilihat, jadi dilewati + warning `nb_area_unknown`, bukan ditebak |
+
+**Aritmetika alamatnya WAJIB sama dengan `hmiClaimRange()`** - fungsi yang menaruh blok AT
+AL/MF di PLC. Beda sedikit, teks alarmnya benar tapi bit yang dipantau lain, dan tidak ada yang
+memberi tahu. Ada tes yang mengadu baris pertama CSV ke kolom AT di TSV.
+
+`nb_apply.js` **tidak menulis apa-apa tanpa `--write`**, dan yang lama selalu disalin dulu ke
+`.bak` bertanggal yang tidak pernah menimpa cadangan sebelumnya. Menimpa `AlarmLib.csv`
+menghapus alarm yang tidak ada di daftar baru, dan itu baru ketahuan waktu layar NB dibuka.
+Tutup NB-Designer dulu: dia memuat berkas itu waktu project dibuka dan menulisnya lagi waktu
+disimpan.
 
 ## Aturan yang tidak boleh dilanggar
 
