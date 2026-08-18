@@ -72,7 +72,11 @@ async function bacaSmc(buf) {
 // Yang diganti HANYA teks di dalam <Font ...>...</Font>. Sisanya - font, warna, alamat, id -
 // tidak disentuh sama sekali: .nbp itu seluruh project HMI, dan yang tidak dimengerti tidak
 // boleh ditulis ulang.
-const RE_OBJ = /<AlarmObject\b[\s\S]*?<\/AlarmObject>/g;
+// Alarm Setting dan Event Setting dua daftar terpisah di NB, tapi bentuk elemennya sama
+// persis - AddressValue + Font. Diurus satu kode; kalau tidak, salah satunya cepat atau
+// lambat ketinggalan dan dua layar menampilkan teks yang berbeda buat bit yang sama.
+const TAG = ['AlarmObject', 'EventObject'];
+const reObj = t => new RegExp('<' + t + '\\b[\\s\\S]*?<\\/' + t + '>', 'g');
 const RE_ADDR = /<AddressValue\b[^>]*>(\d+)\.(\d+)<\/AddressValue>/;
 const RE_TEXT = /(<Font\b[^>]*>)([\s\S]*?)(<\/Font>)/;
 function escXml(s) {
@@ -115,84 +119,89 @@ function escXml(s) {
     // PLCGEID, token area, font, warna - semuanya milik project itu sendiri, dan satu-satunya
     // yang diganti ID, alamat, dan teksnya. Mengarang cetakan berarti menebak medan yang tidak
     // kita mengerti.
-    const semua = nbp.match(RE_OBJ) || [];
-    const cetak = semua[0];
     const urut = Object.keys(peta).sort((x, y) => {
       const a = peta[x].addr.split('.'), b = peta[y].addr.split('.');
       return (+a[0] - +b[0]) || (+a[1] - +b[1]);
     });
-    const objs = urut.map((k, i) => cetak
-      .replace(/^<AlarmObject ID="\d+"/, '<AlarmObject ID="' + i + '"')
-      .replace(RE_ADDR, m0 => m0.replace(/>\d+\.\d+</, '>' + peta[k].addr + '<'))
-      .replace(RE_TEXT, (_, x, __, z) => x + escXml(k + peta[k].teks) + z));
     console.log('');
-    console.log('MODE REBUILD: ' + semua.length + ' alarm yang ada DIBUANG, diganti ' + objs.length + ' dari .smc2.');
-    console.log('              ' + (semua.length - objs.length > 0 ? (semua.length - objs.length) + ' di antaranya tidak berasal dari .smc2 dan ikut hilang.' : 'Semuanya diganti.'));
-    console.log('              cetakan diambil dari alarm pertama project ini, jadi font/PLC-nya ikut apa adanya.');
+    TAG.forEach(t => {
+      const n = (nbp.match(reObj(t)) || []).length;
+      console.log('MODE REBUILD ' + t.replace('Object', ' Setting') + ': ' + n + ' dibuang, diganti ' + urut.length + ' dari .smc2.'
+        + (n > urut.length ? '   (' + (n - urut.length) + ' tidak berasal dari .smc2, ikut hilang)' : ''));
+    });
+    console.log('              cetakan diambil dari objek pertama project ini, jadi font/PLC-nya ikut apa adanya.');
     console.log('');
-    urut.slice(0, 3).forEach(k => console.log('  ' + peta[k].addr + '   ' + k + peta[k].teks));
-    console.log('  ... total ' + objs.length);
+    urut.slice(0, 3).forEach(k => console.log('  ' + peta[k].addr + '   ' + k + peta[k].teks.replace(/^(AL|MF)\d+_\s*/, '')));
+    console.log('  ... total ' + urut.length);
     if (!write) {
       console.log('');
       console.log('Belum ada yang ditulis. Tambahkan --write kalau sudah cocok.');
       return;
     }
     let isi = nbp;
-    semua.forEach((o, i) => { isi = isi.replace(o, i === 0 ? '@@ALARM@@' : ''); });
-    isi = isi.replace('@@ALARM@@', objs.join(''));
+    TAG.forEach(t => {
+      const semua = isi.match(reObj(t)) || [];
+      if (!semua.length) return;
+      const cetak = semua[0];
+      const objs = urut.map((k, i) => cetak
+        .replace(new RegExp('^<' + t + ' ID="\d+"'), '<' + t + ' ID="' + i + '"')
+        .replace(RE_ADDR, m0 => m0.replace(/>\d+\.\d+</, '>' + peta[k].addr + '<'))
+        .replace(RE_TEXT, (_, x, __, z) => x + escXml(k + peta[k].teks.replace(/^(AL|MF)\d+_\s*/, '')) + z));
+      const tandai = '@@' + t + '@@';
+      semua.forEach((o, i) => { isi = isi.replace(o, i === 0 ? tandai : ''); });
+      isi = isi.replace(tandai, objs.join(''));
+    });
     const t0 = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 14);
     let bak0 = nbpPath + '.' + t0 + '.bak', n0 = 1;
     while (fs.existsSync(bak0)) bak0 = nbpPath + '.' + t0 + '-' + (++n0) + '.bak';
     fs.copyFileSync(nbpPath, bak0);
     fs.writeFileSync(nbpPath, isi, 'utf8');
     console.log('cadangan : ' + bak0);
-    console.log('DITULIS  : ' + objs.length + ' alarm menggantikan ' + semua.length + ' di ' + nbpPath);
+    console.log('DITULIS  : ' + urut.length + ' entri di Alarm dan Event Setting, ' + nbpPath);
     return;
   }
 
   let cocok = 0, ubahTeks = 0, pindahAlamat = 0, takKetemu = 0;
   const contoh = [], sudah = {};
-  const baru = nbp.replace(RE_OBJ, blok => {
-    const tm = RE_TEXT.exec(blok);
-    if (!tm) return blok;
-    // Nama elemen dibaca dari depan teks alarm yang sekarang - satu-satunya penanda yang
-    // bertahan justru ketika alamatnya yang sedang diganti.
-    const km = /^(AL|MF)\[(\d+)\]/.exec(tm[2]);
-    const kunci = km ? km[1] + '[' + km[2] + ']' : null;
-    const d = kunci && peta[kunci];
-    if (!d) { takKetemu++; return blok; }
-    cocok++; sudah[kunci] = 1;
-    const am = RE_ADDR.exec(blok);
-    const alamatLama = am ? am[1] + '.' + am[2] : '?';
-    // Teks ditulis ulang DENGAN penanda di depannya. Tanpa itu, sekali sinkron sambungannya
-    // putus dan sinkron berikutnya tidak menemukan apa pun.
-    const teksBaru = escXml(kunci + d.teks);
-    let hasil = blok;
-    if (am && alamatLama !== d.addr) {
-      pindahAlamat++;
-      hasil = hasil.replace(RE_ADDR, m0 => m0.replace(alamatLama, d.addr));
-    }
-    if (tm[2] !== teksBaru) {
-      ubahTeks++;
-      hasil = hasil.replace(RE_TEXT, (_, x, __, z) => x + teksBaru + z);
-    }
-    // Contohnya dikumpulkan SEMUA dulu, dipilih belakangan. Diambil enam pertama menurut
-    // urutan berkas, yang tampil justru deretan Spare - urutan <AlarmObject> di .nbp tidak
-    // ada hubungannya dengan urutan yang menarik buat dibaca.
-    if (hasil !== blok) {
-      contoh.push({ kunci, dari: alamatLama, ke: d.addr,
-                    teksLama: tm[2], teksBaru: kunci + d.teks });
-    }
-    return hasil;
+  let baru = nbp;
+  TAG.forEach(t => {
+    baru = baru.replace(reObj(t), blok => {
+      const tm = RE_TEXT.exec(blok);
+      if (!tm) return blok;
+      // Nama elemen dibaca dari depan teks - satu-satunya penanda yang bertahan justru ketika
+      // alamatnya yang sedang diganti.
+      const km = /^(AL|MF)\[(\d+)\]/.exec(tm[2]);
+      const kunci = km ? km[1] + '[' + km[2] + ']' : null;
+      const d = kunci && peta[kunci];
+      if (!d) { takKetemu++; return blok; }
+      cocok++; sudah[kunci] = 1;
+      const am = RE_ADDR.exec(blok);
+      const alamatLama = am ? am[1] + '.' + am[2] : '?';
+      // Stub bernomor ("AL001_ ") dibuang: penanda AL[1] di depannya sudah menyebut nomor
+      // yang sama, dan dua-duanya bikin pesan di layar terpotong lebih awal.
+      const teksBaru = escXml(kunci + d.teks.replace(/^(AL|MF)\d+_\s*/, ''));
+      let hasil = blok;
+      if (am && alamatLama !== d.addr) {
+        pindahAlamat++;
+        hasil = hasil.replace(RE_ADDR, m0 => m0.replace(alamatLama, d.addr));
+      }
+      if (tm[2] !== teksBaru) {
+        ubahTeks++;
+        hasil = hasil.replace(RE_TEXT, (_, x, __, z) => x + teksBaru + z);
+      }
+      if (hasil !== blok && contoh.length < 40) {
+        contoh.push({ kunci: t[0] + ' ' + kunci, dari: alamatLama, ke: d.addr, teksLama: tm[2], teksBaru });
+      }
+      return hasil;
+    });
   });
   const belumAda = Object.keys(peta).filter(k => !sudah[k]);
-
-  const total = (nbp.match(RE_OBJ) || []).length;
+  const total = TAG.reduce((n, t) => n + (nbp.match(reObj(t)) || []).length, 0);
   // Area diambil dari <AlarmObject> saja. Diambil dari seluruh berkas, yang kena justru
   // AddressType pertama milik screen - di project uji itu 'LB', dan laporannya jadi bohong.
-  const objPertama = (nbp.match(RE_OBJ) || [])[0] || '';
+  const objPertama = (nbp.match(reObj('AlarmObject')) || [])[0] || '';
   const areaNb = (/<AddressType[^>]*>([^<]+)<\/AddressType>/.exec(objPertama) || [])[1] || '?';
-  console.log('.nbp  : ' + found.nbp + '   ' + total + ' alarm, area ' + areaNb);
+  console.log('.nbp  : ' + found.nbp + '   ' + TAG.map(t => (nbp.match(reObj(t)) || []).length + ' ' + t.replace('Object', '')).join(' + ') + ', area ' + areaNb);
   // Yang dicocokkan cuma ANGKA word.bit, bukan areanya. Nama area di kedua alat memang beda
   // (Sysmac %W400.00, NB H_bit 400.00) dan tidak ada peta resmi antara keduanya, jadi menebak
   // padanannya lebih berbahaya daripada menyebutkan bedanya dan membiarkan orang memutuskan.
