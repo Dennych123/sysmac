@@ -12,13 +12,14 @@ const STEP={s_parse:core.STEPS.parse,s_name:core.STEPS.genname,s_val:core.STEPS.
 const run=(id,msg,flow)=>core.runStep(STEP[id],msg,flow,{warn:()=>{}});
 const IO=fs.readFileSync(root+'/scripts/test.js','utf8').match(/const IO=`([\s\S]*?)`;/)[1].replace(/\\t/g,'\t');
 
-function gen(seed){
+function genIO(io,seed){
   const ctx=Object.assign({},seed||{});
   const flow={get:k=>ctx[k], set:(k,v)=>ctx[k]=v};
-  let m=run('s_parse',{payload:IO},flow); m=run('s_name',m,flow);
+  let m=run('s_parse',{payload:io},flow); m=run('s_name',m,flow);
   const v=run('s_val',m,flow); if(v[1]) throw new Error(v[1].payload);
   return run('s_all',run('s_split',v[0],flow),flow).payload;
 }
+function gen(seed){ return genIO(IO,seed); }
 let fail=0;
 const chk=(l,c,x)=>{ if(!c)fail++; console.log((c?'  OK  ':'>>BAD ')+l+(x?'   '+x:'')); };
 const atOf=(tsv,n)=>((tsv.split('\n').find(l=>l.startsWith(n+'\t'))||'').split('\t')[3]||'');
@@ -205,6 +206,74 @@ chk('berkas per-program tetap satu kontainer polos',
     (one.match(/<GlobalVars[^>]*>/g)||[]).join('')==='<GlobalVars>',
     (one.match(/<GlobalVars[^>]*>/g)||[]).join(' '));
 chk('berkas per-program tidak membawa Address', !/<Address /.test(one));
+
+// ---- AlarmLib.csv buat NB-Designer -------------------------------------------------------
+// Alarm NB disimpan sebagai CSV biasa di folder project, jadi 190 alarm bisa masuk sekali
+// timpa - tidak diketik ulang satu per satu. Bentuknya diambil dari project NB yang jalan di
+// mesin, dan yang dijaga di sini sifat-sifat yang kalau rusak bikin alarm menempel ke bit yang
+// salah tanpa ada yang protes.
+function csvRow(line){
+  const o=[]; let c='',q=false;
+  for(let i=0;i<line.length;i++){ const ch=line[i];
+    if(q){ if(ch==='"'){ if(line[i+1]==='"'){c+='"';i++;} else q=false; } else c+=ch; }
+    else if(ch==='"') q=true;
+    else if(ch===','){ o.push(c); c=''; }
+    else c+=ch; }
+  o.push(c); return o;
+}
+const nbCsv=p.files.find(f=>f.name==='AlarmLib.csv');
+chk('AlarmLib.csv digenerate', !!nbCsv);
+if(nbCsv){
+  const nl=nbCsv.xml.split('\n').filter(Boolean);
+  chk('baris judul persis punya NB-Designer', nl[0]==='Alarm Lib,V103', nl[0]);
+  chk('satu baris per elemen AL dan MF',
+      nl.length-2===p.arrayInfo.alSize+p.arrayInfo.mfSize,
+      (nl.length-2)+' vs '+(p.arrayInfo.alSize+p.arrayInfo.mfSize));
+  // 89 medan per baris - dihitung dari project NB nyata. Kurang atau lebih satu saja, seluruh
+  // kolom setelahnya bergeser dan yang paling parah bergeser itu alamat pemicunya.
+  const widths=new Set(nl.slice(2).map(l=>csvRow(l).length));
+  chk('tiap baris 89 medan, tidak ada yang bergeser', widths.size===1 && widths.has(89),
+      [...widths].join(' '));
+  const r0=csvRow(nl[2]), rAl17=csvRow(nl[18]), rMf1=csvRow(nl[2+p.arrayInfo.alSize]);
+  // Alamat di NB HARUS sama dengan blok AT yang dipakai PLC. Beda sedikit, teksnya benar tapi
+  // yang dipantau bit yang lain - dan tidak ada yang memberi tahu.
+  const alAt=parseAt(atOf(tsv,'AL')), mfAt=parseAt(atOf(tsv,'MF'));
+  chk('alamat alarm pertama = blok AT AL di PLC',
+      r0[15]===alAt.w+'.'+String(alAt.b).padStart(2,'0'), r0[15]+' vs '+atOf(tsv,'AL'));
+  chk('MF mulai di blok AT MF',
+      rMf1[15]===mfAt.w+'.'+String(mfAt.b).padStart(2,'0'), rMf1[15]+' vs '+atOf(tsv,'MF'));
+  chk('elemen ke-17 pindah word, bukan bit ke-16',
+      rAl17[15]===(alAt.w+1)+'.00', rAl17[15]);
+  chk('kode area dan token area cocok', r0[14]==='56' && r0[19]==='H_bit', r0[14]+' '+r0[19]);
+  // Satu teks di dua tempat: yang dibaca operator di layar sama dengan yang dicari di program.
+  const acx=p.files.find(f=>f.name==='ArrayComments.tsv').xml.split('\n');
+  const cmtOf=n=>(acx.find(l=>l.startsWith(n+'\t'))||'').split('\t')[7]||'';
+  chk('teks alarm sama persis dengan komen elemen di Sysmac',
+      r0[5]===cmtOf('AL[1]') && rMf1[5]===cmtOf('MF[1]'), r0[5]+' | '+cmtOf('AL[1]'));
+  chk('slot cadangan ikut, biar nomornya tidak bergeser waktu dipakai',
+      csvRow(nl[nl.length-1])[5]===cmtOf('MF['+p.arrayInfo.mfSize+']'));
+}
+// Koma di teks alarm itu jebakan yang nyata: "Dual sensor fault, both ends detected" ada di
+// project NB acuan. Tanpa dikutip, satu koma menggeser semua medan setelahnya - alarmnya
+// menempel ke bit yang salah, dan CSV-nya tetap kelihatan wajar.
+// Komanya ditaruh di bagian yang DIPAKAI BERSAMA kedua reed switch: teks alarmnya dibangun
+// devBase(), yang cuma mengambil kata-kata awal yang sama persis dari pasangannya.
+const IO_KOMA=IO.replace(/\tST1 STOPPER-2 /g,'\tST1 "A,B" STOPPER-2 ');
+const pk=genIO(IO_KOMA);
+const nbk=pk.files.find(f=>f.name==='AlarmLib.csv');
+const wk=new Set(nbk.xml.split('\n').filter(Boolean).slice(2).map(l=>csvRow(l).length));
+chk('koma dan kutip di teks alarm tidak menggeser medan', wk.size===1 && wk.has(89), [...wk].join(' '));
+chk('teks berkoma dan berkutip utuh setelah di-parse balik',
+    nbk.xml.split('\n').some(l=>csvRow(l)[5] && csvRow(l)[5].indexOf('"A,B"')>=0),
+    (nbk.xml.split('\n').map(l=>csvRow(l)[5]).find(t=>t&&/A,B/.test(t))||'tidak ketemu'));
+// Peta HMI mati = tidak ada alamat = tidak ada yang bisa ditempel ke NB.
+chk('tanpa peta HMI, AlarmLib.csv tidak dibuat',
+    !gen({hmiMap:{enabled:false}}).files.some(f=>f.name==='AlarmLib.csv'));
+// Kode area NB cuma diketahui buat H dan W - dibaca dari project nyata. Yang lain tidak ditebak.
+const pd=gen({hmiMap:{alArea:'D',mfArea:'D'}});
+chk('area yang kode NB-nya tidak diketahui dilewati, bukan ditebak',
+    pd.warnList.some(w=>w.code==='nb_area_unknown'),
+    pd.warnList.map(w=>w.code).join(', '));
 
 // File terpisah buat paste ke tabel yang arraynya sudah di-expand
 const ac=p.files.find(f=>f.name==='ArrayComments.tsv');

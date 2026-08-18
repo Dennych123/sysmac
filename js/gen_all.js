@@ -2151,6 +2151,78 @@ var ARRAY_ROWS = elNames.map(function(n){
     var m=/^(\D+)\[(\d+)\]$/.exec(n);
     return { arr:m?m[1]:n, idx:m?parseInt(m[2],10):0, name:n, komen:ARRAY_ELEMENTS[n] };
 });
+// ===== AlarmLib.csv buat NB-Designer =====
+// Alarm di NB-Designer disimpan sebagai CSV biasa di dalam folder project, sebelah berkas .nbp.
+// Jadi teks alarm tidak perlu diketik ulang satu per satu di NB-Designer: berkas ini menimpa
+// AlarmLib.csv di folder project, dan seluruh 190 alarm masuk sekali jalan.
+//
+// Bentuknya BUKAN karangan sendiri - diambil dari project NB yang sudah jalan di mesin
+// ("Prepare HMI CE INSERTl"). Barisnya 89 medan; yang berubah per alarm cuma EMPAT, sisanya
+// (font, ukuran, warna merah, ID PLC) disalin apa adanya supaya alarm hasil generate kelihatan
+// sama persis dengan yang sudah ada di layar.
+//
+// Dua medan menyebut areanya dengan cara berbeda dan HARUS cocok: kode angka dan token teks.
+// Angkanya dibaca dari project nyata - H=56, W=53. Area lain belum pernah dilihat, jadi tidak
+// ditebak: alarmnya dilewati dan dilaporkan.
+var NB_AREA = { H:{ code:"56", token:"H_bit" }, W:{ code:"53", token:"W_bit" } };
+// 89 medan, disalin apa adanya dari satu baris di project NB nyata. Ditulis sebagai daftar
+// medan, bukan satu string panjang: waktu masih string, satu potongan yang terlewat mengurangi
+// jumlah medan tanpa kelihatan, dan seluruh kolom setelahnya bergeser.
+var NB_ROW = [
+    "0","1","0","0","","{TEXT}","16","ff0000","0","","0","","0","1","{TYPE}","{ADDR}","0",
+    "0","0","{AREA}","0","0","0","2","0","0","MS Sans Serif","-11","400","0","0","0","1","1",
+    "DFNB-EN","10","0","0","0","ff","0","","0","0","0","0","0","0","","0","0",
+    "0","0","0","0","","0","0","0","0","0","0","","0","0","0","0","0",
+    "0","","0","0","0","0","0","0","","0","0","0","0","0","0","","0",
+    "0","0","0","0"
+].join(",");
+var NB_HEAD = "Alarm Lib,V103\n"
+            + "HMIID,AlarmState,BeepDelay,UseTextLib,TextTagName,TextContent,TextSize,TextColor,"
+            + "UseSound,SoundName,UseTrigAddrTag,TrigAddrTagName,TrigAddrHMIID,TrigAddrPLCID,"
+            + "TrigAddrType,TrigAddr,TrigAddrCodeType,Type,lfCharSet,lfClipPrecision,lfOutPrecision,"
+            + "lfQuality,lfPitchAndFamily,lfFaceName,lfHeight,lfWeight,lfItalic,lfUnderline,"
+            + "lfStrikeOut,m_nLabelType"
+            + [1,2,3,4,5,6,7,8].map(function(k){
+                return ",FontType"+k+",FontName"+k+",Size"+k+",Italic"+k+",Bold"+k+",AlignFormat"+k+",Color"+k;
+              }).join("");
+function nbCell(s){
+    // Teks alarm sering memuat koma ("Dual sensor fault, both ends detected"). Tanpa dikutip,
+    // satu koma menggeser SEMUA medan setelahnya - dan yang bergeser paling parah alamat
+    // pemicunya, jadi alarmnya menempel ke bit yang salah tanpa ada yang protes.
+    s=String(s==null?"":s);
+    return /[",\r\n]/.test(s) ? '"'+s.replace(/"/g,'""')+'"' : s;
+}
+function buildAlarmLib(){
+    var rows=[], skipped={};
+    // Urutannya sama dengan urutan alamat, sama seperti project nyata: AL dulu, lalu MF.
+    [["AL",HMI_CFG.alArea,HMI_CFG.alBase,AL_SIZE],
+     ["MF",HMI_CFG.mfArea,HMI_CFG.mfBase,MF_SIZE]].forEach(function(b){
+        var arr=b[0], area=b[1], base=b[2], size=b[3], a=NB_AREA[area];
+        if(!a){ skipped[area]=(skipped[area]||0)+size; return; }
+        for(var n=1;n<=size;n++){
+            // Aritmetika alamatnya WAJIB sama dengan hmiClaimRange - itu yang menaruh blok AT
+            // AL/MF di PLC. Beda sedikit saja, teks alarmnya benar tapi memantau bit yang lain.
+            var i=n-1, word=base+Math.floor(i/16), bit=i%16;
+            // Teksnya PERSIS komen elemen di Sysmac, tanpa tambahan. Project acuannya menulis
+            // "AL[3]" di depan karena komennya di sana tidak bernomor; komen kita sudah membawa
+            // nomornya sendiri ("AL003_ ..."), jadi awalan itu cuma pengulangan. Satu teks di dua
+            // tempat: operator membaca alarm di layar, mencarinya di program, dapat baris yang sama.
+            var el=arr+"["+n+"]";
+            rows.push(NB_ROW.replace("{TEXT}", nbCell(ARRAY_ELEMENTS[el]||el))
+                            .replace("{TYPE}", a.code)
+                            .replace("{ADDR}", word+"."+pad(bit,2))
+                            .replace("{AREA}", a.token));
+        }
+    });
+    Object.keys(skipped).forEach(function(area){
+        W("nb_area_unknown","","NB-Designer alarm export: area "+area+" has no known NB area code (only H and W are, "
+          +"read from a running project), so "+skipped[area]+" alarms were left out of AlarmLib.csv.");
+    });
+    return { name:"AlarmLib.csv", xml:NB_HEAD+"\n"+rows.join("\n")+"\n",
+             stats:"NB ALARM: "+rows.length+" baris buat AlarmLib.csv - timpa berkas dengan nama sama di folder project NB-Designer" };
+}
+if(HMI_CFG.on) files.push(buildAlarmLib());
+
 // Baris global dalam bentuk terstruktur, buat panel Global variables di web UI. Kolomnya sama
 // persis dengan yang ditulis tsvRow, jadi yang di layar dan yang di berkas tidak bisa beda.
 var GLOBAL_ROWS = gnames.map(function(n){
