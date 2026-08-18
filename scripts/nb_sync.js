@@ -128,8 +128,12 @@ function escXml(s) {
       ubahTeks++;
       hasil = hasil.replace(RE_TEXT, (_, x, __, z) => x + teksBaru + z);
     }
-    if (hasil !== blok && contoh.length < 6) {
-      contoh.push('  ' + kunci + '   ' + alamatLama + ' -> ' + d.addr + '\n      ' + tm[2] + '\n      ' + kunci + d.teks);
+    // Contohnya dikumpulkan SEMUA dulu, dipilih belakangan. Diambil enam pertama menurut
+    // urutan berkas, yang tampil justru deretan Spare - urutan <AlarmObject> di .nbp tidak
+    // ada hubungannya dengan urutan yang menarik buat dibaca.
+    if (hasil !== blok) {
+      contoh.push({ kunci, dari: alamatLama, ke: d.addr,
+                    teksLama: tm[2], teksBaru: kunci + d.teks });
     }
     return hasil;
   });
@@ -157,7 +161,22 @@ function escXml(s) {
   console.log('alamat yang dipindah      : ' + pindahAlamat + '   (NB ikut PLC, bukan sebaliknya)');
   if (belumAda.length) console.log('ada di .smc2 tapi belum ada alarmnya di NB : ' + belumAda.length
     + '   (' + belumAda.slice(0, 4).join(' ') + (belumAda.length > 4 ? ' ...' : '') + ')');
-  if (contoh.length) { console.log(''); contoh.forEach(c => console.log(c)); }
+  // Yang teksnya berubah didahulukan: itu yang perlu dibaca orang. Yang cuma pindah alamat
+  // cukup satu baris - mencetak teks lama dan baru yang sama persis bikin bingung.
+  if (contoh.length) {
+    console.log('');
+    const urut = contoh.slice().sort((x, y) =>
+      (y.teksLama !== y.teksBaru ? 1 : 0) - (x.teksLama !== x.teksBaru ? 1 : 0));
+    urut.slice(0, 6).forEach(c => {
+      console.log('  ' + c.kunci + '   ' + c.dari + ' -> ' + c.ke
+        + (c.teksLama === c.teksBaru ? '   (teks tetap)' : ''));
+      if (c.teksLama !== c.teksBaru) {
+        console.log('      lama: ' + c.teksLama);
+        console.log('      baru: ' + c.teksBaru);
+      }
+    });
+    if (contoh.length > 6) console.log('  ... ' + (contoh.length - 6) + ' lagi');
+  }
   if (!cocok) {
     // Nol cocok hampir selalu berarti base word-nya beda, bukan berkasnya salah. Yang
     // berguna bukan 'tidak ketemu' melainkan ANGKA yang bikin ketemu, jadi jangkauan
