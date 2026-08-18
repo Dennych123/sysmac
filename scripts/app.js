@@ -20,6 +20,33 @@ const ws = require('./ws.js');
 const { HALAMAN_EDIT } = require('./edit_page.js');
 
 const ROOT = path.join(__dirname, '..');
+
+/**
+ * Kode termuda yang ada di disk.
+ *
+ * Node memuat modul SEKALI waktu start: berkas yang diubah sesudah itu tidak berpengaruh apa pun
+ * sampai servernya dijalankan ulang. Yang terjadi di layar bukan "belum berubah" yang jelas -
+ * halamannya tetap tampil, tombolnya tetap ada, cuma perilakunya versi lama. Sudah kejadian:
+ * halaman yang sudah ditulis ulang tetap menampilkan susunan lama, dan yang kelihatan seperti
+ * fitur yang tidak jadi.
+ *
+ * Jadi umur kodenya dilaporkan lewat /api/ping, dan halaman menyebutkan sendiri kalau servernya
+ * ketinggalan.
+ */
+function kodeTermuda() {
+  let paling = 0;
+  for (const dir of [__dirname, path.join(ROOT, 'reader', 'src')]) {
+    let isi = [];
+    try { isi = fs.readdirSync(dir); } catch (e) { continue; }
+    for (const f of isi) {
+      if (!/\.js$/.test(f)) continue;
+      try { paling = Math.max(paling, fs.statSync(path.join(dir, f)).mtimeMs); } catch (e) {}
+    }
+  }
+  return paling;
+}
+
+const KODE_SAAT_MULAI = kodeTermuda();
 // Port bisa disetel lewat lingkungan supaya tes memakai port acak. Dipatok satu angka, tes
 // jadi bentrok dengan server yang kebetulan masih hidup - dan yang lebih buruk, DIAM-DIAM
 // menguji server itu alih-alih kode ini.
@@ -118,7 +145,14 @@ http.createServer((req, res) => {
       'Access-Control-Allow-Origin': '*',
       'Cache-Control': 'no-store',
     });
-    return res.end(JSON.stringify({ ok: true, app: 'susmax', port: PORT, root: ws.getRoot() }));
+    return res.end(JSON.stringify({
+      ok: true, app: 'susmax', port: PORT, root: ws.getRoot(),
+      // `stale` = ada berkas kode yang lebih baru daripada saat server ini mulai. Halaman
+      // memakai ini buat bilang "restart dulu" alih-alih membiarkan orang menyimpulkan sendiri
+      // bahwa fiturnya tidak jadi.
+      stale: kodeTermuda() > KODE_SAAT_MULAI,
+      since: KODE_SAAT_MULAI,
+    }));
   }
 
   if (url.startsWith('/api/')) {
@@ -180,6 +214,22 @@ http.createServer((req, res) => {
   res.writeHead(404); res.end('tidak ada');
 // Cuma 127.0.0.1. Server ini menjalankan perintah dan menulis berkas - didengarkan di alamat
 // jaringan berarti siapa pun sejaringan bisa menulis ke project HMI dari mesin lain.
+// Port yang sudah dipakai itu keadaan yang PALING sering terjadi di sini: jendela Susmax lama
+// masih hidup, lalu yang baru diklik. Tanpa penanganan, yang muncul stack trace Node yang tidak
+// menyebut sama sekali apa yang harus dilakukan - dan yang membacanya menyimpulkan aplikasinya
+// rusak, bukan bahwa versinya sudah jalan.
+}).on('error', (e) => {
+  if (e.code !== 'EADDRINUSE') throw e;
+  console.log('');
+  console.log('Susmax SUDAH JALAN di http://127.0.0.1:' + PORT + ' - jendela ini tidak perlu.');
+  console.log('');
+  console.log('  * mau memakai yang sudah jalan : buka http://127.0.0.1:' + PORT);
+  console.log('  * mau memakai kode terbaru     : tutup jendela Susmax yang lama dulu,');
+  console.log('    lalu jalankan lagi. Node memuat kode sekali waktu start, jadi server lama');
+  console.log('    tetap memakai kode lama walau berkasnya sudah berubah.');
+  console.log('  * mau dua-duanya jalan         : SUSMAX_PORT=7655 node scripts/app.js');
+  console.log('');
+  process.exit(1);
 }).listen(PORT, '127.0.0.1', () => {
   console.log('Susmax siap di  http://127.0.0.1:' + PORT);
   console.log('Folder kerja    ' + ws.getRoot() + '   (ganti: --ws <folder> atau SUSMAX_WS)');

@@ -66,6 +66,7 @@ const HALAMAN_EDIT = `<!doctype html><html lang="id"><head><meta charset="utf-8"
  <a href="/reader/smc2-viewer.html">Pembaca .smc2</a>
 </div>
 
+<div id="basi" style="display:none"></div>
 <h1>Project</h1>
 <p class="lede">Pilih folder mesinnya sekali. PLC dan HMI di dalamnya dikenali sendiri, dan
 pilihannya diingat &mdash; termasuk sesudah server dimatikan.</p>
@@ -166,6 +167,22 @@ function api(nama, isi, metode){
 // Folder project SEKALIGUS folder kerja: semua baca-tulis dikurung ke situ. Satu folder per
 // mesin memang cara orangnya menyimpan pekerjaan, jadi tidak ada konsep kedua yang harus
 // diingat - dan tidak ada lagi "folder kerja" yang bisa berbeda dari project yang dibuka.
+// Server yang jalan pakai kode lama itu penyebab paling membingungkan di sini: halamannya
+// tampil, tombolnya ada, cuma perilakunya versi sebelumnya. Ditanyakan tiap 10 detik.
+function cekVersi(){
+  fetch('/api/ping', { cache:'no-store' }).then(function(r){ return r.json(); }).then(function(j){
+    var el = $('basi');
+    if (!j.stale) { el.style.display = 'none'; return; }
+    el.style.display = 'block';
+    el.className = 'step';
+    el.style.borderColor = '#fecaca';
+    el.style.background = '#fef2f2';
+    el.innerHTML = '<b>Server jalan pakai kode lama.</b> Ada berkas yang berubah sesudah server ' +
+      'ini dijalankan - Node memuat kode sekali waktu start, jadi perubahan itu belum berlaku. ' +
+      'Tutup jendela Susmax lalu jalankan lagi.';
+  }, function(){});
+}
+
 function muatFolder(){
   api('ws/get',{},'GET').then(function(r){
     $('folder').value = r.root;
@@ -422,6 +439,8 @@ setInterval(function(){
 }, 8000);
 
 muatFolder();
+cekVersi();
+setInterval(cekVersi, 10000);
 </script></body></html>`;
 
 module.exports = { HALAMAN_EDIT };
