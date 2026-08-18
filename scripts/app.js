@@ -16,7 +16,10 @@ const path = require('path');
 const { spawn } = require('child_process');
 
 const ROOT = path.join(__dirname, '..');
-const PORT = 7654;
+// Port bisa disetel lewat lingkungan supaya tes memakai port acak. Dipatok satu angka, tes
+// jadi bentrok dengan server yang kebetulan masih hidup - dan yang lebih buruk, DIAM-DIAM
+// menguji server itu alih-alih kode ini.
+const PORT = +(process.env.SUSMAX_PORT || 7654);
 
 // Cuma perintah yang terdaftar yang boleh jalan. Tanpa daftar ini, apa pun yang dikirim ke
 // server bisa dieksekusi - dan server yang menjalankan sembarang perintah bukan alat, itu lubang.

@@ -34,14 +34,21 @@ chk('tidak ada karakter kontrol nyasar di Susmax.cmd',
 chk('Susmax.cmd pakai CRLF', cmd.indexOf(String.fromCharCode(13, 10)) >= 0);
 chk('Susmax.cmd pindah ke foldernya sendiri dulu', cmd.indexOf('cd /d') >= 0);
 
-const srv = spawn(process.execPath, [path.join(root, 'scripts', 'app.js')], { cwd: root });
+// Port acak: tes ini tidak boleh bergantung pada 7654 kosong, dan tidak boleh menabrak
+// aplikasi yang sedang dipakai orang di mesin yang sama.
+const PORT = 7700 + Math.floor(Math.random() * 200);
+let srv;
+process.on('exit', () => { try { srv && srv.kill(); } catch (e) {} });
+['SIGINT','SIGTERM','SIGPIPE'].forEach(sig => process.on(sig, () => process.exit(1)));
+srv = spawn(process.execPath, [path.join(root, 'scripts', 'app.js')],
+  { cwd: root, env: Object.assign({}, process.env, { SUSMAX_PORT: String(PORT) }) });
 let siap = '', galat = '';
 srv.stdout.on('data', d => siap += d);
 srv.stderr.on('data', d => galat += d);
 function post(url, body) {
   return new Promise(res => {
     const data = JSON.stringify(body);
-    const r = http.request({ host: '127.0.0.1', port: 7654, path: url, method: 'POST',
+    const r = http.request({ host: '127.0.0.1', port: PORT, path: url, method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(data) } },
       resp => { let s = ''; resp.on('data', d => s += d); resp.on('end', () => { try { res(JSON.parse(s)); } catch (e) { res({ err: s }); } }); });
     r.on('error', e => res({ err: e.message }));
@@ -50,7 +57,7 @@ function post(url, body) {
 }
 function get(p) {
   return new Promise(res => {
-    http.get({ host: '127.0.0.1', port: 7654, path: p }, resp => {
+    http.get({ host: '127.0.0.1', port: PORT, path: p }, resp => {
       let s = ''; resp.on('data', d => s += d); resp.on('end', () => res({ code: resp.statusCode, body: s }));
     }).on('error', e => res({ code: 0, body: e.message }));
   });
@@ -58,8 +65,7 @@ function get(p) {
 (async () => {
   for (let i = 0; i < 40 && !/siap di/.test(siap); i++) await new Promise(r => setTimeout(r, 100));
   if (/EADDRINUSE/.test(galat)) {
-    console.log('>>BAD port 7654 sudah dipakai proses lain - matikan dulu, tes ini tidak boleh');
-    console.log('      menguji server yang bukan miliknya.');
+    console.log('>>BAD port ' + PORT + ' dipakai proses lain - tes ini tidak boleh menguji server orang.');
     srv.kill(); process.exit(1);
   }
   chk('server hidup', /siap di/.test(siap), (siap + galat).trim().slice(0, 80));
