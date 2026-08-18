@@ -149,6 +149,11 @@ HTML = '''<!doctype html>
              border-radius:6px;background:var(--card);color:var(--fg)}
   .sheet-chk{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--muted)}
   .sheet-msg{font-size:12.5px;color:var(--muted);min-width:120px}
+  /* Perintah CLI ditampilkan apa adanya biar bisa diblok manual - tombol salin butuh
+     clipboard API, dan di file:// API itu tidak ada sama sekali. */
+  .nb-cmd{font-family:ui-monospace,Consolas,monospace;font-size:12.5px;background:var(--bg);
+    border:1px solid var(--line);border-radius:6px;padding:6px 8px;margin:6px 0;
+    overflow-x:auto;white-space:pre;user-select:all}
   .sheet-wrap{max-height:420px;overflow:auto;margin-top:8px;border:1px solid var(--line);border-radius:7px}
   .sheet{border-collapse:collapse;width:100%;font-family:Consolas,monospace;font-size:12px}
   .sheet th{position:sticky;top:0;z-index:1;background:var(--card);text-align:left;padding:6px 9px;
@@ -986,6 +991,93 @@ function globalCopy() {
     done(fallbackCopy(text));
   }
 }
+// Panel alarm NB-Designer. Berkasnya sendiri sudah ada di fold Files, tapi di situ dia satu dari
+// sepuluh dan yang paling gampang terlewat - padahal ini yang menggantikan mengetik 190 alarm
+// satu per satu di NB-Designer.
+//
+// Tidak ada tombol "tulis langsung ke folder project": browser tidak boleh menulis ke folder
+// sembarang, dan showDirectoryPicker butuh secure context sementara index.html dibuka lewat
+// file://. Jadi yang disediakan dua jalur jujur - unduh berkasnya, atau salin perintah CLI yang
+// mengerjakan penempelannya berikut cadangannya.
+var nbMsgEl = null;
+function nbCsvCell(line, n) {
+  var i = 0, k = 0, c = '', q = false;
+  for (; i < line.length; i++) {
+    var ch = line[i];
+    if (q) { if (ch === '"') { if (line[i + 1] === '"') { c += '"'; i++; } else q = false; } else c += ch; }
+    else if (ch === '"') q = true;
+    else if (ch === ',') { if (k === n) return c; k++; c = ''; }
+    else c += ch;
+  }
+  return k === n ? c : '';
+}
+function buildNbPanel(files) {
+  var f = null;
+  files.forEach(function (x) { if (x.name === 'AlarmLib.csv') f = x; });
+  if (!f) return null;
+  // Escape di baris ini ditulis dobel dengan sengaja: templatenya string Python biasa.
+  var rows = f.xml.replace(/^\\uFEFF/, '').split('\\n').filter(function (l) { return l; }).slice(2);
+  if (!rows.length) return null;
+
+  var box = document.createElement('div');
+  box.className = 'file array-sheet';
+  var row = document.createElement('div'); row.className = 'row';
+  var b = document.createElement('b');
+  b.textContent = 'Alarm NB-Designer (' + rows.length + ')';
+  row.appendChild(b);
+  var dl = document.createElement('button'); dl.className = 'dl'; dl.textContent = 'Download AlarmLib.csv';
+  dl.addEventListener('click', function () { downloadFile('AlarmLib.csv', f.xml); });
+  row.appendChild(dl);
+  var cp = document.createElement('button'); cp.className = 'dl'; cp.textContent = 'Salin perintah';
+  cp.addEventListener('click', function () { nbCopyCmd(); });
+  row.appendChild(cp);
+  nbMsgEl = document.createElement('span'); nbMsgEl.className = 'sheet-msg';
+  row.appendChild(nbMsgEl);
+
+  var hint = document.createElement('div'); hint.className = 'hint';
+  hint.textContent = 'Taruh di folder project NB-Designer, sebelah berkas .nbp - namanya harus tetap '
+    + 'AlarmLib.csv. Tutup NB-Designer dulu: dia memuat berkas ini waktu project dibuka dan menulisnya '
+    + 'lagi waktu disimpan. Menimpa akan menghapus alarm yang tidak ada di daftar ini.';
+
+  var cmd = document.createElement('div'); cmd.className = 'nb-cmd';
+  cmd.textContent = nbCmdText();
+
+  var wrap = document.createElement('div'); wrap.className = 'sheet-wrap';
+  var t = document.createElement('table'); t.className = 'sheet';
+  var hd = document.createElement('tr');
+  ['#', 'Alamat', 'Teks alarm'].forEach(function (h) {
+    var th = document.createElement('th'); th.textContent = h; hd.appendChild(th);
+  });
+  t.appendChild(hd);
+  rows.forEach(function (r, i) {
+    var teks = nbCsvCell(r, 5), rowEl = document.createElement('tr');
+    if (/ Spare$/.test(teks)) rowEl.className = 'spare';
+    [[String(i + 1), 'n'], [nbCsvCell(r, 15), 'k'], [teks, 'c']].forEach(function (c) {
+      var td = document.createElement('td'); td.textContent = c[0]; td.className = c[1];
+      rowEl.appendChild(td);
+    });
+    t.appendChild(rowEl);
+  });
+  wrap.appendChild(t);
+  box.appendChild(row); box.appendChild(hint); box.appendChild(cmd); box.appendChild(wrap);
+  return box;
+}
+function nbCmdText() {
+  return 'node scripts/nb_apply.js project.json "C:\\\\path\\\\ke\\\\project NB" --write';
+}
+function nbCopyCmd() {
+  var text = nbCmdText();
+  function done(ok) {
+    if (!nbMsgEl) return;
+    nbMsgEl.textContent = ok ? 'perintah disalin' : 'gagal menyalin, blok manual dari teks di bawah';
+    setTimeout(function () { if (nbMsgEl) nbMsgEl.textContent = ''; }, 4000);
+  }
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(function () { done(true); }, function () { done(fallbackCopy(text)); });
+  } else {
+    done(fallbackCopy(text));
+  }
+}
 function arrayCopy(commentOnly) {
   var rows = arrayRowsShown();
   var text = rows.map(function (r) {
@@ -1699,6 +1791,8 @@ function renderResults(payload) {
   // dihindari, karena yang dibutuhkan itu menyalin satu kolom, bukan membaca TSV.
   var gsheet = buildGlobalSheet();
   if (gsheet) resEl.appendChild(gsheet);
+  var nbp = buildNbPanel(payload.files);
+  if (nbp) resEl.appendChild(nbp);
   var sheet = buildArraySheet();
   if (sheet) resEl.appendChild(sheet);
 

@@ -59,5 +59,22 @@ chk('nav menunjuk hasil generate', navHrefs.indexOf('results') >= 0, navHrefs.jo
       new RegExp("getElementById\\('" + x[0] + "'\\)[\\s\\S]{0,60}addEventListener").test(html));
 });
 
+// ---- panel alarm NB-Designer -------------------------------------------------------------
+// Panelnya dibangun dari JS dan ditempel ke panel hasil, jadi kegagalannya persis pola yang
+// bikin tes ini ada: fungsinya tetap ada, tapi tidak pernah dipanggil, dan panelnya cuma tidak
+// muncul. Fungsi yang tidak dipanggil kelihatannya sama dengan fungsi yang bekerja.
+chk('buildNbPanel didefinisikan', html.indexOf('function buildNbPanel(') >= 0);
+chk('buildNbPanel DIPANGGIL waktu hasil dirender',
+    html.indexOf('buildNbPanel(payload.files)') >= 0 && html.indexOf('resEl.appendChild(nbp)') >= 0);
+chk('panelnya punya tombol unduh AlarmLib.csv',
+    html.indexOf("downloadFile('AlarmLib.csv'") >= 0);
+// Perintah CLI-nya harus utuh sampai ke halaman. Backslash di path itu yang paling gampang
+// hilang: di build_html.py escape wajib ditulis dobel, dan yang tunggal dimakan Python duluan.
+const nbCmd = (/return 'node scripts[^\n]*/.exec(html) || ['tidak ketemu'])[0];
+chk('perintah nb_apply tercetak lengkap, backslash path tidak hilang',
+    nbCmd.indexOf('nb_apply.js') >= 0 && nbCmd.indexOf('--write') >= 0
+    && nbCmd.indexOf('C:' + '\\\\') >= 0, nbCmd);
+chk('mengingatkan menutup NB-Designer dulu', html.indexOf('Tutup NB-Designer') >= 0);
+
 console.log(fail ? ('\n' + fail + ' GAGAL') : '\nui: semua OK');
 process.exit(fail ? 1 : 0);
