@@ -20,6 +20,20 @@ chk('tidak pernah memanggil shell', !/shell:\s*true/.test(src) && !/\bexec\(/.te
 // Port yang sudah dipakai bikin server uji ini gagal bind DIAM-DIAM, dan seluruh tes di bawah
 // lalu menguji server milik orang lain - semuanya hijau, tidak satu pun menguji kode ini.
 // Kejadian waktu tesnya ditulis: sebuah app.js dari percobaan manual masih hidup.
+// Susmax.cmd - satu-satunya bagian yang diklik orang, bukan diketik. Diuji karena pernah
+// rusak justru di situ: berkasnya ditulis pakai printf, dan \\a di scripts\\app.js itu escape
+// BELL - yang mendarat 'scripts<BEL>pp.js'. Node bilang MODULE_NOT_FOUND, dan sebabnya tidak
+// kelihatan sama sekali dari pesan galatnya.
+const cmd = fs.readFileSync(path.join(root, 'Susmax.cmd'), 'utf8');
+chk('Susmax.cmd menunjuk scripts\\app.js dengan utuh',
+    cmd.indexOf('scripts' + String.fromCharCode(92) + 'app.js') >= 0,
+    (/node [^\r\n]*/.exec(cmd) || ['tidak ketemu'])[0]);
+chk('tidak ada karakter kontrol nyasar di Susmax.cmd',
+    !/[\x00-\x08\x0b\x0c\x0e-\x1f]/.test(cmd),
+    JSON.stringify(cmd.slice(0, 60)));
+chk('Susmax.cmd pakai CRLF', cmd.indexOf(String.fromCharCode(13, 10)) >= 0);
+chk('Susmax.cmd pindah ke foldernya sendiri dulu', cmd.indexOf('cd /d') >= 0);
+
 const srv = spawn(process.execPath, [path.join(root, 'scripts', 'app.js')], { cwd: root });
 let siap = '', galat = '';
 srv.stdout.on('data', d => siap += d);
