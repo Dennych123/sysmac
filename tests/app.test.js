@@ -128,6 +128,31 @@ function get(p) {
   try { new Function(skripEdit2); editOk2 = true; } catch (e) { sebab2 = e.message; }
   chk('skrip halaman project bisa di-parse', editOk2, sebab2);
 
+  // ------------------------------------------------------------------ API
+  // Satu jalur dipakai halaman DAN MCP, jadi yang dijaga di sini sifat jalurnya - bukan isi
+  // jawabannya.
+  const ping = await get('/api/ping');
+  chk('ping menjawab dan menyebut folder kerja',
+      ping.code === 200 && /"ok":true/.test(ping.body) && /"root"/.test(ping.body),
+      ping.body.slice(0, 90));
+  // Server yang jalan pakai kode lama itu penyebab paling membingungkan waktu mengembangkan:
+  // halamannya tampil, tombolnya ada, cuma perilakunya versi sebelumnya. Servernya yang harus
+  // memberi tahu, bukan orangnya yang menyimpulkan sendiri bahwa fiturnya tidak jadi.
+  chk('ping melaporkan apakah kodenya sudah ketinggalan', /"stale":/.test(ping.body),
+      ping.body.slice(0, 100));
+  chk('port yang sudah dipakai dijelaskan, bukan dilempar sebagai stack trace',
+      /EADDRINUSE/.test(src) && /SUDAH JALAN/.test(src));
+
+  // Hanya ping yang boleh lintas asal. Kalau seluruh API ikut terbuka, halaman web mana pun yang
+  // kebetulan terbuka di browser yang sama bisa membaca dan menulis folder kerja lewat server ini.
+  const asalLain = await getWithHeaders('/api/fs/list', { Origin: 'https://jahat.example' });
+  chk('API selain ping menolak permintaan dari asal lain',
+      asalLain.code === 403 && /asal lain/.test(asalLain.body),
+      asalLain.code + ' ' + asalLain.body.slice(0, 70));
+  const jahat = await get('/api/fs/read?path=../../../Windows/win.ini');
+  chk('API menolak keluar folder kerja',
+      /"ok":false/.test(jahat.body) && /folder kerja/.test(jahat.body), jahat.body.slice(0, 90));
+
   const asing = await post('/run/rm', { smc2: 'x' });
   chk('perintah di luar daftar ditolak', /tidak dikenal/.test((asing.err || '') + (asing.out || '')), JSON.stringify(asing).slice(0, 80));
 
