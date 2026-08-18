@@ -8,10 +8,14 @@
 // .nbp sebagai elemen <AlarmObject>, dan .nbp itu XML polos - jadi teksnya bisa diganti di
 // tempat, tanpa NB-Designer.
 //
-// Yang dicocokkan ALAMAT, bukan urutan. Urutan bisa berubah kapan saja di NB-Designer; alamat
-// itu satu-satunya hal yang PLC dan NB sama-sama sepakati. Yang tidak ketemu alamatnya
-// dilaporkan, tidak ditebak - alarm yang teksnya benar tapi memantau bit lain jauh lebih buruk
-// daripada alarm yang teksnya belum diperbarui.
+// Arahnya SATU: PLC yang jadi acuan, NB yang ikut. Teks DAN alamat diambil dari .smc2, karena
+// alamat alarm ditentukan tabel variabel PLC - NB cuma membacanya. Menyamakan dengan mengubah
+// sisi PLC berarti menyesuaikan mesin ke layar, terbalik.
+//
+// Dicocokkan lewat NAMA ELEMEN (AL[3]) yang ditulis di depan teks alarm, bukan lewat alamat:
+// alamatnya justru yang sedang diganti. Konvensi itu memang sudah dipakai project NB aslinya,
+// dan teks hasil sinkron ditulis ulang dengan penanda yang sama supaya sambungannya bertahan.
+// Alarm NB yang tidak punya penanda dibiarkan dan dihitung, tidak ditebak berdasarkan urutan.
 'use strict';
 const fs = require('fs');
 const path = require('path');
@@ -41,12 +45,19 @@ const nbpPath = found.nbpPath;
 async function bacaSmc(buf) {
   const p = await readProject(buf, unzip);
   const out = [];
+  const tanpaKomen = [];
   (p.variables || []).forEach(v => {
+    const at0 = /^%[A-Z]+\d+\.\d+$/.test(v.address || '');
+    // Array ber-AT tapi komen elemennya kosong: bukan dilewatkan diam-diam, dilaporkan. Di
+    // .smc2 uji, MF punya AT %H320.00 tapi nol komen - kalau tidak disebut, orang mengira
+    // MF-nya gagal disinkronkan padahal memang belum ada teksnya.
+    if (at0 && !v.elementComments && /^(AL|MF)$/.test(v.name)) tanpaKomen.push(v.name + ' @' + v.address);
     if (!v.elementComments) return;
     const m = /^%([A-Z]+)(\d+)\.(\d+)$/.exec(v.address || '');
     if (!m) return;   // tanpa AT tidak ada alamat buat dicocokkan ke NB
     out.push({ nama: v.name, area: m[1], word: +m[2], bit: +m[3], els: v.elementComments });
   });
+  out.tanpaKomen = tanpaKomen;
   return out;
 }
 // ---- sisi NB: <AlarmObject> di .nbp --------------------------------------------------------
@@ -74,33 +85,55 @@ function escXml(s) {
     console.error('tidak ada array ber-komen-elemen yang punya AT di .smc2 - tidak ada yang bisa disinkronkan.');
     process.exit(1);
   }
-  // Peta "word.bit" -> teks. Alamat itu satu-satunya kunci yang dipahami kedua sisi.
+  // Kunci pencocokan NAMA ELEMEN (AL[3]), bukan alamat. Alamatnya justru yang mau diganti:
+  // PLC yang jadi acuan, NB yang ikut. Nama elemen ditulis di depan teks alarm - itu memang
+  // konvensi project NB aslinya ("AL[1]Emergency stop..."), dan gunanya persis ini: jadi
+  // sambungan yang bertahan walau alamat maupun teksnya berubah.
   const peta = {};
   arrays.forEach(a => {
     Object.keys(a.els).forEach(k => {
       const i = +k - 1;
-      peta[(a.word + Math.floor(i / 16)) + '.' + String(i % 16).padStart(2, '0')] = { teks: a.els[k], dari: a.nama + '[' + k + ']', area: a.area };
+      peta[a.nama + '[' + k + ']'] = {
+        addr: (a.word + Math.floor(i / 16)) + '.' + String(i % 16).padStart(2, '0'),
+        teks: a.els[k], area: a.area
+      };
     });
   });
   console.log('.smc2 : ' + arrays.map(a => a.nama + ' ' + Object.keys(a.els).length + ' komen @%' + a.area + a.word + '.' + String(a.bit).padStart(2, '0')).join('   '));
+  (arrays.tanpaKomen || []).forEach(x => console.log('        ' + x + ' punya alamat tapi BELUM ada komen elemennya - dilewati'));
 
-  let cocok = 0, ubah = 0, takKetemu = 0;
-  const contoh = [];
+  let cocok = 0, ubahTeks = 0, pindahAlamat = 0, takKetemu = 0;
+  const contoh = [], sudah = {};
   const baru = nbp.replace(RE_OBJ, blok => {
-    const am = RE_ADDR.exec(blok);
-    if (!am) return blok;
-    const kunci = am[1] + '.' + am[2];
-    const p = peta[kunci];
-    if (!p) { takKetemu++; return blok; }
-    cocok++;
     const tm = RE_TEXT.exec(blok);
     if (!tm) return blok;
-    const lama = tm[2], teks = escXml(p.teks);
-    if (lama === teks) return blok;
-    ubah++;
-    if (contoh.length < 6) contoh.push('  ' + kunci + '  ' + p.dari + '\n      lama: ' + lama + '\n      baru: ' + p.teks);
-    return blok.replace(RE_TEXT, function (_, a, __, c) { return a + teks + c; });
+    // Nama elemen dibaca dari depan teks alarm yang sekarang - satu-satunya penanda yang
+    // bertahan justru ketika alamatnya yang sedang diganti.
+    const km = /^(AL|MF)\[(\d+)\]/.exec(tm[2]);
+    const kunci = km ? km[1] + '[' + km[2] + ']' : null;
+    const d = kunci && peta[kunci];
+    if (!d) { takKetemu++; return blok; }
+    cocok++; sudah[kunci] = 1;
+    const am = RE_ADDR.exec(blok);
+    const alamatLama = am ? am[1] + '.' + am[2] : '?';
+    // Teks ditulis ulang DENGAN penanda di depannya. Tanpa itu, sekali sinkron sambungannya
+    // putus dan sinkron berikutnya tidak menemukan apa pun.
+    const teksBaru = escXml(kunci + d.teks);
+    let hasil = blok;
+    if (am && alamatLama !== d.addr) {
+      pindahAlamat++;
+      hasil = hasil.replace(RE_ADDR, m0 => m0.replace(alamatLama, d.addr));
+    }
+    if (tm[2] !== teksBaru) {
+      ubahTeks++;
+      hasil = hasil.replace(RE_TEXT, (_, x, __, z) => x + teksBaru + z);
+    }
+    if (hasil !== blok && contoh.length < 6) {
+      contoh.push('  ' + kunci + '   ' + alamatLama + ' -> ' + d.addr + '\n      ' + tm[2] + '\n      ' + kunci + d.teks);
+    }
+    return hasil;
   });
+  const belumAda = Object.keys(peta).filter(k => !sudah[k]);
 
   const total = (nbp.match(RE_OBJ) || []).length;
   // Area diambil dari <AlarmObject> saja. Diambil dari seluruh berkas, yang kena justru
@@ -120,7 +153,10 @@ function escXml(s) {
   console.log('');
   console.log('alamatnya ketemu di .smc2 : ' + cocok);
   console.log('tidak ada di .smc2        : ' + takKetemu + (takKetemu ? '   (dibiarkan apa adanya)' : ''));
-  console.log('teks yang berubah         : ' + ubah);
+  console.log('teks yang berubah         : ' + ubahTeks);
+  console.log('alamat yang dipindah      : ' + pindahAlamat + '   (NB ikut PLC, bukan sebaliknya)');
+  if (belumAda.length) console.log('ada di .smc2 tapi belum ada alarmnya di NB : ' + belumAda.length
+    + '   (' + belumAda.slice(0, 4).join(' ') + (belumAda.length > 4 ? ' ...' : '') + ')');
   if (contoh.length) { console.log(''); contoh.forEach(c => console.log(c)); }
   if (!cocok) {
     // Nol cocok hampir selalu berarti base word-nya beda, bukan berkasnya salah. Yang
@@ -156,5 +192,5 @@ function escXml(s) {
   fs.copyFileSync(nbpPath, bak);
   fs.writeFileSync(nbpPath, baru, 'utf8');
   console.log('\ncadangan : ' + bak);
-  console.log('DITULIS  : ' + ubah + ' teks alarm di ' + nbpPath);
+  console.log('DITULIS  : ' + ubahTeks + ' teks, ' + pindahAlamat + ' alamat di ' + nbpPath);
 })().catch(e => { console.error(e.message); process.exit(1); });
