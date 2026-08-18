@@ -100,7 +100,10 @@ function run(cmd, tulis){
   o.textContent = 'jalan...';
   fetch('/run/' + cmd, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(isi) })
     .then(function(r){ return r.json(); })
-    .then(function(j){ o.textContent = (j.out || '') + (j.err ? '\n' + j.err : '') || '(tidak ada keluaran)'; })
+    .then(function(j){
+      var NL = String.fromCharCode(10);
+      o.textContent = (j.out || '') + (j.err ? NL + j.err : '') || '(tidak ada keluaran)';
+    })
     .catch(function(e){ o.textContent = 'gagal menghubungi server: ' + e.message; });
 }
 </script></body></html>`;

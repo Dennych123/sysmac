@@ -72,6 +72,17 @@ function get(p) {
 
   const hal = await get('/');
   chk('halaman terkirim', hal.code === 200 && /Alarm Sysmac/.test(hal.body), 'HTTP ' + hal.code);
+  // Halaman terkirim bukan berarti halaman JALAN. Tombolnya pernah diam total: HALAMAN itu
+  // template literal di app.js, escape baris-baru yang ditulis tunggal jadi baris baru
+  // sungguhan, literal JS-nya putus, dan run() tidak pernah terdefinisi. Tidak ada error di
+  // halaman, tidak ada di server - tombolnya cuma tidak melakukan apa-apa.
+  const skrip = (/<script>([\s\S]*?)<\/script>/.exec(hal.body) || [])[1] || '';
+  let sintaksOk = false, sebab = '';
+  try { new Function(skrip); sintaksOk = true; } catch (e) { sebab = e.message; }
+  chk('skrip di halaman bisa di-parse', sintaksOk, sebab);
+  chk('run() benar-benar terdefinisi di skripnya', /function run\(/.test(skrip));
+  chk('tiap tombol memanggil run()', (hal.body.match(/onclick="run\(/g) || []).length === 4,
+      (hal.body.match(/onclick="run\(/g) || []).length + ' tombol');
   chk('halaman menyebut risiko rebuild', /ikut hilang/.test(hal.body));
   chk('halaman mengingatkan menutup NB-Designer', /Tutup NB-Designer/.test(hal.body));
 
