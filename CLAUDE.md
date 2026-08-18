@@ -443,6 +443,21 @@ membandingkan), tapi cuma kalau suite reader ikut dijalankan.
 sendiri dan `reader/src/env.js` punya `const esc`; keduanya di satu lingkup bikin
 seluruh halaman mati dengan "Identifier 'esc' has already been declared".
 
+**Menulis balik ke `.smc2` SUDAH TERBUKTI — tapi cuma untuk komen elemen.**
+`scripts/smc2_comment.js` mengganti medan `EC=` di tabel variabel lalu mengemas ulang
+containernya; hasilnya dibuka Sysmac Studio utuh dan komennya berubah. Itu menghapus tempel
+terakhir (`ArrayComments.tsv`), yang tidak bisa lewat XML import karena Studio membuang
+`smcext:VariableComment`.
+
+Yang membuatnya aman, dan jangan dihilangkan: container baru **dibongkar ulang dan
+dibandingkan entri per entri SEBELUM berkas aslinya disentuh**. ZIP rusak baru mengumumkan
+diri waktu Studio menolak membuka project, dan saat itu berkasnya sudah tertimpa. Semua entri
+lain (`.manifest`, `.oem`, `.log`, XML) dikemas ulang byte per byte.
+
+**Rung tetap TIDAK boleh ditulis.** Reader cuma menerjemahkan ~54% rung dengan eksak, dan rung
+yang ditulis atas tebakan ter-import mulus lalu salah waktu mesin bergerak — kelas kegagalan
+yang seluruh empat gerbang dibangun untuk menangkalnya. Itu butuh buktinya sendiri.
+
 **Yang tidak eksak, ditolak — bukan ditebak.** `reader/src/net.js` menyusun
 netlist dari koordinat + `VLs` (link vertikal), lalu memeriksa tiap simpul ada
 penyetirnya dan cuma coil yang menyentuh rel kanan. Rung yang tidak lolos, dan
