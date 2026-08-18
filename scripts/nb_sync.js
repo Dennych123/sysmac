@@ -2,6 +2,13 @@
 //
 //   node scripts/nb_sync.js <project.smc2> <project.nbp>           lihat dulu, TIDAK menulis
 //   node scripts/nb_sync.js <project.smc2> <project.nbp> --write   benar-benar menulis
+//   ... --rebuild                                                  buang semua alarm, isi ulang
+//
+// Dua cara, dan bedanya nyata. Tanpa --rebuild, alarm dicocokkan satu-satu lewat penanda
+// AL[n]/MF[n] dan yang tidak punya penanda dibiarkan - aman buat project yang alarmnya bukan
+// cuma dari generator ini. Dengan --rebuild, seluruh daftar dibuang lalu diisi ulang dari
+// .smc2: hasilnya persis isi PLC, tidak ada sisa dan tidak ada yang perlu dicocokkan, TAPI
+// alarm apa pun yang tidak berasal dari .smc2 ikut hilang.
 //
 // Kenapa langsung ke .nbp, bukan lewat Export/Import: itu enam klik tiap kali satu komen
 // diubah, dan yang enam klik tiap kali akhirnya tidak dikerjakan. Alarm NB tersimpan di dalam
@@ -25,7 +32,8 @@ const { findNbProject } = require(path.join(__dirname, 'nb_common.js'));
 
 const args = process.argv.slice(2);
 const write = args.includes('--write');
-const rest = args.filter(a => a !== '--write');
+const rebuild = args.includes('--rebuild');
+const rest = args.filter(a => a !== '--write' && a !== '--rebuild');
 if (rest.length < 2) {
   console.error('pakai: node scripts/nb_sync.js <project.smc2> <project.nbp> [--write]');
   process.exit(2);
@@ -101,6 +109,46 @@ function escXml(s) {
   });
   console.log('.smc2 : ' + arrays.map(a => a.nama + ' ' + Object.keys(a.els).length + ' komen @%' + a.area + a.word + '.' + String(a.bit).padStart(2, '0')).join('   '));
   (arrays.tanpaKomen || []).forEach(x => console.log('        ' + x + ' punya alamat tapi BELUM ada komen elemennya - dilewati'));
+
+  if (rebuild) {
+    // Cetakannya diambil dari alarm yang SUDAH ADA di project ini, bukan dikarang: PLCID,
+    // PLCGEID, token area, font, warna - semuanya milik project itu sendiri, dan satu-satunya
+    // yang diganti ID, alamat, dan teksnya. Mengarang cetakan berarti menebak medan yang tidak
+    // kita mengerti.
+    const semua = nbp.match(RE_OBJ) || [];
+    const cetak = semua[0];
+    const urut = Object.keys(peta).sort((x, y) => {
+      const a = peta[x].addr.split('.'), b = peta[y].addr.split('.');
+      return (+a[0] - +b[0]) || (+a[1] - +b[1]);
+    });
+    const objs = urut.map((k, i) => cetak
+      .replace(/^<AlarmObject ID="\d+"/, '<AlarmObject ID="' + i + '"')
+      .replace(RE_ADDR, m0 => m0.replace(/>\d+\.\d+</, '>' + peta[k].addr + '<'))
+      .replace(RE_TEXT, (_, x, __, z) => x + escXml(k + peta[k].teks) + z));
+    console.log('');
+    console.log('MODE REBUILD: ' + semua.length + ' alarm yang ada DIBUANG, diganti ' + objs.length + ' dari .smc2.');
+    console.log('              ' + (semua.length - objs.length > 0 ? (semua.length - objs.length) + ' di antaranya tidak berasal dari .smc2 dan ikut hilang.' : 'Semuanya diganti.'));
+    console.log('              cetakan diambil dari alarm pertama project ini, jadi font/PLC-nya ikut apa adanya.');
+    console.log('');
+    urut.slice(0, 3).forEach(k => console.log('  ' + peta[k].addr + '   ' + k + peta[k].teks));
+    console.log('  ... total ' + objs.length);
+    if (!write) {
+      console.log('');
+      console.log('Belum ada yang ditulis. Tambahkan --write kalau sudah cocok.');
+      return;
+    }
+    let isi = nbp;
+    semua.forEach((o, i) => { isi = isi.replace(o, i === 0 ? '@@ALARM@@' : ''); });
+    isi = isi.replace('@@ALARM@@', objs.join(''));
+    const t0 = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 14);
+    let bak0 = nbpPath + '.' + t0 + '.bak', n0 = 1;
+    while (fs.existsSync(bak0)) bak0 = nbpPath + '.' + t0 + '-' + (++n0) + '.bak';
+    fs.copyFileSync(nbpPath, bak0);
+    fs.writeFileSync(nbpPath, isi, 'utf8');
+    console.log('cadangan : ' + bak0);
+    console.log('DITULIS  : ' + objs.length + ' alarm menggantikan ' + semua.length + ' di ' + nbpPath);
+    return;
+  }
 
   let cocok = 0, ubahTeks = 0, pindahAlamat = 0, takKetemu = 0;
   const contoh = [], sudah = {};
