@@ -224,7 +224,11 @@ function csvRow(line){
 const nbCsv=p.files.find(f=>f.name==='AlarmLib.csv');
 chk('AlarmLib.csv digenerate', !!nbCsv);
 if(nbCsv){
-  const nl=nbCsv.xml.split('\n').filter(Boolean);
+  // BOM UTF-8 wajib ada - itu yang dipakai NB-Designer mengenali encoding berkasnya, dan
+  // berkas acuan di project mesin punya. Tanpa itu teks non-ASCII dibaca sebagai byte lain.
+  chk('diawali BOM UTF-8 seperti berkas acuan', nbCsv.xml.charCodeAt(0)===0xFEFF,
+      'charCode '+nbCsv.xml.charCodeAt(0));
+  const nl=nbCsv.xml.replace(/^﻿/,'').split('\n').filter(Boolean);
   chk('baris judul persis punya NB-Designer', nl[0]==='Alarm Lib,V103', nl[0]);
   chk('satu baris per elemen AL dan MF',
       nl.length-2===p.arrayInfo.alSize+p.arrayInfo.mfSize,

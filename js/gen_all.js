@@ -2218,7 +2218,9 @@ function buildAlarmLib(){
         W("nb_area_unknown","","NB-Designer alarm export: area "+area+" has no known NB area code (only H and W are, "
           +"read from a running project), so "+skipped[area]+" alarms were left out of AlarmLib.csv.");
     });
-    return { name:"AlarmLib.csv", xml:NB_HEAD+"\n"+rows.join("\n")+"\n",
+    // BOM UTF-8 di depan, sama seperti berkas acuan. Itu yang dipakai NB-Designer mengenali
+    // encoding-nya; tanpa BOM teks non-ASCII di komen alarm dibaca sebagai byte lain.
+    return { name:"AlarmLib.csv", xml:"﻿"+NB_HEAD+"\n"+rows.join("\n")+"\n",
              stats:"NB ALARM: "+rows.length+" baris buat AlarmLib.csv - timpa berkas dengan nama sama di folder project NB-Designer" };
 }
 if(HMI_CFG.on) files.push(buildAlarmLib());
