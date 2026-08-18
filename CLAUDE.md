@@ -588,6 +588,34 @@ dan tebakan dari protokol bikin alat yang siap dipakai kelihatan mati. `/api/pin
 yang boleh dipanggil lintas asal; sisanya menolak `Origin` asing - server lokal yang menerima
 perintah dari halaman web mana pun itu lubang, bukan alat.
 
+## Satu FOLDER PROJECT, bukan daftar path
+
+Halaman `/edit` meminta SATU folder: folder mesinnya. `.smc2` dan folder project NB-Designer
+dicari di dalamnya (`project/scan`), dan pilihannya disimpan di `.susmax-tracked.json` DI DALAM
+folder itu - jadi ikut pindah bersama project-nya.
+
+Folder project SEKALIGUS folder kerja. Dua konsep terpisah ("folder kerja" dan "project") berarti
+dua tempat yang bisa berbeda, dan yang terjadi: path relatif yang disimpan halaman menunjuk
+berkas di folder yang lain, dengan pesan yang menyalahkan berkasnya.
+
+Folder `*-history` DILEWATI waktu memindai. Di dalamnya ada salinan `.smc2` dan `.nbp`; kalau
+ikut terpindai, yang dipantau bisa jadi salinan riwayatnya sendiri - dan suntingan di Studio
+tidak pernah tercatat lagi.
+
+**HMI ikut dicatat.** `git/track` menyalin `.nbp` ke riwayat sebagai `hmi.nbp` (XML polos, jadi
+`git diff`-nya langsung kebaca). Tanpa itu, mengembalikan PLC ke versi kemarin meninggalkan HMI
+di versi hari ini: alamat yang dipantaunya tidak lagi cocok, dan tidak ada yang memberi tahu.
+Pemulihannya TERPISAH (`file: project.smc2` vs `hmi.nbp`) - yang salah biasanya cuma salah
+satunya, dan mengembalikan dua-duanya membuang pekerjaan yang tidak ada hubungannya.
+
+**Diff-nya dibaca di VS Code, bukan di halaman.** Tombol "Buka riwayat di VS Code"
+(`open/vscode`) membuka folder riwayat; panel Source Control-nya memang dibikin buat itu.
+Halaman ini tidak perlu jadi penampil git kedua yang lebih buruk - tabelnya cukup buat tahu ada
+berapa versi dan mengembalikan salah satunya.
+
+Halaman alat NB yang lama DIBUANG, `/tools` mengalihkan ke `/edit`. Dua halaman yang meminta
+project yang sama dipilih ulang itu justru masalah yang mau dihilangkan.
+
 ## Pantau otomatis: dipicu simpanan Studio, bukan penjadwal
 
 `watch/start` memantau berkas `.smc2` dan mencatat versinya sendiri tiap kali Studio menyimpan.

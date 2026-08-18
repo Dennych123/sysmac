@@ -438,7 +438,7 @@ HTML = '''<!doctype html>
   <div class="srv-nav" id="srvNav" title="status aplikasi lokal">memeriksa server&hellip;</div>
   <a href="home.html" id="navHome">&#8962; All tools &amp; docs</a>
   <a href="reader/smc2-viewer.html" id="navReader">.smc2 reader</a>
-  <a href="http://127.0.0.1:7654/tools" id="navApp">NB alarm sync</a>
+  <a href="http://127.0.0.1:7654/edit" id="navApp">Project (PLC + HMI)</a>
 </nav>
 <div class="topbar">
   <div class="brand">
@@ -3315,11 +3315,11 @@ TOOLS_CARDS = """<p class="tool-note" id="toolMode"></p>
   </div>
 
   <div class="tool" data-needs="server">
-    <h3><span class="ico">&#128260;</span>Edit assistance <span class="tag srv">server</span></h3>
-    <p>Catat versi .smc2 sebelum menyunting, lihat riwayatnya, kembalikan ke versi mana pun -
-       persis byte-nya. Yang disimpan berkas .smc2 aslinya berikut teks hasil ekstrak, jadi
-       <code>git diff</code> kebaca dan pemulihannya tetap utuh.</p>
-    <a class="go" href="http://127.0.0.1:7654/edit">Buka Edit assistance</a>
+    <h3><span class="ico">&#128260;</span>Project (PLC + HMI) <span class="tag srv">server</span></h3>
+    <p>Pilih folder mesinnya sekali - .smc2 dan project NB-Designer di dalamnya dikenali sendiri.
+       Tiap simpanan di Studio atau NB tercatat otomatis (berkas aslinya, bukan cuma teksnya),
+       alarmnya bisa ikut menyusul ke HMI, dan versi mana pun bisa dikembalikan persis byte-nya.</p>
+    <a class="go" href="http://127.0.0.1:7654/edit">Buka halaman Project</a>
   </div>
 
   <div class="tool">
@@ -3343,7 +3343,7 @@ TOOLS_CARDS = """<p class="tool-note" id="toolMode"></p>
     <p>Push alarm comments from the .smc2 straight into the NB project, or build the
        AlarmLib.csv for the Import button. Nothing is written until you ask; the old file is
        always backed up first.</p>
-    <a class="go" href="http://127.0.0.1:7654/tools">Open local app</a>
+    <a class="go" href="http://127.0.0.1:7654/edit">Buka halaman Project</a>
     <code class="cmd">node scripts/nb_sync.js project.smc2 NB_FOLDER</code>
   </div>
 

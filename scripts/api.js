@@ -17,6 +17,7 @@ const { readProject } = require(path.join(REPO, 'reader', 'src', 'smc2.js'));
 const D = require(path.join(REPO, 'reader', 'diff.js'));
 const watcher = require('./watcher.js');
 const pick = require('./pick.js');
+const { findNbProject } = require('./nb_common.js');
 
 const DAFTAR = '.susmax-tracked.json';
 
@@ -37,9 +38,14 @@ function bacaDaftar() {
  * Daftarnya BERKAS, bukan ingatan proses: server yang di-restart tidak boleh membuat project
  * yang sudah dicatat berminggu-minggu hilang dari pilihan halaman lain.
  */
-function tulisDaftar(smc2Rel, dirRel) {
+function tulisDaftar(smc2Rel, dirRel, tambahan) {
+  const lama = bacaDaftar().find(x => x.smc2 === smc2Rel) || {};
   const isi = bacaDaftar().filter(x => x.smc2 !== smc2Rel);
-  isi.unshift({ smc2: smc2Rel, dir: dirRel, last: new Date().toISOString() });
+  // Yang sudah tersimpan DIPERTAHANKAN (mis. folder project NB-nya). Ditulis ulang dari nol,
+  // folder HMI yang sudah dipilih hilang tiap kali versinya dicatat - dan orangnya harus
+  // memilih folder yang sama lagi, tiap kali.
+  isi.unshift(Object.assign({}, lama, tambahan || {},
+                            { smc2: smc2Rel, dir: dirRel, last: new Date().toISOString() }));
   try {
     fs.writeFileSync(path.join(ws.getRoot(), DAFTAR),
                      JSON.stringify(isi.slice(0, 50), null, 2), 'utf8');
@@ -106,6 +112,55 @@ function repoSendiri(dir) {
   const r = git(['rev-parse', '--show-toplevel'], dir);
   if (r.code !== 0 || !r.out) return false;
   return path.resolve(r.out) === path.resolve(dir);
+}
+
+/**
+ * Isi sebuah FOLDER PROJECT: mana PLC-nya, mana HMI-nya.
+ *
+ * Satu folder per mesin itu cara orangnya menyimpan pekerjaan, jadi itu juga yang dipakai di
+ * sini - bukan meminta path .smc2 dan folder .nbp dipilih satu-satu. Yang dipilih satu folder;
+ * sisanya dibaca dari isinya.
+ *
+ * Folder riwayat (`*-history`) dilewati: di dalamnya ADA salinan .smc2 dan .nbp, dan kalau ikut
+ * terpindai, project yang dipantau bisa jadi salinan riwayatnya sendiri - yang berarti
+ * suntingan di Studio tidak pernah tercatat lagi.
+ */
+function pindaiProject(dirRel) {
+  const dir = ws.amanPath(dirRel || '.');
+  const smc2 = [], hmi = [];
+
+  (function jalan(d, dalam) {
+    if (dalam > 2) return;
+    let isi = [];
+    try { isi = fs.readdirSync(d, { withFileTypes: true }); } catch (e) { return; }
+    for (const x of isi) {
+      const penuh = path.join(d, x.name);
+      if (x.isDirectory()) {
+        if (/-history$/i.test(x.name) || x.name.toLowerCase() === 'temp' ||
+            x.name === 'node_modules' || x.name === '.git') continue;
+        // Folder yang memuat .nbp itu project NB. Ditandai di sini, isinya tidak ditelusuri
+        // lebih dalam - project NB memuat ratusan berkas layar yang tidak ada gunanya di sini.
+        let punyaNbp = false;
+        try { punyaNbp = fs.readdirSync(penuh).some(f => /\.nbp$/i.test(f)); } catch (e) {}
+        if (punyaNbp) { hmi.push(path.relative(ws.getRoot(), penuh)); continue; }
+        jalan(penuh, dalam + 1);
+      } else if (/\.smc2$/i.test(x.name)) {
+        smc2.push(path.relative(ws.getRoot(), penuh));
+      } else if (/\.nbp$/i.test(x.name)) {
+        const rel = path.relative(ws.getRoot(), d);
+        if (hmi.indexOf(rel) < 0) hmi.push(rel);
+      }
+    }
+  })(dir, 0);
+
+  const simpan = bacaDaftar().find(x => x.folder === path.relative(ws.getRoot(), dir));
+  return {
+    folder: path.relative(ws.getRoot(), dir) || '.',
+    smc2, hmi,
+    // Yang sudah pernah dipilih menang atas hasil tebakan - folder yang isinya dua project
+    // tidak boleh berganti sendiri tiap halaman dibuka.
+    dipilih: simpan ? { smc2: simpan.smc2, nb: simpan.nb } : null,
+  };
 }
 
 const ALAT = {
@@ -180,7 +235,40 @@ const ALAT = {
   // Daftar project yang PERNAH dicatat - supaya halaman lain (alat NB) tinggal memilih, bukan
   // meminta path yang sama diketik ulang. Dibaca dari berkas daftar, bukan ditebak dari nama
   // folder: folder bernama `*-history` belum tentu isinya benar.
+  'project/scan': (q) => pindaiProject(q.dir || '.'),
+  'project/set': (b) => {
+    if (!b.smc2) throw new Error('butuh "smc2"');
+    const dirRel = b.dir || (path.basename(String(b.smc2)).replace(/\.smc2$/i, '') + '-history');
+    const isi = tulisDaftar(String(b.smc2), dirRel,
+                            { nb: b.nb || '', folder: b.folder || '' });
+    return { item: isi[0] };
+  },
+  // Buka folder riwayat di VS Code. Yang menampilkan perubahan paling enak itu editor yang
+  // memang dibikin buat itu - halaman ini tidak perlu jadi penampil git kedua yang lebih buruk.
+  // `code.cmd` disebut langsung, bukan lewat shell: Node menolak `.cmd` tanpa shell, dan shell
+  // menyambung argumen tanpa escape - path project rutin memuat spasi.
+  'open/vscode': (b) => {
+    const dir = ws.amanPath(b.dir || '.');
+    const bin = process.platform === 'win32'
+      ? path.join(process.env.LOCALAPPDATA || '', 'Programs', 'Microsoft VS Code', 'bin', 'code.cmd')
+      : 'code';
+    const ada = process.platform !== 'win32' || fs.existsSync(bin);
+    if (!ada) throw new Error('VS Code tidak ketemu di ' + bin);
+    const r = spawnSync(bin, [dir], { encoding: 'utf8', shell: process.platform === 'win32' });
+    if (r.status !== 0 && r.error) throw new Error(r.error.message);
+    return { opened: path.relative(ws.getRoot(), dir) || '.' };
+  },
+
   'track/list': () => ({ root: ws.getRoot(), items: bacaDaftar() }),
+  'track/get': (q) => ({ item: bacaDaftar().find(x => x.smc2 === q.smc2) || null }),
+  // Setelan per PROJECT (folder NB-nya) disimpan di daftar yang sama. Per project, bukan global:
+  // satu folder kerja bisa memuat beberapa mesin, dan folder HMI tiap mesin beda.
+  'track/set': (b) => {
+    if (!b.smc2) throw new Error('butuh "smc2"');
+    const dirRel = b.dir || (path.basename(String(b.smc2)).replace(/\.smc2$/i, '') + '-history');
+    const isi = tulisDaftar(String(b.smc2), dirRel, b.nb !== undefined ? { nb: b.nb } : {});
+    return { item: isi[0] };
+  },
 
   // ---------------------------------------------------------- pantau otomatis
   //
@@ -197,54 +285,82 @@ const ALAT = {
     // inilah yang dicari waktu suntingannya ternyata salah - dan kalau baru dicatat sesudah
     // Studio menyimpan, versi itu tidak pernah ada di riwayat.
     let awal = null;
-    try { awal = ALAT['git/track']({ path: rel, out: outRel, message: 'otomatis: sebelum disunting' }); }
-    catch (e) { awal = { changed: false, error: e.message }; }
+    try {
+      awal = ALAT['git/track']({ path: rel, out: outRel, nb: b.nb,
+                                 message: 'otomatis: sebelum disunting' });
+    } catch (e) { awal = { changed: false, error: e.message }; }
 
-    const st = watcher.mulai({
-      file, rel,
-      // Judul commit DIHITUNG dari bedanya dengan versi sebelumnya, bukan "auto-save": riwayat
-      // berisi seratus baris "auto-save" tidak menjawab satu pun pertanyaan yang bikin orang
-      // membuka riwayat.
-      pesan: async () => {
+    // Satu fungsi pencatat dipakai DUA pemantau (PLC dan HMI). Yang dicatat selalu dua-duanya
+    // sekaligus, dari sisi mana pun yang barusan disimpan: PLC yang dikembalikan ke versi
+    // kemarin sementara HMI tetap versi hari ini itu pasangan yang alamatnya tidak lagi cocok,
+    // dan tidak ada yang memberi tahu.
+    const catat = async (judul) => {
+      await readProject(fs.readFileSync(file), unzip);   // .smc2 harus utuh dulu
+      const hasil = ALAT['git/track']({ path: rel, out: outRel, nb: b.nb, message: judul });
+      if (hasil.changed && b.nb && b.nbWrite !== false) {
         try {
-          const lama = ws.amanPath(path.join(outRel, 'project.smc2'));
-          if (!fs.existsSync(lama)) return 'otomatis: catatan pertama';
-          const a = await readProject(fs.readFileSync(lama), unzip);
-          const bb = await readProject(fs.readFileSync(file), unzip);
-          return 'otomatis: ' + D.diffLine(D.diffProjects(a, bb));
-        } catch (e) {
-          return 'otomatis: tersimpan ' + new Date().toISOString().slice(0, 19).replace('T', ' ');
-        }
-      },
-      catat: async (judul) => {
-        // Dibuka dulu sebelum dicatat. Berkas yang belum selesai ditulis TIDAK boleh masuk
-        // riwayat: yang tersimpan jadi ZIP separuh, dan itu baru ketahuan waktu dibutuhkan.
-        await readProject(fs.readFileSync(file), unzip);
-        const hasil = ALAT['git/track']({ path: rel, out: outRel, message: judul });
+          const nb = ALAT['nb/sync']({ smc2: rel, nb: b.nb, rebuild: !!b.nbRebuild, write: true });
+          hasil.nb = { code: nb.code, wrote: true,
+                       out: (nb.out || '').split('\n').filter(Boolean).slice(-1)[0] || '',
+                       err: nb.err };
+        } catch (e) { hasil.nb = { code: 1, wrote: false, out: '', err: e.message }; }
+      }
+      return hasil;
+    };
 
-        // Sinkron NB berkelanjutan. Dipicu deteksi simpan yang SAMA - bukan penjadwal sendiri:
-        // dua pemantau untuk satu berkas pasti berbeda pendapat soal "sudah selesai ditulis
-        // belum", dan yang satu akan membaca project yang separuh.
-        if (hasil.changed && b.nb) {
-          try {
-            const nb = ALAT['nb/sync']({ smc2: rel, nb: b.nb, rebuild: !!b.nbRebuild,
-                                         write: b.nbWrite !== false });
-            hasil.nb = { code: nb.code, wrote: nb.wrote,
-                         // Baris terakhir keluaran skripnya - itu ringkasannya. Seluruh keluaran
-                         // dibawa ke status bikin panelnya jadi dinding teks tiap 3 detik.
-                         out: (nb.out || '').split('\n').filter(Boolean).slice(-1)[0] || '',
-                         err: nb.err };
-          } catch (e) {
-            hasil.nb = { code: 1, wrote: false, out: '', err: e.message };
-          }
-        }
-        return hasil;
-      },
-    });
-    return Object.assign({ dir: outRel, initial: awal }, st);
+    const pesanPlc = async () => {
+      try {
+        const lama = ws.amanPath(path.join(outRel, 'project.smc2'));
+        if (!fs.existsSync(lama)) return 'otomatis: catatan pertama';
+        const a = await readProject(fs.readFileSync(lama), unzip);
+        const bb = await readProject(fs.readFileSync(file), unzip);
+        return 'otomatis: ' + D.diffLine(D.diffProjects(a, bb));
+      } catch (e) {
+        return 'otomatis: PLC tersimpan ' + new Date().toISOString().slice(0, 19).replace('T', ' ');
+      }
+    };
+
+    const st = watcher.mulai({ file, rel, pesan: pesanPlc, catat });
+
+    // HMI ikut dipantau kalau folder NB-nya diketahui. `.nbp` itu satu berkas XML - perubahannya
+    // kelihatan langsung di `git diff`, tanpa perlu diekstrak.
+    let hmi = null;
+    if (b.nb) {
+      const nbp = findNbProject(ws.amanPath(b.nb));
+      if (!nbp.err) {
+        hmi = watcher.mulai({
+          file: nbp.nbpPath,
+          rel: path.relative(ws.getRoot(), nbp.nbpPath),
+          pesan: async () => 'otomatis: HMI disimpan ' +
+                             new Date().toISOString().slice(11, 19),
+          catat,
+        });
+      }
+    }
+    return Object.assign({ dir: outRel, initial: awal, hmi }, st);
   },
-  'watch/stop': (b) => watcher.berhenti(ws.amanPath(b.path)),
-  'watch/status': (q) => (q.path ? watcher.status(ws.amanPath(q.path)) : watcher.status()),
+
+  'watch/stop': (b) => {
+    const hasil = watcher.berhenti(ws.amanPath(b.path));
+    // Pemantau HMI ikut dihentikan. Yang tertinggal hidup terus mencatat sendiri sesudah
+    // orangnya menekan "berhenti" - dan riwayat yang bertambah tanpa diminta bikin orang
+    // berhenti percaya pada tombolnya.
+    if (b.nb) {
+      const nbp = findNbProject(ws.amanPath(b.nb));
+      if (!nbp.err) hasil.hmi = watcher.berhenti(nbp.nbpPath);
+    }
+    return hasil;
+  },
+
+  'watch/status': (q) => {
+    if (!q.path) return watcher.status();
+    const st = watcher.status(ws.amanPath(q.path));
+    if (q.nb) {
+      const nbp = findNbProject(ws.amanPath(q.nb));
+      if (!nbp.err) st.hmi = watcher.status(nbp.nbpPath);
+    }
+    return st;
+  },
 
   // ------------------------------------------------------------------ git
   // Jejak perubahan .smc2 supaya `git diff`-nya kebaca: ekstrak jadi teks, lalu commit.
@@ -264,6 +380,15 @@ const ALAT = {
     fs.mkdirSync(out, { recursive: true });
     fs.copyFileSync(smc2, path.join(out, 'project.smc2'));
 
+    // HMI ikut dicatat kalau folder NB-nya diketahui. `.nbp` itu XML polos, jadi `git diff`-nya
+    // langsung kebaca tanpa perlu diekstrak dulu - dan tanpa ini, mengembalikan PLC ke versi
+    // kemarin meninggalkan HMI di versi hari ini: alamat yang dipantaunya jadi tidak cocok,
+    // dan tidak ada yang memberi tahu.
+    if (b.nb) {
+      const nbp = findNbProject(ws.amanPath(b.nb));
+      if (!nbp.err) fs.copyFileSync(nbp.nbpPath, path.join(out, 'hmi.nbp'));
+    }
+
     if (!repoSendiri(out)) git(['init'], out);
     git(['add', '-A'], out);
     const status = git(['status', '--porcelain'], out);
@@ -274,7 +399,7 @@ const ALAT = {
     const pesan = b.message || ('smc2: ' + new Date().toISOString().slice(0, 19).replace('T', ' '));
     const c = git(['-c', 'user.name=Susmax', '-c', 'user.email=susmax@local',
                    'commit', '-m', pesan], out);
-    tulisDaftar(String(b.path), outRel);
+    tulisDaftar(String(b.path), outRel, b.nb ? { nb: b.nb } : {});
     return { changed: true, dir: outRel, message: pesan, commit: c.out.split('\n')[0] || c.err };
   },
   'git/log': (q) => {

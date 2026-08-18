@@ -1,129 +1,151 @@
-// Halaman "Edit assistance": folder kerja, pemantauan otomatis, riwayat .smc2, dan tombol
-// kembali ke versi mana pun.
+// Satu halaman kerja: pilih FOLDER PROJECT sekali, sisanya mengikuti.
 //
-// Ini bagian yang bikin menyunting jadi murah: versi sekarang dicatat SEBELUM apa pun diubah -
-// berikut berkas `.smc2`-nya sendiri, bukan cuma teks ekstraknya. Yang ternyata salah tinggal
-// dikembalikan; yang benar tinggal dilanjutkan.
+// Sebelumnya alatnya tersebar - riwayat di satu halaman, sinkron NB di halaman lain, dan tiap
+// halaman meminta path yang sama dipilih ulang. Yang terjadi bukan cuma repot: folder HMI yang
+// dipilih di satu halaman tidak diingat halaman lain, jadi tiap bolak-balik memilih lagi - dan
+// salah pilih sekali berarti alarm ditulis ke project HMI yang salah.
 //
-// Halamannya sengaja tipis: semua yang dikerjakan tombolnya lewat /api/* yang sama dengan yang
-// dipakai MCP. Kalau halaman ini punya jalur sendiri, dua jalur itu akan berbeda perilaku dan
-// yang satu diam-diam salah - persis alasan tombol di halaman alat memanggil skrip CLI apa adanya.
+// Sekarang yang dipilih SATU folder, yaitu folder mesinnya. PLC (.smc2) dan HMI (.nbp) dicari
+// di dalamnya, dan pilihannya diingat. Urutan halaman mengikuti cara kerjanya: pilih folder ->
+// pantau + riwayat -> alarm ke HMI. Yang jarang dipakai dilipat ke "Lanjutan".
 'use strict';
 
 const HALAMAN_EDIT = `<!doctype html><html lang="id"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Susmax - Edit assistance</title><style>
- :root{--fg:#111827;--muted:#4b5563;--faint:#6b7280;--line:#d6dbe3;--card:#fff;--bg:#f1f4f8;
-       --accent:#2563eb;--accent-dk:#1d4ed8;--accent-soft:#eff5ff;--ok:#15803d;--warn:#b45309;--danger:#b91c1c}
+<title>Susmax - Project</title><style>
+ :root{--fg:#111827;--muted:#4b5563;--faint:#6b7280;--line:#d6dbe3;--line-soft:#e6eaf0;
+       --card:#fff;--bg:#f1f4f8;--accent:#2563eb;--accent-dk:#1d4ed8;--accent-soft:#eff5ff;
+       --ok:#15803d;--warn:#b45309;--danger:#b91c1c}
  *{box-sizing:border-box}
  body{font:14px/1.55 -apple-system,Segoe UI,Roboto,Arial,sans-serif;color:var(--fg);background:var(--bg);
-      max-width:1180px;margin:0 auto;padding:22px 20px 60px}
- h1{font-size:20px;margin:0 0 2px} .sub{color:var(--muted);margin:0 0 16px;font-size:13px}
- .nav{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 16px}
+      max-width:940px;margin:0 auto;padding:20px 20px 60px}
+ h1{font-size:19px;margin:0 0 3px}
+ .lede{color:var(--muted);font-size:12.5px;margin:0 0 14px}
+ .nav{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 14px}
  .nav a{font-size:12.5px;color:var(--accent);text-decoration:none;border:1px solid var(--line);
         background:var(--card);border-radius:6px;padding:5px 10px}
  .nav a:hover{border-color:var(--accent);background:var(--accent-soft)}
- .card{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:13px 15px;margin:0 0 14px}
- .card h2{font-size:14px;margin:0 0 8px}
- label{display:block;font-size:12.5px;color:var(--muted);margin:8px 0 3px}
- input[type=text]{width:100%;padding:6px 9px;border:1px solid var(--line);border-radius:6px;
-                  font:12.5px Consolas,monospace}
- .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px}
- button{padding:6px 13px;border-radius:6px;border:1px solid var(--accent);background:var(--accent);
+ .step{background:var(--card);border:1px solid var(--line);border-radius:9px;padding:14px 16px;margin:0 0 12px}
+ .step.mati{opacity:.5}
+ .step h2{font-size:14px;margin:0 0 3px;display:flex;align-items:center;gap:8px}
+ .step h2 .no{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;
+              border-radius:50%;background:var(--accent);color:#fff;font-size:11.5px;flex:none}
+ .apa{font-size:12.5px;color:var(--muted);margin:0 0 10px}
+ .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:9px}
+ input[type=text]{flex:1;min-width:230px;padding:7px 9px;border:1px solid var(--line);border-radius:6px;
+                  font:12.5px Consolas,monospace;background:var(--card);color:var(--fg)}
+ select{flex:1;min-width:200px;padding:6px 8px;border:1px solid var(--line);border-radius:6px;font-size:12.5px}
+ button{padding:7px 13px;border-radius:6px;border:1px solid var(--accent);background:var(--accent);
         color:#fff;font-size:12.5px;cursor:pointer}
  button.ghost{background:var(--card);color:var(--accent)}
  button.danger{background:var(--card);color:var(--danger);border-color:var(--danger)}
- table{border-collapse:collapse;width:100%;font-size:12.5px}
- th{text-align:left;font-weight:600;color:var(--faint);font-size:11.5px;text-transform:uppercase;
+ .sw{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;color:var(--muted);cursor:pointer}
+ .live{display:inline-block;width:8px;height:8px;border-radius:50%;background:#cbd5e1;flex:none}
+ .live.on{background:#16a34a;box-shadow:0 0 0 3px rgba(22,163,74,.15)}
+ .status{font-size:12.5px;color:var(--muted);margin-top:8px}
+ .status.ok{color:var(--ok)} .status.bad{color:var(--danger)}
+ .isi{font-family:Consolas,monospace;font-size:12px;color:var(--muted);margin-top:8px;line-height:1.7}
+ .isi b{color:var(--fg)}
+ table{border-collapse:collapse;width:100%;font-size:12.5px;margin-top:8px}
+ th{text-align:left;font-weight:600;color:var(--faint);font-size:11px;text-transform:uppercase;
     letter-spacing:.04em;padding:0 8px 5px 0;border-bottom:1px solid var(--line)}
- td{padding:5px 8px 5px 0;border-bottom:1px solid #eef2f7;vertical-align:top}
- td.mono,.mono{font-family:Consolas,monospace}
- pre{background:var(--bg);border:1px solid var(--line);border-radius:7px;padding:10px;overflow:auto;
-     max-height:340px;font-size:12px;white-space:pre-wrap}
- .files{max-height:190px;overflow:auto;border:1px solid var(--line);border-radius:7px;background:var(--bg)}
- .files div{padding:4px 9px;cursor:pointer;font-family:Consolas,monospace;font-size:12.5px}
- .files div:hover{background:var(--accent-soft)}
- .files div.on{background:var(--accent);color:#fff}
- .hint{font-size:12.5px;color:var(--muted);margin:6px 0 0}
- .hint b{color:var(--warn)}
- .ok{color:var(--ok)} .bad{color:var(--danger)}
+ td{padding:5px 8px 5px 0;border-bottom:1px solid var(--line-soft);vertical-align:top}
+ td.mono{font-family:Consolas,monospace}
  .note{cursor:pointer;border-bottom:1px dashed var(--line);color:var(--muted)}
  .note:hover{color:var(--accent);border-color:var(--accent)}
- .live{display:inline-block;width:8px;height:8px;border-radius:50%;background:#cbd5e1;margin-right:6px}
- .live.on{background:#16a34a;box-shadow:0 0 0 3px rgba(22,163,74,.15)}
+ pre{background:var(--bg);border:1px solid var(--line);border-radius:7px;padding:10px;overflow:auto;
+     max-height:300px;font-size:12px;white-space:pre-wrap;margin:10px 0 0}
+ details{margin:16px 0 0;border-top:1px solid var(--line);padding-top:12px}
+ summary{cursor:pointer;font-size:13px;color:var(--muted)}
+ .kecil{font-size:12px;color:var(--faint);margin:7px 0 0}
+ .kecil b{color:var(--warn)}
 </style></head><body>
 
 <div class="nav">
- <a href="/">&larr; Semua alat</a><a href="/index.html">Generator</a>
- <a href="/reader/smc2-viewer.html">Pembaca .smc2</a><a href="/tools">Alat NB</a>
+ <a href="/">Semua alat</a><a href="/index.html">Generator</a>
+ <a href="/reader/smc2-viewer.html">Pembaca .smc2</a>
 </div>
 
-<h1>Edit assistance</h1>
-<p class="sub">Nyalakan pemantauan, lalu sunting di Studio seperti biasa &mdash; tiap simpanan
-tercatat sendiri. Yang disimpan berkas <b>.smc2 aslinya</b> berikut teks hasil ekstrak, jadi
-<code>git diff</code> kebaca DAN pemulihannya persis byte-nya.</p>
+<h1>Project</h1>
+<p class="lede">Pilih folder mesinnya sekali. PLC dan HMI di dalamnya dikenali sendiri, dan
+pilihannya diingat &mdash; termasuk sesudah server dimatikan.</p>
 
-<div class="card">
-  <h2>Folder kerja</h2>
+<div class="step" id="s1">
+  <h2><span class="no">1</span>Folder project</h2>
+  <p class="apa">Satu folder per mesin: berkas <code>.smc2</code> dan folder project NB-Designer
+  ada di dalamnya.</p>
   <div class="row">
-    <input id="wsdir" type="text" style="flex:1;min-width:260px" placeholder="C:\\Users\\...\\project">
-    <button class="ghost" onclick="pilihFolder()">Pilih folder&hellip;</button>
-    <button class="ghost" onclick="setWs()">Pindah</button>
+    <input id="folder" type="text" placeholder="belum dipilih" readonly>
+    <button onclick="pilihFolder()">Pilih folder&hellip;</button>
   </div>
-  <p class="hint">Semua baca-tulis dikurung ke folder ini. Di luar itu ditolak &mdash; server lokal
-  tanpa batas berarti apa pun yang jalan di mesin ini bisa meminta berkas apa pun.</p>
+  <div class="isi" id="isiFolder"></div>
+  <div class="row" id="barisPilih" style="display:none">
+    <select id="selPlc" onchange="simpanPilihan()"></select>
+    <select id="selHmi" onchange="simpanPilihan()"></select>
+  </div>
 </div>
 
-<div class="card">
-  <h2>Project .smc2</h2>
+<div class="step mati" id="s2">
+  <h2><span class="no">2</span>Pantau &amp; riwayat</h2>
+  <p class="apa">Tiap kali Studio atau NB-Designer menyimpan, versinya tercatat sendiri &mdash;
+  PLC dan HMI sekaligus, dalam satu riwayat.</p>
   <div class="row">
-    <button class="ghost" onclick="cari()">Cari .smc2 di folder kerja</button>
-    <button class="ghost" onclick="pilihBerkas()">Pilih berkas&hellip;</button>
-    <span id="carimsg" class="hint"></span>
-  </div>
-  <div class="files" id="daftar"></div>
-  <label>Yang dipilih</label>
-  <input id="smc2" type="text" placeholder="pilih di atas, atau tekan Pilih berkas">
-  <div class="row">
-    <button id="watchBtn" class="ghost" onclick="togglePantau()"><span class="live" id="live"></span>Pantau otomatis: MATI</button>
-    <span id="watchInfo" class="hint"></span>
-  </div>
-  <div class="row">
-    <input id="pesan" type="text" style="flex:1;min-width:220px" placeholder="catatan (boleh dikosongkan - bisa diisi belakangan)">
+    <button id="watchBtn" onclick="togglePantau()"><span class="live" id="live"></span>&nbsp;Pantau otomatis</button>
+    <label class="sw"><input type="checkbox" id="autoNb" onchange="ubahAutoNb()">
+      alarm ikut ditulis ke HMI tiap PLC disimpan</label>
     <button class="ghost" onclick="track()">Catat sekarang</button>
-    <button class="ghost" onclick="muatRiwayat()">Muat riwayat</button>
+    <button class="ghost" onclick="bukaVsCode()">Buka riwayat di VS Code</button>
   </div>
-  <p class="hint">Pemantauan mencatat versi <b>sebelum</b> disunting begitu dinyalakan, lalu tiap
-  kali Studio menyimpan. Judulnya dihitung dari bedanya dengan versi sebelumnya; kolom Catatan
-  bisa diisi belakangan. <b>Yang tidak pernah dicatat tidak bisa dikembalikan.</b></p>
+  <div id="watchInfo" class="status"></div>
+  <table id="riwayat"><tr><td class="kecil">pilih folder project dulu</td></tr></table>
+  <pre id="isiDiff" style="display:none"></pre>
+  <p class="kecil">Keadaan <b>sebelum</b> disunting ikut dicatat begitu pemantauan dinyalakan.
+  Yang tidak pernah dicatat tidak bisa dikembalikan.</p>
 </div>
 
-<div class="card">
-  <h2>Riwayat</h2>
-  <table id="riwayat"><tr><td class="hint">belum dimuat</td></tr></table>
-  <pre id="isi" style="display:none"></pre>
-</div>
-
-<div class="card">
-  <h2>Minta bantuan AI</h2>
-  <p class="hint" style="margin:0">Dikerjakan dari <b>terminal</b>, bukan dari halaman ini: di
-  terminal ada ganti model, konsol penuh, dan riwayat percakapan yang bisa dibaca ulang &mdash;
-  tiga hal yang tidak bisa ditiru kotak chat di halaman. Alat yang dipakainya SAMA persis dengan
-  tombol-tombol di atas:</p>
-  <pre style="margin:8px 0 0">claude mcp add susmax -e SUSMAX_WS=FOLDER_KERJA -- node "REPO/scripts/mcp.js"</pre>
-  <p class="hint">Folder kerjanya lewat <b>-e SUSMAX_WS</b>, bukan <code>--ws</code>: <code>claude mcp add</code> ikut mem-parse flag sesudah <code>--</code>, jadi <code>--ws</code> ditolak sebelum sampai ke skripnya (<i>unknown option</i>).</p>
-  <p class="hint">Sesudah itu, dari terminal mana pun: <i>"pakai susmax: catat versi mesinA.smc2,
-  lalu bandingkan dengan versi kemarin"</i>. Yang dijalankannya <code>watch_start</code>, <code>diff_smc2</code>,
-  <code>restore_smc2</code> &mdash; alat yang sama dengan halaman ini, jadi hasilnya tidak bisa berbeda.</p>
+<div class="step mati" id="s3">
+  <h2><span class="no">3</span>Alarm ke HMI</h2>
+  <p class="apa">Teks alarm dari PLC dikirim ke project NB-Designer yang sama.</p>
+  <div class="row">
+    <button class="ghost" onclick="nbSync(0)">Lihat perubahannya</button>
+    <button onclick="nbSync(1)">Tulis ke HMI sekarang</button>
+  </div>
+  <div id="nbStatus" class="status"></div>
+  <p class="kecil">Tutup NB-Designer selama ini dipakai: dia menulis ulang berkasnya waktu
+  project disimpan, jadi hasil sinkron bisa tertimpa. Yang lama selalu dicadangkan dulu.</p>
 </div>
 
 <pre id="log">siap.</pre>
 
+<details>
+  <summary>Lanjutan &mdash; jarang dipakai</summary>
+  <div class="step">
+    <h2>Berkas Import AlarmLib.csv</h2>
+    <p class="apa">Kalau alarmnya mau dimasukkan lewat tombol Import di dialog Alarm Setting,
+    bukan ditulis langsung ke .nbp. Sumbernya project JSON generator.</p>
+    <div class="row">
+      <input id="sumberCsv" type="text" placeholder="project-susmax.json">
+      <button class="ghost" onclick="pilihSumber()">Pilih&hellip;</button>
+      <button class="ghost" onclick="alarmCsv(0)">Lihat dulu</button>
+      <button class="ghost" onclick="alarmCsv(1)">Tulis berkasnya</button>
+    </div>
+  </div>
+  <div class="step">
+    <h2>Jalankan dari terminal</h2>
+    <p class="apa">Alat yang sama lewat MCP &mdash; buat minta bantuan AI dengan konsol penuh dan
+    ganti model.</p>
+    <pre style="margin:0" id="cmdMcp">-</pre>
+    <p class="kecil">Folder kerjanya lewat <b>env</b>, bukan <code>--ws</code>: PowerShell memakan
+    <code>--</code> sebelum sampai ke perintahnya.</p>
+  </div>
+</details>
+
 <script>
-var HIST = '';
-var PANTAU = false;
+var PLC = '', HMI = '', HIST = '', PANTAU = false;
+
 function $(id){ return document.getElementById(id); }
-function tulisLog(t, buruk){ var l=$('log'); l.textContent=t; l.className = buruk?'bad':''; }
+function log(t, buruk){ var l=$('log'); l.textContent=t; l.className = buruk?'bad':''; }
+function aktif(id, ya){ $(id).className = 'step' + (ya ? '' : ' mati'); }
 
 function api(nama, isi, metode){
   var opt = { method: metode || 'POST', headers:{'Content-Type':'application/json'} };
@@ -133,177 +155,273 @@ function api(nama, isi, metode){
     url += q.length ? '?' + q.join('&') : ''; delete opt.headers;
   } else { opt.body = JSON.stringify(isi||{}); }
   return fetch(url, opt).then(function(r){ return r.json(); }).then(function(j){
-    // Galat dari server dilempar sebagai Error supaya SEMUA pemanggil punya satu jalur gagal.
-    // Yang dicek per tempat selalu ada yang lupa, dan yang lupa itu diam - tombolnya kelihatan
-    // berhasil padahal tidak terjadi apa-apa.
+    // Satu jalur gagal buat semua pemanggil. Yang dicek per tempat selalu ada yang lupa, dan
+    // yang lupa itu diam: tombolnya kelihatan berhasil padahal tidak terjadi apa-apa.
     if (!j.ok) throw new Error(j.error || 'gagal');
     return j.result;
   });
 }
 
-function muatWs(){ api('ws/get',{},'GET').then(function(r){ $('wsdir').value = r.root; }); }
-function setWs(){
-  api('ws/set',{dir:$('wsdir').value.trim()}).then(function(r){
-    tulisLog('folder kerja: ' + r.root); cari();
-  }, function(e){ tulisLog('gagal pindah folder: ' + e.message, true); });
+// -------------------------------------------------------------- folder project
+// Folder project SEKALIGUS folder kerja: semua baca-tulis dikurung ke situ. Satu folder per
+// mesin memang cara orangnya menyimpan pekerjaan, jadi tidak ada konsep kedua yang harus
+// diingat - dan tidak ada lagi "folder kerja" yang bisa berbeda dari project yang dibuka.
+function muatFolder(){
+  api('ws/get',{},'GET').then(function(r){
+    $('folder').value = r.root;
+    perbaruiPerintah(r.root);
+    pindai();
+  });
 }
 
-// Dialog dibuka SERVER, bukan browser: <input type=file> tidak pernah memberi path lengkap
-// (batas keamanan browser), dan menyalin path dengan tangan itu jalur paling sering salah ketik
-// di seluruh alat ini.
 function pilihFolder(){
-  tulisLog('menunggu dialog... (kalau tidak kelihatan, cek taskbar)');
-  api('pick/folder',{title:'Pilih folder kerja', start:$('wsdir').value.trim()}).then(function(r){
-    if (!r.path) return tulisLog('tidak jadi memilih');
-    $('wsdir').value = r.path; setWs();
-  }, function(e){ tulisLog('dialog gagal: ' + e.message, true); });
-}
-function pilihBerkas(){
-  tulisLog('menunggu dialog... (kalau tidak kelihatan, cek taskbar)');
-  api('pick/file',{title:'Pilih project .smc2', start:$('wsdir').value.trim()}).then(function(r){
-    if (!r.path) return tulisLog('tidak jadi memilih');
-    // Yang di LUAR folder kerja dikatakan SEKARANG, bukan nanti waktu tombolnya ditekan dan
-    // servernya menolak dengan pesan yang tidak nyambung dengan apa yang barusan diklik.
-    if (!r.relative) {
-      return tulisLog('berkas itu di luar folder kerja: ' + r.path +
-                      '  -  tekan "Pilih folder" dulu dan arahkan ke induknya', true);
-    }
-    // Path ABSOLUT yang dipakai, bukan yang relatif: yang relatif berubah arti begitu folder
-    // kerjanya pindah, dan yang terjadi berikutnya bukan "salah folder" yang kelihatan
-    // melainkan berkas dicari di tempat lain dengan pesan yang menyalahkan berkasnya.
-    pakaiBerkas(r.path);
-  }, function(e){ tulisLog('dialog gagal: ' + e.message, true); });
-}
-
-function pakaiBerkas(rel){
-  $('smc2').value = rel;
-  HIST = rel.replace(/\\.smc2$/i,'') + '-history';
-  tulisLog('dipilih: ' + rel);
-  muatRiwayat(); cekPantau();
-}
-
-function cari(){
-  $('carimsg').textContent = 'mencari...';
-  api('fs/find',{pattern:'*.smc2',limit:'100'},'GET').then(function(r){
-    var d = $('daftar'); d.innerHTML = '';
-    $('carimsg').textContent = r.files.length + ' berkas';
-    r.files.forEach(function(f){
-      var el = document.createElement('div');
-      el.textContent = f;
-      el.onclick = function(){
-        var lama = d.querySelector('.on'); if (lama) lama.className='';
-        el.className='on'; pakaiBerkas(f);
-      };
-      d.appendChild(el);
+  log('menunggu dialog... (kalau tidak kelihatan, cek taskbar)');
+  api('pick/folder',{title:'Pilih folder project mesin'}).then(function(r){
+    if (!r.path) return log('tidak jadi memilih');
+    return api('ws/set',{dir:r.path}).then(function(w){
+      $('folder').value = w.root;
+      perbaruiPerintah(w.root);
+      PLC=''; HMI=''; HIST=''; aktif('s2',false); aktif('s3',false);
+      log('folder project: ' + w.root + '  (tersimpan, ikut terpakai lain kali)');
+      pindai();
     });
-  }, function(e){ $('carimsg').textContent = e.message; });
+  }, function(e){ log('gagal: ' + e.message, true); });
 }
 
-function track(){
-  var p = $('smc2').value.trim();
-  if (!p) return tulisLog('pilih berkas .smc2 dulu', true);
-  tulisLog('mencatat...');
-  api('git/track',{path:p, message:$('pesan').value.trim()}).then(function(r){
-    HIST = r.dir;
-    tulisLog(r.changed ? ('tercatat: ' + r.message + '  (' + r.dir + ')')
-                       : 'tidak ada perubahan sejak catatan terakhir');
-    muatRiwayat();
-  }, function(e){ tulisLog('gagal mencatat: ' + e.message, true); });
+function pindai(){
+  api('project/scan',{dir:'.'},'GET').then(function(r){
+    var pilihan = r.dipilih || {};
+    isiSelect('selPlc', r.smc2, pilihan.smc2);
+    isiSelect('selHmi', r.hmi, pilihan.nb);
+    // Dropdown cuma muncul kalau memang ada yang harus dipilih. Folder yang isinya satu PLC dan
+    // satu HMI - yaitu hampir semuanya - tidak perlu satu pun pilihan.
+    var perlu = r.smc2.length > 1 || r.hmi.length > 1;
+    $('barisPilih').style.display = perlu ? 'flex' : 'none';
+
+    PLC = pilihan.smc2 || r.smc2[0] || '';
+    HMI = pilihan.nb || r.hmi[0] || '';
+    $('isiFolder').innerHTML =
+      'PLC : ' + (PLC ? '<b>' + PLC + '</b>' : '<i>tidak ada .smc2 di folder ini</i>') + '<br>' +
+      'HMI : ' + (HMI ? '<b>' + HMI + '</b>' : '<i>tidak ada project NB-Designer di folder ini</i>');
+
+    if (!PLC) { aktif('s2', false); aktif('s3', false); return; }
+    HIST = PLC.replace(/\\.smc2$/i,'') + '-history';
+    aktif('s2', true); aktif('s3', !!HMI);
+    simpanPilihan(true);
+    muatRiwayat(); cekPantau();
+  }, function(e){ log('gagal memindai folder: ' + e.message, true); });
 }
 
+function isiSelect(id, daftar, terpilih){
+  var sel = $(id);
+  sel.innerHTML = '';
+  daftar.forEach(function(x){
+    var o = document.createElement('option');
+    o.value = x; o.textContent = x;
+    if (x === terpilih) o.selected = true;
+    sel.appendChild(o);
+  });
+}
+
+function simpanPilihan(diam){
+  if ($('barisPilih').style.display !== 'none') {
+    PLC = $('selPlc').value || PLC;
+    HMI = $('selHmi').value || HMI;
+    HIST = PLC.replace(/\\.smc2$/i,'') + '-history';
+  }
+  if (!PLC) return;
+  api('project/set',{smc2:PLC, nb:HMI, dir:HIST, folder:'.'}).then(function(){
+    if (!diam) { log('pilihan disimpan'); muatRiwayat(); cekPantau(); }
+  }, function(){});
+}
+
+function perbaruiPerintah(root){
+  $('cmdMcp').textContent =
+    'claude mcp add-json susmax -s user "{\\\\"command\\\\":\\\\"node\\\\",' +
+    '\\\\"args\\\\":[\\\\"' + location.origin.replace(/^https?:\\/\\//,'') + '/scripts/mcp.js\\\\"],' +
+    '\\\\"env\\\\":{\\\\"SUSMAX_WS\\\\":\\\\"' + root.replace(/\\\\/g,'/') + '\\\\"}}"';
+}
+
+// ------------------------------------------------------------------ pantau
 function cekPantau(){
-  var p = $('smc2').value.trim();
-  if (!p) return;
-  api('watch/status',{path:p},'GET').then(function(r){
+  if (!PLC) return;
+  api('watch/status',{path:PLC, nb:HMI},'GET').then(function(r){
     PANTAU = !!r.watching;
     $('watchBtn').className = PANTAU ? '' : 'ghost';
-    $('watchBtn').innerHTML = '<span class="live' + (PANTAU?' on':'') + '"></span>Pantau otomatis: ' +
-                              (PANTAU ? 'HIDUP' : 'MATI');
-    $('watchInfo').textContent = PANTAU
-      ? ((r.commits||0) + ' versi tercatat sejak dipantau') +
-        (r.pending ? '  |  berkas sedang berubah...' : '') +
-        (r.lastError ? '  |  terakhir gagal: ' + r.lastError : '')
-      : '';
+    $('live').className = 'live' + (PANTAU ? ' on' : '');
+    var bagian = [];
+    bagian.push(PANTAU ? ((r.commits||0) + ' versi tercatat sejak dipantau')
+                       : 'pemantauan mati - versinya cuma tercatat kalau ditekan manual');
+    if (r.hmi && r.hmi.watching) bagian.push('HMI ikut dipantau');
+    if (r.pending) bagian.push('berkas sedang berubah...');
+    if (r.lastError) bagian.push('gagal: ' + r.lastError);
+    $('watchInfo').className = 'status' + (r.lastError ? ' bad' : '');
+    $('watchInfo').textContent = bagian.join('  |  ');
+    if (r.nb) {
+      $('nbStatus').className = 'status ' + (r.nb.code === 0 ? 'ok' : 'bad');
+      $('nbStatus').textContent = r.nb.code === 0
+        ? ('tersinkron otomatis: ' + (r.nb.out || 'selesai'))
+        : ('sinkron otomatis GAGAL: ' + (r.nb.err || 'tidak diketahui'));
+    }
   }, function(){});
 }
 
 function togglePantau(){
-  var p = $('smc2').value.trim();
-  if (!p) return tulisLog('pilih berkas .smc2 dulu', true);
-  var mau = PANTAU ? 'watch/stop' : 'watch/start';
-  api(mau, {path:p}).then(function(r){
-    if (r.dir) HIST = r.dir;
-    tulisLog(PANTAU ? 'pemantauan dihentikan'
-                    : 'dipantau - sunting di Studio seperti biasa, tiap simpanan tercatat sendiri');
+  if (!PLC) return log('pilih folder project dulu', true);
+  var isi = { path: PLC, nb: HMI };
+  if ($('autoNb').checked) isi.nbWrite = true; else isi.nbWrite = false;
+  api(PANTAU ? 'watch/stop' : 'watch/start', isi).then(function(r){
+    if (r && r.dir) HIST = r.dir;
+    log(PANTAU ? 'pemantauan dihentikan'
+               : 'dipantau - sunting di Studio/NB seperti biasa, tiap simpanan tercatat sendiri');
     cekPantau(); muatRiwayat();
-  }, function(e){ tulisLog('gagal: ' + e.message, true); });
+  }, function(e){ log('gagal: ' + e.message, true); });
 }
 
-// Selama dipantau, riwayatnya ikut disegarkan sendiri - versi yang barusan tercatat harus
-// kelihatan tanpa perlu ada yang menekan "Muat riwayat".
-setInterval(function(){
-  if (!$('smc2').value.trim()) return;
-  cekPantau();
-  if (PANTAU) muatRiwayat();
-}, 8000);
+function ubahAutoNb(){
+  if (!PLC) { $('autoNb').checked = false; return log('pilih folder project dulu', true); }
+  if ($('autoNb').checked && !HMI) {
+    $('autoNb').checked = false;
+    return log('folder project ini tidak punya project NB-Designer', true);
+  }
+  // Menyalakannya berarti .nbp DITULIS tiap kali Studio menyimpan - dikatakan sekali di depan,
+  // bukan disembunyikan di balik kata "otomatis".
+  if ($('autoNb').checked &&
+      !confirm('Tiap kali Studio menyimpan PLC-nya, alarmnya langsung DITULIS ke\\n' + HMI +
+               '\\n\\nYang lama tetap dicadangkan. Tutup NB-Designer selama ini aktif.')) {
+    $('autoNb').checked = false;
+    return;
+  }
+  if (!PANTAU) return;                     // setelannya dipakai waktu pemantauan dinyalakan
+  // Pemantauan dimulai ulang supaya setelannya ikut - dihentikan dulu, jadi tidak pernah ada
+  // dua pemantau untuk berkas yang sama.
+  api('watch/stop',{path:PLC, nb:HMI}).catch(function(){}).then(function(){
+    return api('watch/start',{path:PLC, nb:HMI, nbWrite:$('autoNb').checked});
+  }).then(function(){ log('setelan pemantauan diperbarui'); cekPantau(); },
+          function(e){ log('gagal: ' + e.message, true); });
+}
+
+// ------------------------------------------------------------------ riwayat
+function track(){
+  if (!PLC) return log('pilih folder project dulu', true);
+  log('mencatat...');
+  api('git/track',{path:PLC, nb:HMI}).then(function(r){
+    HIST = r.dir;
+    log(r.changed ? ('tercatat: ' + r.message) : 'tidak ada perubahan sejak catatan terakhir');
+    muatRiwayat();
+  }, function(e){ log('gagal mencatat: ' + e.message, true); });
+}
+
+// Diff yang enak dibaca ada di VS Code - panel Source Control dan Timeline-nya memang dibikin
+// buat itu. Halaman ini tidak perlu jadi penampil git kedua yang lebih buruk; tabel di bawah
+// cukup buat tahu ADA berapa versi dan mengembalikan salah satunya.
+function bukaVsCode(){
+  if (!HIST) return log('belum ada riwayat buat dibuka', true);
+  api('open/vscode',{dir:HIST}).then(function(r){
+    log('dibuka di VS Code: ' + r.opened + '  (panel Source Control menampilkan tiap perubahan)');
+  }, function(e){ log('gagal membuka VS Code: ' + e.message, true); });
+}
 
 function muatRiwayat(){
-  var p = $('smc2').value.trim();
-  if (!HIST && p) HIST = p.replace(/\\.smc2$/i,'') + '-history';
   if (!HIST) return;
-  api('git/log',{dir:HIST,limit:'40'},'GET').then(function(r){
+  api('git/log',{dir:HIST,limit:'30'},'GET').then(function(r){
     var t = $('riwayat');
     if (!r.repo || !r.entries.length){
-      t.innerHTML = '<tr><td class="hint">belum ada catatan buat berkas ini &mdash; nyalakan pemantauan atau tekan "Catat sekarang"</td></tr>';
+      t.innerHTML = '<tr><td class="kecil">belum ada catatan - nyalakan pantau otomatis, ' +
+                    'atau tekan "Catat sekarang"</td></tr>';
       return;
     }
-    var h = '<tr><th>Versi</th><th>Waktu</th><th>Apa yang berubah</th><th>Catatan</th><th></th></tr>';
+    var h = '<tr><th>Versi</th><th>Waktu</th><th>Apa yang berubah</th><th>Catatan</th><th>Kembalikan</th></tr>';
     r.entries.forEach(function(e){
       var note = (e.note || '').replace(/"/g,'&quot;');
-      h += '<tr><td class="mono">' + e.hash + '</td><td>' + e.date + '</td>' +
+      h += '<tr><td class="mono">' + e.hash + '</td>' +
+           '<td>' + String(e.date||'').slice(0,16) + '</td>' +
            '<td>' + e.subject + '</td>' +
-           '<td><span class="note" data-note="' + note + '" onclick="ubahCatatan(this)" data-rev="' + e.hash + '">' +
-           (e.note ? e.note : '<i>+ tambah catatan</i>') + '</span></td>' +
+           '<td><span class="note" data-note="' + note + '" data-rev="' + e.hash +
+           '" onclick="ubahCatatan(this)">' + (e.note ? e.note : '+ catatan') + '</span></td>' +
            '<td><button class="ghost" data-rev="' + e.hash + '" onclick="lihat(this)">Lihat</button> ' +
-           '<button class="danger" data-rev="' + e.hash + '" onclick="pulihkan(this)">Kembalikan</button></td></tr>';
+           '<button class="danger" data-rev="' + e.hash + '" onclick="pulihkan(this,0)">PLC</button> ' +
+           (HMI ? '<button class="danger" data-rev="' + e.hash + '" onclick="pulihkan(this,1)">HMI</button>' : '') +
+           '</td></tr>';
     });
     t.innerHTML = h;
-  }, function(e){ tulisLog(e.message, true); });
+  }, function(e){ log(e.message, true); });
 }
 
-// Judul menyusul. Disimpan sebagai git notes - hash commit-nya TIDAK berubah, jadi tombol
-// "Kembalikan" di sebelahnya tetap menunjuk versi yang sama persis.
+// Catatan susulan disimpan sebagai git notes - hash-nya TIDAK berubah, jadi tombol Kembalikan
+// di sebelahnya tetap menunjuk versi yang sama persis.
 function ubahCatatan(el){
   var rev = el.getAttribute('data-rev');
   var teks = prompt('Catatan buat versi ' + rev + ':', el.getAttribute('data-note') || '');
   if (teks === null) return;
-  api('git/message',{dir:HIST, rev:rev, message:teks}).then(function(){
-    tulisLog('catatan disimpan buat ' + rev); muatRiwayat();
-  }, function(e){ tulisLog('gagal menyimpan catatan: ' + e.message, true); });
+  api('git/message',{dir:HIST, rev:rev, message:teks}).then(function(){ muatRiwayat(); },
+    function(e){ log('gagal menyimpan catatan: ' + e.message, true); });
 }
 
 function lihat(el){
   api('git/show',{dir:HIST,rev:el.getAttribute('data-rev')},'GET').then(function(r){
-    var box = $('isi'); box.style.display='block'; box.textContent = r.diff || '(kosong)';
-  }, function(e){ tulisLog(e.message, true); });
+    var box = $('isiDiff'); box.style.display='block'; box.textContent = r.diff || '(kosong)';
+  }, function(e){ log(e.message, true); });
 }
 
-function pulihkan(el){
+// PLC dan HMI dikembalikan TERPISAH: yang salah biasanya cuma salah satunya, dan mengembalikan
+// dua-duanya membuang pekerjaan yang tidak ada hubungannya.
+function pulihkan(el, hmi){
   var rev = el.getAttribute('data-rev');
-  var p = $('smc2').value.trim();
-  // Konfirmasi karena ini MENIMPA berkas project yang sedang dipakai. Yang ditimpa tetap
-  // dicadangkan server, tapi yang mengklik tanpa sadar tetap kehilangan konteks kerjanya.
-  if (!confirm('Kembalikan ' + p + ' ke versi ' + rev + '?\\n\\nBerkas sekarang dicadangkan dulu, ' +
-               'tapi Sysmac Studio harus DITUTUP - kalau tidak, versi di memori Studio menimpa ' +
-               'lagi waktu disimpan.')) return;
-  api('git/restore',{dir:HIST,rev:rev,to:p}).then(function(r){
-    tulisLog('dikembalikan ke ' + r.from + ' (' + r.bytes + ' byte). Buka lagi di Studio.');
+  var apa = hmi ? 'HMI (.nbp)' : 'PLC (.smc2)';
+  if (!confirm('Kembalikan ' + apa + ' ke versi ' + rev + '?\\n\\nBerkas sekarang dicadangkan ' +
+               'dulu, tapi ' + (hmi ? 'NB-Designer' : 'Sysmac Studio') + ' harus DITUTUP - kalau ' +
+               'tidak, versi di memorinya menimpa lagi waktu disimpan.')) return;
+  var isi = hmi ? { dir:HIST, rev:rev, file:'hmi.nbp', to:HMI }
+                : { dir:HIST, rev:rev, file:'project.smc2', to:PLC };
+  api('git/restore', isi).then(function(r){
+    log(apa + ' dikembalikan ke ' + r.from + ' (' + r.bytes + ' byte). Buka lagi aplikasinya.');
     muatRiwayat();
-  }, function(e){ tulisLog('gagal mengembalikan: ' + e.message, true); });
+  }, function(e){ log('gagal mengembalikan: ' + e.message, true); });
 }
 
-muatWs();
-cari();
+// ----------------------------------------------------------------------- HMI
+function nbSync(tulis){
+  if (!PLC) return log('pilih folder project dulu', true);
+  if (!HMI) return log('folder project ini tidak punya project NB-Designer', true);
+  $('nbStatus').className = 'status';
+  $('nbStatus').textContent = tulis ? 'menulis ke HMI...' : 'memeriksa...';
+  api('nb/sync',{smc2:PLC, nb:HMI, write:!!tulis}).then(function(r){
+    $('nbStatus').className = 'status ' + (r.code === 0 ? 'ok' : 'bad');
+    $('nbStatus').textContent = (r.code === 0 ? '' : 'GAGAL: ') + (r.err || 'selesai');
+    $('log').textContent = r.out || r.err || '';
+  }, function(e){
+    $('nbStatus').className = 'status bad';
+    $('nbStatus').textContent = 'gagal: ' + e.message;
+  });
+}
+
+// ------------------------------------------------------------------ lanjutan
+function pilihSumber(){
+  api('pick/file',{title:'Pilih project JSON atau AlarmLib.csv',
+                   filter:'Project JSON / CSV (*.json;*.csv)|*.json;*.csv|Semua berkas (*.*)|*.*'})
+    .then(function(r){ if (r.path) $('sumberCsv').value = r.path; },
+          function(e){ log('dialog gagal: ' + e.message, true); });
+}
+function alarmCsv(tulis){
+  var sumber = $('sumberCsv').value.trim();
+  if (!sumber) return log('isi sumbernya dulu (project JSON)', true);
+  if (!HMI) return log('folder project ini tidak punya project NB-Designer', true);
+  log(tulis ? 'menulis AlarmLib-generated.csv...' : 'memeriksa...');
+  api('nb/alarm',{source:sumber, nb:HMI, write:!!tulis}).then(function(r){
+    log(r.out || r.err || 'selesai', r.code !== 0);
+  }, function(e){ log('gagal: ' + e.message, true); });
+}
+
+// Selama dipantau, riwayat dan statusnya ikut disegarkan sendiri - versi yang barusan tercatat
+// harus kelihatan tanpa ada yang menekan tombol.
+setInterval(function(){
+  if (!PLC) return;
+  cekPantau();
+  if (PANTAU) muatRiwayat();
+}, 8000);
+
+muatFolder();
 </script></body></html>`;
 
 module.exports = { HALAMAN_EDIT };

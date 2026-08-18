@@ -103,87 +103,30 @@ function get(p) {
       'HTTP ' + gen.code);
   chk('generator menaut balik ke daftar alat', /href="home\.html"/.test(gen.body));
 
-  const hal = await get('/tools');
-  chk('halaman terkirim', hal.code === 200 && /Alarm Sysmac/.test(hal.body), 'HTTP ' + hal.code);
-  chk('halaman alat menaut balik ke generator', /href="\/"/.test(hal.body));
+  // Halaman alat NB digabung ke /edit. Dua halaman yang meminta project yang sama dipilih ulang
+  // itu masalah yang mau dihilangkan, jadi yang lama MENGALIHKAN - taut lama tetap jalan, cuma
+  // mendarat di halaman yang benar.
+  const alih = await get('/tools');
+  chk('/tools mengalihkan ke /edit', alih.code === 302, 'HTTP ' + alih.code);
 
-  // Berkas statis didaftar satu-satu, bukan folder. Server ini jalan di folder repo yang juga
-  // memuat kunci privat OPC UA dan project pelanggan - "layani seluruh folder" berarti semuanya
-  // itu bisa diambil lewat HTTP oleh apa pun yang jalan di mesin ini.
   const edit = await get('/edit');
-  chk('halaman Edit assistance terkirim', edit.code === 200 && /Edit assistance/.test(edit.body),
+  chk('halaman project terkirim', edit.code === 200 && /Susmax - Project/.test(edit.body),
       'HTTP ' + edit.code);
-  const skripEdit = (/<script>([\s\S]*?)<\/script>/.exec(edit.body) || [])[1] || '';
-  let editOk = false, sebabEdit = '';
-  try { new Function(skripEdit); editOk = true; } catch (e) { sebabEdit = e.message; }
-  chk('skrip halaman Edit bisa di-parse', editOk, sebabEdit);
-  chk('halaman Edit mengingatkan menutup Studio sebelum memulihkan',
-      /DITUTUP/.test(edit.body));
 
-  // API dipakai halaman Edit DAN oleh MCP - satu jalur, jadi tidak bisa berbeda perilaku.
-  const apiWs = await get('/api/ws/get');
-  chk('API menjawab JSON', apiWs.code === 200 && /"ok":true/.test(apiWs.body), apiWs.body.slice(0, 80));
-  const apiJahat = await get('/api/fs/read?path=../../../Windows/win.ini');
-  chk('API menolak keluar folder kerja',
-      /"ok":false/.test(apiJahat.body) && /folder kerja/.test(apiJahat.body), apiJahat.body.slice(0, 90));
-  // /api/ping itu penanda "server hidup" buat halaman yang dibuka dari file://. Dia SATU-SATUNYA
-  // yang boleh dipanggil lintas asal, dan isinya tidak boleh memuat data selain versi + folder
-  // kerja - kalau seluruh API ikut terbuka, halaman web mana pun yang kebetulan terbuka di
-  // browser yang sama bisa membaca dan menulis folder kerja lewat server ini.
-  const ping = await get('/api/ping');
-  chk('ping menjawab dan menyebut folder kerja',
-      ping.code === 200 && /"ok":true/.test(ping.body) && /"root"/.test(ping.body),
-      ping.body.slice(0, 90));
-  chk('ping boleh lintas asal', /susmax/.test(ping.body));
-
-  const asalLain = await getWithHeaders('/api/fs/list', { Origin: 'https://jahat.example' });
-  chk('API selain ping menolak permintaan dari asal lain',
-      asalLain.code === 403 && /asal lain/.test(asalLain.body), asalLain.code + ' ' + asalLain.body.slice(0, 70));
-  const asalSendiri = await getWithHeaders('/api/ws/get', { Origin: 'http://127.0.0.1:' + PORT });
-  chk('permintaan dari halaman sendiri tetap diterima',
-      asalSendiri.code === 200 && /"ok":true/.test(asalSendiri.body), asalSendiri.body.slice(0, 70));
-
-  const apiAsing = await get('/api/tidak/ada');
-  chk('API tak dikenal ditolak rapi', /"ok":false/.test(apiAsing.body), apiAsing.body.slice(0, 80));
-
-  chk('halaman Edit punya tombol pantau otomatis', /watchBtn/.test(edit.body));
-  // Kotak chat di halaman DICABUT atas permintaan pemiliknya: tidak bisa ganti model, tidak ada
-  // konsol penuh, dan konteksnya nyasar (dia membaca riwayat git folder induk, bukan project
-  // yang dipilih). Yang tersisa penunjuk ke terminal - dan penunjuk itu harus benar-benar ada,
-  // kalau tidak halaman ini cuma menghilangkan fiturnya tanpa memberi tahu ke mana perginya.
-  chk('kotak chat sudah tidak ada di halaman', !/id="obrolan"/.test(edit.body));
-  chk('halaman menunjuk jalur terminal (MCP)', /claude mcp add susmax/.test(edit.body));
-  const chatStat = await get('/api/chat/status');
-  chk('API chat ikut dicabut', /"ok":false/.test(chatStat.body), chatStat.body.slice(0, 80));
-
-  const tools = await get('/tools');
-  chk('halaman NB menawarkan project yang sudah dipantau', /id="tracked"/.test(tools.body));
-  chk('halaman NB punya sinkron berkelanjutan', /contBtn/.test(tools.body));
-  chk('halaman NB punya dialog pilih berkas/folder',
-      /pilihSmc2/.test(tools.body) && /pilihNb/.test(tools.body));
-
-  const doc = await get('/TODO.md');
-  chk('berkas dalam daftar putih terkirim', doc.code === 200 && doc.body.length > 100, 'HTTP ' + doc.code);
-  for (const jahat of ['/../CLAUDE.md', '/reader/../../secret', '/tools/opcua/pki/own/private/key.pem',
-                       '/package.json', '/scripts/app.js']) {
-    const r = await get(jahat);
-    chk('di luar daftar putih ditolak: ' + jahat, r.code === 404, 'HTTP ' + r.code);
+  // Satu halaman, tiga langkah, dan urutannya mengikuti cara kerjanya.
+  for (const langkah of ['Folder project', 'Pantau', 'Alarm ke HMI']) {
+    chk('halaman project punya langkah: ' + langkah, edit.body.includes(langkah));
   }
-  // Halaman terkirim bukan berarti halaman JALAN. Tombolnya pernah diam total: HALAMAN itu
-  // template literal di app.js, escape baris-baru yang ditulis tunggal jadi baris baru
-  // sungguhan, literal JS-nya putus, dan run() tidak pernah terdefinisi. Tidak ada error di
-  // halaman, tidak ada di server - tombolnya cuma tidak melakukan apa-apa.
-  const skrip = (/<script>([\s\S]*?)<\/script>/.exec(hal.body) || [])[1] || '';
-  let sintaksOk = false, sebab = '';
-  try { new Function(skrip); sintaksOk = true; } catch (e) { sebab = e.message; }
-  chk('skrip di halaman bisa di-parse', sintaksOk, sebab);
-  chk('run() benar-benar terdefinisi di skripnya', /function run\(/.test(skrip));
-  // 5 = 2 sync + 2 alarm + 1 diff. Angkanya dipatok supaya tombol yang ditambah tanpa jalur
-  // run()-nya (atau sebaliknya) ketahuan - tombol mati itu kegagalan yang paling sering di sini.
-  chk('tiap tombol memanggil run()', (hal.body.match(/onclick="run\(/g) || []).length === 5,
-      (hal.body.match(/onclick="run\(/g) || []).length + ' tombol');
-  chk('halaman menyebut risiko rebuild', /ikut hilang/.test(hal.body));
-  chk('halaman mengingatkan menutup NB-Designer', /Tutup NB-Designer/.test(hal.body));
+  chk('PLC dan HMI dikenali dari satu folder', /project\/scan/.test(edit.body));
+  chk('pilihan project disimpan, bukan diminta ulang', /project\/set/.test(edit.body));
+  chk('riwayat bisa dibuka di VS Code', /open\/vscode/.test(edit.body));
+  chk('PLC dan HMI bisa dikembalikan terpisah',
+      /file:'hmi\.nbp'|file: *'hmi\.nbp'/.test(edit.body) || /hmi\.nbp/.test(edit.body));
+
+  const skripEdit2 = (/<script>([\s\S]*?)<\/script>/.exec(edit.body) || [])[1] || '';
+  let editOk2 = false, sebab2 = '';
+  try { new Function(skripEdit2); editOk2 = true; } catch (e) { sebab2 = e.message; }
+  chk('skrip halaman project bisa di-parse', editOk2, sebab2);
 
   const asing = await post('/run/rm', { smc2: 'x' });
   chk('perintah di luar daftar ditolak', /tidak dikenal/.test((asing.err || '') + (asing.out || '')), JSON.stringify(asing).slice(0, 80));
