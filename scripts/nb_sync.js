@@ -269,7 +269,10 @@ function escXml(s) {
     console.log('Tutup NB-Designer dulu - .nbp yang sedang dibuka akan ditimpa balik waktu disimpan.');
     return;
   }
-  if (!ubah) { console.log('\nTidak ada yang perlu diubah.'); return; }
+  // `ubahTeks + pindahAlamat`, bukan variabel `ubah` yang tidak pernah ada. Barisnya CUMA
+  // dilewati waktu `--write`, jadi ReferenceError-nya tidak pernah kelihatan lewat "Lihat dulu"
+  // - yang gagal justru satu-satunya jalur yang benar-benar menulis.
+  if (!ubahTeks && !pindahAlamat) { console.log('\nTidak ada yang perlu diubah.'); return; }
   // .nbp itu SELURUH project HMI - layar, tag, setelan. Cadangan wajib, dan tidak boleh
   // menimpa cadangan sebelumnya.
   const t = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 14);
