@@ -34,6 +34,16 @@ sisanya masuk ke program MAIN.
 python3 scripts/build_html.py           # -> index.html standalone, tinggal dibuka di browser
 node tests/run.js                       # SELURUH suite: pipeline + harness per-area
 node scripts/core.js project.json out/  # generate dari CLI, tanpa browser
+node scripts/app.js                     # aplikasi lokal (atau klik dua kali Susmax.cmd)
+```
+
+Setelah program masuk mesin, tiga perintah ini yang dipakai. Semuanya TIDAK menulis
+apa-apa tanpa `--write`, dan selalu mencadangkan yang lama ke `.bak` bertanggal:
+
+```bash
+node scripts/nb_sync.js <project.smc2> <project NB> [--rebuild]  # komen alarm -> Alarm + Event Setting
+node scripts/smc2_comment.js <project.smc2> <ArrayComments.tsv>  # komen elemen AL/MF -> .smc2
+node scripts/nb_apply.js <csv|json> <project NB>                 # siapkan AlarmLib.csv buat Import
 ```
 
 `tests/run.js` membaca `index.html`, jadi build dulu baru test kalau yang diubah
@@ -284,6 +294,12 @@ kecek manual - kepercayaan cocoknya lemah, gampang salah pasang device mirip.
 | `tests/*.test.js` | Harness per-area (editor, warning, array, blok, JSON, grid IO) |
 | `index.html` | Hasil build, jangan diedit langsung |
 | `reader/` | Pembaca `.smc2` + ekspor balik ke XML importable. Suite sendiri: `cd reader && node tests/run.js` |
+| `scripts/nb_sync.js` | Komen alarm `.smc2` -> `.nbp` (Alarm + Event Setting), dicocokkan lewat penanda AL[n] |
+| `scripts/nb_apply.js` | Menyiapkan `AlarmLib-generated.csv` di folder project NB buat tombol Import |
+| `scripts/nb_common.js` | Pencari project NB - satu aturan, dipakai dua skrip di atas |
+| `scripts/smc2_comment.js` | Komen elemen AL/MF ditulis balik ke `.smc2` |
+| `scripts/smc2_write.js` | Pengemas ulang container `.smc2` (ZIP) |
+| `scripts/app.js` + `Susmax.cmd` | Aplikasi lokal: yang di CLI, lewat halaman |
 
 ## Uji yang dijalankan `test.js`
 
@@ -307,11 +323,16 @@ dipanggil browser, bukan cuma lewat jalur pintas testing.
 
 ## Urutan import ke Susmax Studio
 
-1. Paste `GlobalVariables.tsv` ke tabel Global Variables
-2. Import berkas program
+1. Import `AllPrograms.xml` - nama, tipe, komen, **AT**, dan **Retain** ikut di dalamnya
+2. Komen elemen `AL[n]`/`MF[n]`: jalankan `scripts/smc2_comment.js` ke `.smc2`-nya,
+   atau tempel `ArrayComments.tsv` setelah arraynya di-expand. Komen elemen TIDAK bisa
+   lewat import XML - Studio membuang `smcext:VariableComment`, sudah diuji.
+3. Alarm NB: `scripts/nb_sync.js` langsung ke `.nbp`, atau Import `AlarmLib.csv` di
+   dialog Alarm Setting
 
-Terbalik akan memunculkan galat
-"A global variable corresponding to the external variable has not been registered".
+Kalau masih memakai jalur lama - tempel `GlobalVariables.tsv` dulu, baru import program -
+urutannya tidak boleh terbalik: Studio menjawab "A global variable corresponding to the
+external variable has not been registered".
 
 ## Batasan
 

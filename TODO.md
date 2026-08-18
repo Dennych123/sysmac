@@ -59,29 +59,78 @@ warning `unknown_solenoid` — langkahnya hilang diam-diam.
 
 ---
 
-## 3. Watcher: Sysmac → git → flowchart
+## 3. Lingkaran tertutup: project JSON jadi acuan, mesin jadi hasil build
 
-Idenya: sambil menyunting di Sysmac, Ctrl+S memicu pembacaan, perubahannya dicatat dan
-di-commit, flowchart ikut diperbarui.
+Keluhan yang jadi asalnya: generator cuma kepakai di awal project. Begitu mesin jalan,
+perubahan terjadi di Studio, tidak ada yang mencatat apa yang berubah, dan AI tidak punya
+tempat masuk.
 
-**Yang sudah diketahui.** Tidak ada penyimpanan project Sysmac yang auto-update di mesin ini
-— yang ada berkas `.smc2` lepas di `Downloads`, dan `New Project.smc2` tertulis pada jam
-kerja, jadi kemungkinan itu project hidup yang di-Ctrl+S. **Belum diverifikasi**: buka
-Studio, Ctrl+S, lihat apakah timestamp berkas itu berubah. Kalau ya, watcher-nya tinggal
-memantau satu berkas; kalau tidak, pemicunya harus "Save As" berkala.
+**Keputusan yang harus diambil sadar dulu: siapa pemilik program setelah mesin jalan.**
+Kalau `.smc2` yang jadi acuan, buntu - reader cuma menerjemahkan ~54% rung dengan eksak, jadi
+rung hasil edit tangan tidak bisa dibawa balik tanpa kehilangan sebagian. Kalau **project
+JSON** yang jadi acuan, semua perubahan lewat situ dan `.smc2` jadi hasil build. Rencana di
+bawah menuju yang kedua, bertahap, dan tiap langkah berguna sendiri walau langkah berikutnya
+tidak pernah dikerjakan.
 
-**Keputusan desain yang lebih penting daripada pemicunya: arah kepercayaan harus timpang.**
-Git boleh mencatat SEMUA — itu cuma berkas. Yang boleh balik masuk ke flowchart hanya yang
-bisa diwakili PERSIS. Reader menutup ~54% rung; kalau feedback dipaksa penuh, satu rung yang
-diedit tangan di Studio hilang diam-diam waktu flowchart di-generate ulang — lebih buruk
-daripada tidak ada watcher. Prinsipnya sudah ada di `reader/src/net.js`: yang tidak eksak
-ditolak, bukan ditebak. Rung yang tidak terwakili ditandai "berubah di Studio, perlu
-ditinjau".
+### 3a. `smc2_diff` - menjawab "apa yang berubah"
 
-**Bagian yang murah dan berdiri sendiri: commit isi yang ter-ekstrak, bukan `.smc2`-nya.**
-`.smc2` itu ZIP — commit binernya bikin `git diff` tidak menunjukkan apa-apa. Ekstrak XML-nya
-(atau dump teks ternormalisasi dari reader) dan commit ITU di sampingnya. Baru kelihatan rung
-mana yang berubah.
+Bandingkan dua `.smc2`, atau `.smc2` vs yang akan digenerate. Keluarannya: variabel
+ditambah/dihapus, komen berubah, jumlah rung per section, alokasi AL/MF bergeser.
+
+Tidak menulis apa pun, jadi tidak ada risikonya. Bahannya sudah lengkap: `readProject()`
+sudah mengembalikan variabel berikut `elementComments`, dan `core.generate()` menghasilkan
+sisi pembandingnya.
+
+### 3b. Git yang diff-nya kebaca
+
+`.smc2` itu ZIP - commit binernya bikin `git diff` tidak menunjukkan apa-apa. Yang di-commit
+harus **isi yang diekstrak** (atau dump teks ternormalisasi dari reader), di samping
+`.smc2`-nya. Baru kelihatan rung mana yang berubah.
+
+Lalu watcher: tiap save `.smc2` -> ekstrak -> commit dengan pesan hasil `smc2_diff`. Belum
+diverifikasi apakah Ctrl+S di Studio memperbarui berkas `.smc2` yang bisa dipantau - buka
+Studio, Ctrl+S, lihat apakah timestamp-nya berubah. Kalau tidak, pemicunya "Save As" berkala.
+
+### 3c. MCP (lihat butir 2)
+
+AI menyunting project JSON, empat gerbang memvalidasi, `smc2_diff` menunjukkan akibatnya
+sebelum apa pun masuk mesin.
+
+### 3d. Reader mendukung rung blok fungsi (butir 7a)
+
+Sampai cakupannya cukup, `.smc2` tidak bisa dibaca balik utuh. Ini yang paling besar dan
+paling akhir - dan yang membuat pilihan "project JSON jadi acuan" berhenti terasa memaksa.
+
+**Aturan yang tidak berubah di seluruh rencana ini:** yang boleh balik masuk ke flowchart cuma
+yang bisa diwakili PERSIS. Rung yang tidak terwakili ditandai "berubah di Studio, perlu
+ditinjau", bukan diam-diam ditimpa. Git boleh mencatat semua - itu cuma berkas.
+
+---
+
+## 3e. Kumpulan project mesin sebagai sumber kebenaran
+
+Tiap kali sesuatu di repo ini benar, itu karena dibaca dari project yang JALAN DI MESIN,
+bukan dari dokumentasi: bentuk pin FUN/FB dari `--probe-fb`, nama array Denso
+(`PD071_SET1`, `GTM`), offset lampu +23, edge di kontak clock, 89 medan AlarmLib.csv,
+kolom `EC=` di tabel variabel. Yang ditebak, salah - berkali-kali.
+
+Jadi menambah project ke repo ini menambah kemampuannya secara langsung. Yang berguna
+dilakukan dengan tiap project baru:
+
+1. `cd reader && node cli.js <project>.smc2 --probe-fb` - bentuk pin instruksi yang belum
+   pernah dilihat. Ini yang membuka instruksi baru buat generator.
+2. Bandingkan penamaan dan alokasi alarmnya dengan standar di CLAUDE.md. Yang menyimpang:
+   entah standarnya yang kurang lengkap, entah project itu yang salah - dua-duanya perlu
+   diketahui.
+3. Pola rung yang belum didukung generator, ditulis sebagai catatan + tes, bukan diingat.
+
+**Yang membuatnya jadi pengetahuan, bukan tumpukan berkas: hasilnya ditulis ke CLAUDE.md
+atau jadi tes.** Project yang cuma disalin ke folder tidak menambah apa-apa - yang menambah
+itu aturan yang ditarik darinya. Sesi berikutnya membaca CLAUDE.md, bukan berkas .smc2 satu
+per satu.
+
+Project besar jangan di-commit ke repo (ukurannya megabyte dan isinya milik pelanggan);
+cukup fixture kecil di `reader/tests/fixtures/` plus catatannya.
 
 ---
 
@@ -194,6 +243,9 @@ yang bersangkutan. Datanya sudah tersedia, tinggal penyambungnya.
 - AT dan Retain ikut di XML import, terbukti di Studio
 - Slot cadangan jadi slot utuh: reed switch, LSC, AL, MF, output
 - Angin dua alarm (tekanan jatuh + pressure switch rusak); `EMER_INTLK` dari `LB019`
+- Alarm + Event NB disinkronkan langsung dari .smc2 (`scripts/nb_sync.js`), AlarmLib.csv digenerate
+- Komen elemen ditulis balik ke .smc2 - terbukti dibuka Studio utuh (`scripts/smc2_comment.js`)
+- Aplikasi lokal `Susmax.cmd`: yang di CLI tanpa mengetik path maupun mengingat flag
 - `docs/SYSMAC_INSTRUCTIONS.md`: 353 instruksi, kolom FUN/FB dan pin, dari manual W560
 
 ## Sudah dicoba dan TIDAK bisa (jangan dicoba lagi)

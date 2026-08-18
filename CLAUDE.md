@@ -491,6 +491,10 @@ dipakai untuk menulis program.
 | `scripts/test.js` | uji pipeline end-to-end |
 | `tests/*.test.js` | harness per-area, jalan tanpa browser |
 | `docs/SYSMAC_INSTRUCTIONS.md` | 353 instruksi + FUN/FB + pin, dari manual W560 |
+| `scripts/nb_sync.js` | komen alarm `.smc2` -> `.nbp`, Alarm + Event Setting |
+| `scripts/nb_apply.js` `nb_common.js` | menyiapkan AlarmLib.csv, pencari project NB |
+| `scripts/smc2_comment.js` `smc2_write.js` | menulis balik komen elemen ke `.smc2` |
+| `scripts/app.js` + `Susmax.cmd` | aplikasi lokal 127.0.0.1, membungkus skrip di atas |
 
 ## Cara harness UI bekerja
 
