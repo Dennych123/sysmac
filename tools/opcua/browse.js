@@ -13,7 +13,11 @@
 // Node.js-nya dipasang di tools/opcua/, bukan di akar repo: node_modules 123 paket tidak ada
 // urusannya dengan generator, dan generator harus tetap jalan tanpa satu pun dependensi.
 'use strict';
-const { OPCUAClient, AttributeIds, TimestampsToReturn, DataType } = require('node-opcua-client');
+const { OPCUAClient, AttributeIds, TimestampsToReturn, DataType,
+        MessageSecurityMode, SecurityPolicy } = require('node-opcua-client');
+// Manajer sertifikat ada di paketnya sendiri, tidak diekspor ulang oleh node-opcua-client.
+const { OPCUACertificateManager } = require('node-opcua-certificate-manager');
+const path = require('path');
 
 const args = process.argv.slice(2);
 function opt(nama) {
@@ -48,7 +52,24 @@ async function telusuri(sesi, node, jalur, keluar, dalam) {
 }
 
 (async () => {
-  const klien = OPCUAClient.create({ endpointMustExist: false, connectionStrategy: { maxRetry: 1 } });
+  // Sertifikat dibuatkan SENDIRI di folder tetap. Dibiarkan implisit, node-opcua berhenti di
+  // "Creating default certificate" dan tidak pernah kembali - dua kali 150 detik. Dengan folder
+  // yang jelas, pembuatannya terjadi sekali dan jalan berikutnya memakai yang sudah ada.
+  const cm = new OPCUACertificateManager({
+    rootFolder: path.join(__dirname, 'pki'),
+    automaticallyAcceptUnknownCertificate: true,
+  });
+  await cm.initialize();
+  const klien = OPCUAClient.create({
+    endpointMustExist: false,
+    connectionStrategy: { maxRetry: 1 },
+    clientCertificateManager: cm,
+    // Server simulator Sysmac TIDAK menawarkan mode None - endpoint-nya cuma Sign dan
+    // SignAndEncrypt dengan Basic256Sha256 / Aes128 / Aes256, dan tokennya UserName.
+    // Jadi security bukan pilihan di sini, dan anonim tidak diterima.
+    securityMode: MessageSecurityMode.Sign,
+    securityPolicy: SecurityPolicy.Basic256Sha256,
+  });
   try {
     await klien.connect(ENDPOINT);
   } catch (e) {
@@ -58,7 +79,18 @@ async function telusuri(sesi, node, jalur, keluar, dalam) {
     console.error('  Sysmac Studio -> menu Simulation -> Use the OPC UA Server for the simulator');
     process.exit(1);
   }
-  const sesi = await klien.createSession();
+  // Kredensial dari argumen atau lingkungan. Jangan ditulis di berkas: ini kredensial
+  // controller, dan repo ini bukan tempatnya.
+  const user = (opt('user') || [process.env.UA_USER])[0];
+  const pass = (opt('pass') || [process.env.UA_PASS])[0];
+  if (!user) {
+    console.error('server ini minta UserName - tidak menerima anonim.');
+    console.error('  node tools/opcua/browse.js --user <nama> --pass <sandi>');
+    console.error('  atau set UA_USER / UA_PASS di lingkungan');
+    console.error('Penggunanya dibuat di jendela OPC UA Server -> menu Security.');
+    process.exit(2);
+  }
+  const sesi = await klien.createSession({ userName: user, password: pass });
   console.log('tersambung : ' + ENDPOINT);
 
   const keluar = [];
