@@ -1,6 +1,6 @@
 // Penjelajah OPC UA buat simulator Sysmac Studio.
 //
-//   node tools/opcua/browse.js                          daftar variabel yang dipublikasi
+//   node tools/opcua/browse.js --user denny --pass <sandi>   daftar variabel yang dipublikasi
 //   node tools/opcua/browse.js --filter AL              cuma yang namanya memuat AL
 //   node tools/opcua/browse.js --watch AL[1] GSB000     pantau nilainya, berubah -> dicetak
 //   node tools/opcua/browse.js --write GSB000=true      tulis satu nilai
@@ -28,6 +28,7 @@ const ENDPOINT = (opt('endpoint') || ['opc.tcp://127.0.0.1:4840'])[0];
 const FILTER = (opt('filter') || [null])[0];
 const WATCH = opt('watch');
 const WRITE = opt('write');
+const SEC = (opt('security') || ['none'])[0];
 
 // Address space Sysmac bisa dalam: telusuri sampai dasar, tapi berhenti di kedalaman yang
 // masuk akal supaya tidak tersesat di node standar OPC UA (Types, Views, dst).
@@ -64,11 +65,13 @@ async function telusuri(sesi, node, jalur, keluar, dalam) {
     endpointMustExist: false,
     connectionStrategy: { maxRetry: 1 },
     clientCertificateManager: cm,
-    // Server simulator Sysmac TIDAK menawarkan mode None - endpoint-nya cuma Sign dan
-    // SignAndEncrypt dengan Basic256Sha256 / Aes128 / Aes256, dan tokennya UserName.
-    // Jadi security bukan pilihan di sini, dan anonim tidak diterima.
-    securityMode: MessageSecurityMode.Sign,
-    securityPolicy: SecurityPolicy.Basic256Sha256,
+    // Default None: itu yang dicentang di Security Settings simulator, dan dengan None tidak
+    // ada urusan saling percaya sertifikat sama sekali. Kalau None dimatikan di sana, pakai
+    // --security sign - lalu sertifikat klien HARUS dipercaya dulu lewat Certificate management
+    // di jendela OPC UA Server, kalau tidak sambungannya ditolak dan pesannya terlihat seperti
+    // salah password.
+    securityMode: SEC === 'sign' ? MessageSecurityMode.Sign : MessageSecurityMode.None,
+    securityPolicy: SEC === 'sign' ? SecurityPolicy.Basic256Sha256 : SecurityPolicy.None,
   });
   try {
     await klien.connect(ENDPOINT);
@@ -83,14 +86,18 @@ async function telusuri(sesi, node, jalur, keluar, dalam) {
   // controller, dan repo ini bukan tempatnya.
   const user = (opt('user') || [process.env.UA_USER])[0];
   const pass = (opt('pass') || [process.env.UA_PASS])[0];
-  if (!user) {
+  // Anonymous login bisa di-Permit di Security Settings simulator; kalau begitu, --user tidak
+  // perlu. Selama masih Prohibit, tanpa user sesinya ditolak.
+  if (!user && !args.includes('--anon')) {
     console.error('server ini minta UserName - tidak menerima anonim.');
+    console.error('  (atau set Anonymous login = Permit di Security Settings, lalu pakai --anon)');
     console.error('  node tools/opcua/browse.js --user <nama> --pass <sandi>');
     console.error('  atau set UA_USER / UA_PASS di lingkungan');
     console.error('Penggunanya dibuat di jendela OPC UA Server -> menu Security.');
     process.exit(2);
   }
-  const sesi = await klien.createSession({ userName: user, password: pass });
+  const sesi = user ? await klien.createSession({ userName: user, password: pass })
+                    : await klien.createSession();
   console.log('tersambung : ' + ENDPOINT);
 
   const keluar = [];
@@ -147,7 +154,11 @@ async function telusuri(sesi, node, jalur, keluar, dalam) {
       const d = await sesi.read({ nodeId: v.id, attributeId: AttributeIds.Value });
       nilai = d.statusCode.isGood() ? String(d.value.value) : d.statusCode.name;
     } catch (e) { nilai = 'gagal dibaca'; }
-    console.log('  ' + v.jalur.padEnd(46).slice(0, 46) + ' = ' + nilai);
+    // Nama daun yang penting, bukan kepala path - dipotong dari depan, semua baris kelihatan
+    // sama persis ('DeviceSet.Configuration.Resources.new_Controll...') dan daftarnya jadi
+    // tidak berguna.
+    const daun = v.jalur.split('.').slice(-2).join('.');
+    console.log('  ' + daun.padEnd(38).slice(0, 38) + ' = ' + String(nilai).slice(0, 40));
   }
   if (tampil.length > potong.length) console.log('  ... ' + (tampil.length - potong.length) + ' lagi');
 

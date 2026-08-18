@@ -411,6 +411,42 @@ scan sebelumnya.
 membungkam alarm, tidak pernah me-reset fault. `genname.js` memetakan keempat ejaan IO list
 (`ALARM RESET`, `ALM RESET`, `FAULT RESET`, `FLT RESET`) ke nama itu.
 
+## Simulator NX lewat OPC UA — terbuka, sudah terbukti
+
+Simulator Sysmac Studio bisa membuka OPC UA server: menu **Simulation → Use the OPC UA Server
+for the simulator**, endpoint `opc.tcp://127.0.0.1:4840`. OPC UA itu standar terbuka, jadi
+program NX yang sedang disimulasikan bisa disambungkan ke simulasi fisika di luar (Gazebo, web
+sim) **tanpa reverse engineering apa pun**.
+
+Klien ada di `tools/opcua/browse.js` — terpisah dari repo utama supaya 123 paket
+`node_modules`-nya tidak masuk; generator tetap tanpa dependensi.
+
+```bash
+node tools/opcua/browse.js --anon --filter PB4        # daftar + nilainya
+node tools/opcua/browse.js --anon --watch GSB000 LB400   # pantau perubahan
+node tools/opcua/browse.js --anon --write PB411_1M=true  # tekan tombol dari luar
+```
+
+Empat hal yang masing-masing sempat memakan waktu, semuanya sudah dibuktikan di mesin ini:
+
+| | |
+|---|---|
+| **Global variable ter-publish OTOMATIS** | Tidak perlu menyetel Network Publish satu-satu, dan generator TIDAK perlu menulis `networkPublish`. Path-nya `GlobalVars.<nama>` — `GlobalVars.GSB000`, `GlobalVars.PB411_1M` |
+| **Menunya abu-abu di NX1P2** | OPC UA server cuma ada di NX102/NX502/NJ5/NY. Generator menulis `modelName="NX1P2"` di `js/lib.js` — ganti device buat simulasi |
+| **Centang `None` di Security policy, lalu Transfer to simulator** | Tanpa `None`, sambungan wajib Sign + sertifikat klien dipercaya lewat Certificate management. Yang ditolak karena sertifikat memberi pesan yang **terlihat seperti salah password** — itu yang bikin UaExpert kelihatan rusak |
+| **Anonymous login = Permit** | Kalau Prohibit, pakai `--user <nama> --pass <sandi>`. Kredensial controller, jangan ditulis di repo |
+
+Jebakan di sisi klien: `node-opcua` berhenti selamanya di *"Creating default certificate"*
+kalau sertifikatnya dibiarkan implisit — dua kali 150 detik tanpa hasil. Beri
+`OPCUACertificateManager` dengan `rootFolder` sendiri; kelasnya ada di paket
+`node-opcua-certificate-manager`, **bukan** diekspor ulang oleh `node-opcua-client`.
+
+Folder `tools/opcua/pki/` di-ignore: isinya private key. Pernah ikut ter-commit sekali.
+
+Langkah berikutnya ada di [TODO.md](TODO.md) butir 3f — bridge OPC UA ke simulasi luar, mulai
+dari SATU silinder: sensor dari sim ditulis ke `AS_*`, `SOL_*` dibaca balik buat menggerakkan
+aktuatornya di sana.
+
 ## Membaca project Sysmac (.smc2) — `reader/`
 
 Ada di [reader/](reader/) (dulu repo terpisah `Universal_Ladder`/`plc-reader`,
