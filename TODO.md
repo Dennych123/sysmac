@@ -134,6 +134,45 @@ cukup fixture kecil di `reader/tests/fixtures/` plus catatannya.
 
 ---
 
+## 3f. Simulasi terbuka lewat OPC UA - pintunya SUDAH ADA, tidak perlu reverse engineering
+
+Simulator Sysmac Studio bisa membuka **OPC UA server**: menu Simulation -> "Use the OPC UA
+Server for the simulator". Terbukti jalan di mesin ini - endpoint `opc.tcp://127.0.0.1:4840`,
+address space selesai dibangun. OPC UA itu standar terbuka; kliennya matang dan bebas
+(`node-opcua` buat Node, `asyncua` buat Python, jalur ke Gazebo).
+
+Artinya simulasi fisika di luar (Gazebo, atau web sim sendiri) bisa disambungkan dua arah ke
+program NX yang sedang disimulasikan, TANPA menyentuh internal Studio sama sekali.
+
+**Menunya abu-abu kalau controllernya NX1P2** - OPC UA server cuma ada di NX102/NX502/NJ5/NY.
+Generator kita menulis `modelName="NX1P2"` di `js/lib.js`; ganti device ke NX102 buat
+keperluan simulasi.
+
+### Sambungannya ke generator: kolom Network Publish
+
+OPC UA hanya menampilkan variabel yang **dipublikasi**. Sekarang kita menulis kebalikannya -
+`tsvRow()` di `js/gen_all.js` selalu `"Do not publish"`. Plumbing-nya sudah ada dan belum
+terpakai: `gvr()` di `js/lib.js` bisa menulis
+
+```xml
+<smcext:GlobalVariableAdditionalProperties networkPublish="PublishOnly" />
+```
+
+Jadi tinggal satu setelan (mis. "publikasikan simbol yang punya AT") dan seluruh
+tombol/lampu/AL/MF kelihatan dari OPC UA tanpa diklik satu per satu di Studio.
+
+### Urutannya - tiap langkah membuktikan yang berikutnya
+
+1. Publikasikan SATU variabel manual, sambungkan klien apa pun (UaExpert, atau 20 baris
+   `node-opcua`). Nilainya kebaca = jalurnya terbukti.
+2. Tulis `networkPublish` massal dari generator.
+3. Bridge: OPC UA <-> simulasi luar. Mulai dari satu silinder, bukan seluruh mesin.
+
+Kalau ternyata buntu, cadangannya "Start NS Integrated Simulation" - jalur internal ke
+simulator HMI, jauh lebih tertutup. Baru di situ reverse engineering masuk akal.
+
+---
+
 ## 4. Undo / redo di editor flowchart
 
 **Kenapa penting.** Satu-satunya cara membatalkan kesalahan sekarang adalah
