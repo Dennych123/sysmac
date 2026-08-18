@@ -10,3 +10,4 @@ mdf ats new.smc2
 *.smc2
 tools/opcua/node_modules/
 tools/opcua/package-lock.json
+tools/opcua/pki/
