@@ -1,0 +1,6 @@
+{
+  "name": "susmax-opcua",
+  "private": true,
+  "description": "Klien OPC UA buat simulator Sysmac Studio. Terpisah dari repo utama supaya node_modules tidak masuk ke situ.",
+  "dependencies": { "node-opcua-client": "^2.177.0" }
+}
