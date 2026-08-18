@@ -10,7 +10,7 @@
 // saja. Untuk mengubah urutan, ekspor --flowchart lalu impor ke generator.
 if (typeof require !== 'undefined') {
   var { esc } = require('./env.js');
-  var { VCMT } = require('./symbols.js');
+  var { VCMT, cmtOf } = require('./symbols.js');
 }
 
 // ====================================== mesin flowchart (port dari Susmax generator)
@@ -34,7 +34,7 @@ function refBase(ref) { const s = String(ref), i = s.indexOf('#'); return i < 0 
 // kebayang bendanya, "CR_ST2_STP1_UP_POS" harus diterjemahkan dulu di kepala. Prefix
 // "ST<n>" dibuang karena kotaknya memang sudah milik station itu.
 function deviceLabel(sym) {
-  const k = VCMT.get(sym);
+  const k = cmtOf(sym);
   if (!k) return sym;
   return String(k).replace(/^ST\s*\d+\s*/i, '').replace(/\s+/g, ' ').trim() || sym;
 }

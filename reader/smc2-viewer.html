@@ -122,6 +122,10 @@
      Operand global diwarnai beda (datanya dari kolom G= tabel SLWD). */
   .lad .nm{font:11px Consolas,monospace;fill:#111;text-anchor:middle}
   .lad .nm.og{fill:#c026a3}
+  /* Operand ber-AT: merah + stabilo, seperti Studio. Itu penanda bahwa operandnya dipetakan
+     ke alamat memori/IO - dibaca atau ditulis dari luar program ini (HMI, unit IO). */
+  .lad .nm.at{fill:#d61f1f}
+  .lad .hl{fill:#ffe0e0;stroke:none}
   .lad .cmt{font:10.5px "Segoe UI",Arial,sans-serif;fill:#0f7a2e;text-anchor:middle}
   .lad .fb{fill:#fff;stroke:#111;stroke-width:1}
   .lad .fbsep{stroke:#111;stroke-width:1}
@@ -170,9 +174,89 @@
   .fc-warn{font-size:12px;color:var(--warn);background:#fffbeb;border:1px solid #fcd34d;
            border-radius:6px;padding:8px 10px;margin:8px 0}
   .fc-skip{font-size:11.5px;color:var(--faint);margin-top:6px}
+  /* ===== Tab Rung gaya Sysmac Studio ===== */
+  .studio{display:flex;height:640px;border:1px solid var(--line);border-radius:8px;overflow:hidden;
+          background:var(--card)}
+  .ptree{flex:none;width:250px;border-right:1px solid var(--line);overflow:auto;background:#f7f9fc;
+         font-size:12.5px;padding:6px 0}
+  .ptree.hide{display:none}
+  .ptree .pg{padding:4px 10px;font-weight:650;color:var(--fg);cursor:pointer;white-space:nowrap;
+             display:flex;align-items:center;gap:6px}
+  .ptree .pg:hover{background:#e9eff8}
+  .ptree .pg .caret{color:var(--faint);font-size:10px;width:9px;display:inline-block}
+  .ptree .sc{padding:3px 10px 3px 30px;color:var(--muted);cursor:pointer;white-space:nowrap;
+             display:flex;align-items:center;gap:6px}
+  .ptree .sc:hover{background:#e9eff8}
+  .ptree .sc.on{background:var(--accent);color:#fff}
+  .ptree .sc .cnt{margin-left:auto;font-size:11px;color:var(--faint);font-variant-numeric:tabular-nums}
+  .ptree .sc.on .cnt{color:#dbe9ff}
+  /* Section tanpa rung tetap DITAMPILKAN, cuma diredupkan. Yang disembunyikan bikin orang
+     mengira section-nya tidak ada di project, padahal ada dan memang kosong. */
+  .ptree .sc.empty{opacity:.5}
+  .ptree .grp{padding:8px 10px 4px;font-size:10.5px;font-weight:700;letter-spacing:.07em;
+              text-transform:uppercase;color:var(--faint)}
+  .smain{flex:1;min-width:0;display:flex;flex-direction:column}
+  .sbar{display:flex;align-items:center;gap:8px;padding:5px 8px;border-bottom:1px solid var(--line);
+        background:#f4f7fa}
+  .sbtn{font-size:12px;padding:3px 9px;border:1px solid var(--line);border-radius:5px;
+        background:var(--card);color:var(--fg);cursor:pointer}
+  .sbtn:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-soft)}
+  .sbtn.on{background:var(--accent);border-color:var(--accent);color:#fff}
+  .spath{font-size:12.5px;color:var(--muted);font-family:Consolas,monospace}
+  .srungs{flex:1;min-height:0;overflow:auto;background:#fff}
+  /* Rung MEPET seperti Studio: satu garis pemisah tipis, tanpa jarak di antaranya. */
+  /* width:max-content bikin rung yang lebar benar-benar MENDORONG lebar isi wadahnya - itu yang
+     memunculkan satu scrollbar mendatar di bawah. Tanpa itu rung cuma meluber keluar diam-diam:
+     tidak ada scrollbar, dan bagian kanan rung tidak bisa dicapai sama sekali. */
+  .srungs .rung{border-bottom:1px solid #e3eaf2;margin:0;width:max-content;min-width:100%}
+  .srungs .rung .n{position:sticky;left:0;z-index:2}
+  .srungs .rung.hitrow{background:#fffbe6}
+  .srungs .rung .b{padding:0}
+  .srungs .lad{padding:0;overflow:visible;max-width:none}
+  .srungs .rung .c{margin:0}
+  .xdock{flex:none;border-top:1px solid var(--line);background:var(--card);max-height:240px;
+         display:flex;flex-direction:column}
+  .xhead{display:flex;align-items:center;gap:8px;padding:5px 8px;background:#f4f7fa;
+         border-bottom:1px solid var(--line);font-size:12.5px}
+  .xhead .xtarget{color:var(--muted)}
+  .xhead input{flex:0 1 320px;font:12px Consolas,monospace;padding:3px 7px;border:1px solid var(--line);
+               border-radius:5px}
+  .xbody{overflow:auto}
+  .xbody table{border-collapse:collapse;width:100%;font-size:12px}
+  .xbody th{position:sticky;top:0;background:#eef2f8;text-align:left;font-weight:600;
+            padding:4px 8px;border-bottom:1px solid var(--line)}
+  .xbody td{padding:3px 8px;border-bottom:1px solid var(--line-soft);white-space:nowrap}
+  .xbody tr.hit{cursor:pointer}
+  .xbody tr.hit:hover td{background:var(--accent-soft)}
+  .xbody .w{color:#b91c1c;font-weight:600}
+  .xbody .r{color:var(--muted)}
+  /* Rung yang barusan dilompati. Tanpa sorotan, "sudah sampai" tidak sama dengan "kelihatan":
+     di section berisi 200 rung yang dicari tetap harus ditebak sendiri. */
+  @keyframes rungjump{0%{background:#fff3bf}100%{background:transparent}}
+  .rung.jumped{animation:rungjump 1.6s ease-out}
+  /* Sasaran klik satu ELEMEN, bukan cuma teks namanya: <rect class="hit"> transparan seukuran
+     selnya. fill:transparent, BUKAN fill:none - yang kedua tidak menerima klik sama sekali di
+     SVG, jadi kotaknya ada tapi tidak pernah kena. */
+  .lad .hit{fill:transparent;cursor:pointer}
+  .lad .el:hover .hit{fill:rgba(37,99,235,.08)}
+  .lad .el:hover .nm{fill:var(--accent)}
+  .lad .nm{cursor:pointer}
+
+  .navback{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 14px}
+  .navback a{font-size:12.5px;color:var(--accent);text-decoration:none;border:1px solid var(--line);
+             border-radius:6px;padding:5px 10px}
+  .navback a:hover{border-color:var(--accent);background:var(--accent-soft)}
 </style>
 </head>
 <body>
+
+<!-- Taut balik ke generator. Dua halaman ini dulu tidak pernah saling menyebut: yang membuka
+     pembaca tidak punya cara tahu generatornya ada, dan sebaliknya. Path relatif dipakai supaya
+     jalan dua-duanya - dibuka lewat file:// maupun dilayani aplikasi lokal (scripts/app.js). -->
+<div class="navback"><a href="../home.html">&larr; Semua alat</a>
+  <a href="../index.html">Generator</a>
+  <a href="../TODO.md">TODO</a>
+  <a href="../docs/SYSMAC_INSTRUCTIONS.md">353 instruksi</a></div>
 
 <h1>Pembaca Project Sysmac (.smc2)</h1>
 <p class="hint">Sysmac Studio tidak punya export XML &mdash; hanya import. Tapi file <code>.smc2</code>
@@ -205,7 +289,37 @@ komputermu.</p>
   </div>
 
   <div class="panel on" id="p-sum"><div class="scroll"><table id="t-sum"></table></div></div>
-  <div class="panel" id="p-rung"><div class="scroll" id="t-rung"></div></div>
+  <!-- Tab Rung disusun seperti Sysmac Studio: pohon project di kiri, satu section tampil di
+       kanan, dan Cross Reference sebagai dok di bawah. Alasannya bukan gaya-gayaan: satu
+       project punya ribuan rung, dan menumpuk SEMUA section jadi satu daftar panjang bikin
+       "buka section X" berarti menggulir mencari judulnya. -->
+  <div class="panel" id="p-rung">
+    <div class="studio">
+      <aside class="ptree" id="rungTree"></aside>
+      <div class="smain">
+        <div class="sbar">
+          <button class="sbtn" id="treeToggle" title="Sembunyikan/tampilkan pohon project">&#9776;</button>
+          <span class="spath" id="rungPath">pilih section di kiri</span>
+          <span style="flex:1"></span>
+          <button class="sbtn" id="xrefToggle" title="Tampilkan/sembunyikan Cross Reference">Cross Reference</button>
+        </div>
+        <!-- SATU wadah yang menggulir, jadi scrollbar mendatarnya cuma satu dan ada di bawah -
+             seperti Studio. Dulu tiap rung punya overflow-x sendiri: rung lebar digulir
+             sendiri-sendiri dan kolomnya tidak pernah segaris antar rung. -->
+        <div class="srungs" id="t-rung"></div>
+        <div class="xdock" id="xrefDock" style="display:none">
+          <div class="xhead">
+            <b>Cross Reference</b>
+            <span class="xtarget">Reference Target :</span>
+            <input id="xrefTarget" type="search" placeholder="klik nama operand di rung, atau ketik di sini">
+            <span style="flex:1"></span>
+            <button class="sbtn" id="xrefClose" title="Tutup">&times;</button>
+          </div>
+          <div class="xbody"><table id="xrefTable"></table></div>
+        </div>
+      </div>
+    </div>
+  </div>
   <div class="panel" id="p-flow"><div class="scroll" id="t-flow"></div></div>
   <div class="panel" id="p-op"><div class="scroll"><table id="t-op"></table></div></div>
   <div class="panel" id="p-xref"><div class="scroll"><pre class="rep" id="t-xref"></pre></div></div>
@@ -793,10 +907,70 @@ function setSymbols(vars) {
     // Studio mewarnai operand global beda dari yang lokal. Datanya ada di kolom
     // G= tabel SLWD, jadi ikut dipakai daripada mengarang aturan warna sendiri.
     if ((v.group || '').indexOf('GLOBAL') >= 0) VGLOB.add(v.name);
+    // Komen PER ELEMEN array didaftar dengan nama yang dipakai rung: `AL[3]`, bukan `AL`.
+    // Di sinilah teks alarm tinggal - satu-satunya tempatnya di dalam .smc2 (medan EC=), dan
+    // `scripts/nb_sync.js` memang sudah membacanya dari situ. Tanpa baris ini, rung yang
+    // memegang AL[3] tergambar TANPA komentar sementara Studio menampilkannya - kelihatan
+    // seperti komentarnya memang tidak ada, padahal cuma tidak dipetakan.
+    const els = v.elementComments;
+    if (els) {
+      Object.keys(els).forEach(k => {
+        const nama = v.name + '[' + k + ']';
+        if (els[k]) VCMT.set(nama, els[k]);
+        if (VGLOB.has(v.name)) VGLOB.add(nama);
+      });
+    }
   });
 }
 
-;
+/**
+ * Komentar sebuah OPERAND, dengan aturan array-nya.
+ *
+ * Dua tingkat, dan tingkat keduanya yang sempat hilang:
+ *   1. komen per ELEMEN (`AL[3]`) - medan EC= tabel variabel, tempat teks alarm tinggal
+ *   2. komen ARRAY-nya (`PL032`) - berlaku untuk SEMUA elemennya, persis seperti yang
+ *      ditampilkan Studio di tiap `PL032[12]`, `PL032[13]`, ...
+ *
+ * Tanpa tingkat kedua, seluruh rung lampu/tombol tergambar tanpa komentar sementara Studio
+ * menampilkannya - dan itu terbaca seperti project yang memang tidak berkomentar.
+ *
+ * Arraynya TIDAK di-expand jadi ratusan entri di tabel simbol: ada array 4000 elemen di
+ * project nyata, dan yang dibutuhkan cuma jawaban buat operand yang benar-benar dipakai rung.
+ */
+function cmtOf(name) {
+  if (!name) return '';
+  const tepat = VCMT.get(name);
+  if (tepat) return tepat;
+  const m = /^(.+?)\[[^\]]*\]$/.exec(String(name));
+  return (m && VCMT.get(m[1])) || '';
+}
+
+/** Nama array dari sebuah operand elemen: `PL031[2]` -> `PL031`. Bukan elemen -> null. */
+function arrayBase(name) {
+  const m = /^(.+?)\[[^\]]*\]$/.exec(String(name || ''));
+  return m ? m[1] : null;
+}
+
+/**
+ * Operand ini global? Elemen array MEWARISI dari arraynya.
+ *
+ * Tanpa pewarisan, `PL031[2]` tergambar hitam (seolah variabel lokal) sementara `PL031`
+ * ada di tabel global - dan warna itu satu-satunya penanda di layar bahwa sebuah operand
+ * dipakai bersama program lain.
+ */
+function isGlobal(name) {
+  if (VGLOB.has(name)) return true;
+  const b = arrayBase(name);
+  return !!(b && VGLOB.has(b));
+}
+
+/** Alamat AT operand, dengan pewarisan yang sama. `PL031[2]` -> alamat `PL031`. */
+function addrOf(name) {
+  const a = VADDR.get(name);
+  if (a) return a;
+  const b = arrayBase(name);
+  return (b && VADDR.get(b)) || '';
+}
 
 // ------------------------------------------------------------------ src/smc2.js
 // Pembaca format project Sysmac Studio (.smc2). Hasil reverse engineering,
@@ -1174,8 +1348,18 @@ function rungExpr(rung) {
 // (hijau) di BAWAHnya. Bukan sekadar selera - itu yang bikin rung kebaca tanpa
 // menghafal nama bit, dan itu juga yang dilihat orang di layar Studio, jadi dua
 // gambar untuk rung yang sama bisa dibandingkan langsung.
-const LAD = { CW: 150, RH: 86, PAD: 12, HG: 8, AR: 12,
-              NW: 23, CmtW: 21,          // batas karakter per baris nama / komentar
+// Ukuran dirapatkan supaya satu section kebaca seperti di layar Studio: rung berikutnya
+// menempel, dan rung pendek tidak memakan lebar sampai ke kanan layar.
+//
+//   CW  jarak antar kolom. 150 dulu bikin rung 3 kontak selebar 1000px - coil-nya jatuh
+//       di luar layar dan harus digulir mendatar padahal rung-nya pendek.
+//   RH  tinggi baris MINIMUM. Batas bawahnya bukan selera: nama boleh 2 baris di ATAS
+//       simbol (18 + 11) dan komentar 4 baris di BAWAH (22 + 11*3) - totalnya 84px.
+//       Di bawah itu komentar rung ini bertumpuk dengan nama rung berikutnya.
+//   NW/CmtW ikut turun bersama CW; kalau tidak, teks kolom bersebelahan saling tindih.
+const CMT_LN = 4;                    // maksimal baris komentar di bawah simbol
+const LAD = { CW: 118, RH: 88, PAD: 4, HG: 8, AR: 12,
+              NW: 18, CmtW: 17,          // batas karakter per baris nama / komentar
               FBW: 104, HDR: 18, PINH: 16 };
 
 /** Potong nama jadi maksimal 2 baris, patah di titik/kurung kalau bisa. */
@@ -1219,26 +1403,79 @@ function ladderHtml(rung) {
   });
   if (maxc > 13) return '';   // rung raksasa: ekspresinya saja lebih terbaca
 
-  // Lebar BAKU 6 kontak + 1 coil, seperti Studio. Rung pendek tetap memakai
-  // pitch kolom yang sama, jadi rung berurutan lurus segaris dan coil-nya
-  // sekolom - itu yang bikin satu section kebaca sebagai satu aliran, bukan
-  // sebagai kotak-kotak yang lebarnya beda-beda. Rung yang memang lebih panjang
-  // dari 6 kolom tetap dibiarkan memanjang.
-  maxc = Math.max(maxc, 5);
+  // Lebar minimum 3 kolom + 1 coil. Pitch kolomnya tetap sama untuk semua rung, jadi
+  // kontak tetap lurus segaris antar rung - itu yang bikin satu section kebaca sebagai
+  // satu aliran. Yang diturunkan cuma minimumnya: dulu 6 kolom, jadi rung berisi dua
+  // kontak pun memaksa rel kanan ke ~1000px dan coil-nya jatuh di luar layar.
+  maxc = Math.max(maxc, 2);
 
   // Coil ditaruh di barisnya sendiri. Rung langkah gerakan punya DUA coil di
   // baris berbeda - kalau ditumpuk jadi satu sel, urutannya hilang.
   const crow = outs.map((o, i) => (hasXY ? (o.y || 0) : i));
   crow.forEach(y => { if (y > maxr) maxr = y; });
 
-  const { CW, RH, PAD, HG, AR, NW, CmtW, FBW, HDR, PINH } = LAD;
-  const railL = PAD + 4;
-  const colX = c => railL + 12 + c * CW;
+  const { CW: CW_MIN, RH: RH_MIN, PAD, HG, AR, NW, CmtW, FBW, HDR, PINH } = LAD;
+
+  // Blok fungsi tidak muat di sel biasa, dan dua bagiannya keluar dari kotak gambar:
+  //
+  //   ke KIRI   operand tiap pin masukan ditulis di luar kotak (`UINT#27`, `NL20[44]`).
+  //             Dengan rel kiri di 8px, teks itu jatuh di koordinat NEGATIF - di luar
+  //             viewBox, jadi terpotong. Yang kelihatan cuma potongan ekornya, dan itu
+  //             terbaca seperti nama yang salah baca, bukan seperti gambar yang kekecilan.
+  //   ke BAWAH  kotak setinggi jumlah pin. Instruksi berpin banyak (AryByteTo: In, Size,
+  //             Order, OutVal) lebih tinggi dari satu baris ladder dan terpotong rung
+  //             berikutnya.
+  //
+  // Jadi dua-duanya dihitung DULU, sebelum satu garis pun digambar.
+  const fbs = els.filter(e => e.kind === 'Function');
+  const panjangOpd = (e, sisi) => Math.max(0, ...(((e.pins && e.pins[sisi]) || [])
+    .map(pi => String((pi && pi.operand) || '').length)));
+  const fbRows = fbs.reduce((m, e) => Math.max(m,
+    ((e.pins && e.pins.in) || []).length, ((e.pins && e.pins.out) || []).length, 1), 1);
+  // Nama instance FB ditulis DI ATAS kotak (seperti Studio: `LT012` di atas `TON`), jadi
+  // baris itu butuh ruang tambahan di atas - kalau tidak, namanya keluar dari gambar.
+  const fbH = fbs.length ? HDR + fbRows * PINH + 4 : 0;
+  const RH = Math.max(RH_MIN, fbH + 42);
+
+  const opdKiri = fbs.reduce((m, e) => Math.max(m, panjangOpd(e, 'in')), 0);
+  const opdKanan = fbs.reduce((m, e) => Math.max(m, panjangOpd(e, 'out')), 0);
+  // Lebar kotak DIBATASI sendiri, tidak lagi ikut lebar kolom. Dulu `w = CW - 8`: melebarkan
+  // kolom ikut melebarkan kotaknya, jadi ruang buat operand tidak pernah bertambah dan
+  // teksnya tetap menabrak komentar kolom sebelah - persis "AIR SOURCE CON#3S" yang terbaca
+  // seperti nama rusak, padahal dua teks yang bertumpuk.
+  const fbW = fbs.length
+    ? Math.min(FBW + 46, Math.max(FBW, ...fbs.map(e => String(e.func || e.var || '?').length * 7 + 20)))
+    : 0;
+  // Lebar kolom dihitung PER KOLOM, bukan satu angka untuk seluruh rung. Kolom berisi blok
+  // fungsi butuh ruang buat kotaknya plus operand di kiri dan kanan pin; kolom kontak tidak.
+  // Satu lebar untuk semua bikin rung 4 kolom berisi satu TON jadi ~760px - kolom kontaknya
+  // ikut melebar tanpa alasan, dan rung yang seharusnya muat malah butuh gulir mendatar.
+  const colW = [];
+  for (let c = 0; c <= maxc + 1; c++) {
+    const isi = [];
+    for (let r = 0; r <= maxr; r++) { const e = at.get(r + ':' + c); if (e) isi.push(e); }
+    const fbDiSini = isi.filter(e => e.kind === 'Function');
+    colW[c] = fbDiSini.length
+      ? Math.max(CW_MIN, fbW +
+          (Math.max(0, ...fbDiSini.map(e => panjangOpd(e, 'in'))) +
+           Math.max(0, ...fbDiSini.map(e => panjangOpd(e, 'out')))) * 6.4 + 54)
+      : CW_MIN;
+  }
+  const CW = CW_MIN;                       // dipakai buat ukuran yang tidak bergantung kolom
+  const cw = c => colW[c] || CW_MIN;
+
+  // Rel kiri digeser hanya kalau blok fungsi berdiri di KOLOM 0 - di situ operand pin
+  // masukannya jatuh di luar gambar (koordinat negatif) dan terpotong.
+  const fbDiKolom0 = fbs.some(e => (hasXY ? (e.x || 0) : ins.indexOf(e)) === 0);
+  const padKiri = fbDiKolom0 ? Math.max(0, opdKiri * 6.4 + 18 - (cw(0) / 2 - fbW / 2 + 12)) : 0;
+
+  const railL = PAD + 4 + padKiri;
+  const colX = c => { let x = railL + 12; for (let i = 0; i < c; i++) x += cw(i); return x; };
   const coilC = maxc + 1;
-  const railR = colX(coilC) + CW;
+  const railR = colX(coilC) + cw(coilC);
   const W = railR + PAD + 4, H = PAD * 2 + (maxr + 1) * RH;
-  const rowY = r => PAD + 34 + r * RH;
-  const cx = c => colX(c) + CW / 2;
+  const rowY = r => PAD + RH / 2 + r * RH;
+  const cx = c => colX(c) + cw(c) / 2;
 
   const o = [];
   const line = (x1, y1, x2, y2, cls) =>
@@ -1248,26 +1485,43 @@ function ladderHtml(rung) {
   // simbol - biar jarak nama-ke-simbol selalu sama berapa pun panjang namanya.
   function nameAbove(x, y, t, cls) {
     const ln = ladWrap(t, NW);
+    // Stabilo di belakang nama - SVG tidak punya background untuk teks, jadi kotaknya digambar
+    // sendiri lebih dulu. Lebarnya diperkirakan dari jumlah karakter (Consolas 11px ~ 6.2px
+    // per karakter); dilebihkan sedikit supaya tidak memotong huruf terakhir.
+    if (cls && cls.indexOf('at') >= 0) {
+      const wMax = Math.max(...ln.map(s => s.length)) * 6.2 + 8;
+      o.push(`<rect class="hl" x="${x - wMax / 2}" y="${y - 18 - (ln.length - 1) * 11 - 10}" ` +
+             `width="${wMax}" height="${ln.length * 11 + 3}"/>`);
+    }
     ln.forEach((s, i) => o.push(
       `<text class="nm ${cls || ''}" x="${x}" y="${y - 18 - (ln.length - 1 - i) * 11}">${esc(s)}</text>`));
   }
   // KOMENTAR di bawah simbol, hijau, dipatah per KATA (komentar itu kalimat,
   // bukan nama - dipatah di tengah kata jadi tidak kebaca).
   function cmtBelow(x, y, v) {
-    const t = VCMT.get(v);
+    const t = cmtOf(v);
     if (!t) return;
     const words = String(t).split(/\s+/), ln = [];
     let cur = '';
     for (const w of words) {
       if (!cur) cur = w;
       else if ((cur + ' ' + w).length <= CmtW) cur += ' ' + w;
-      else { ln.push(cur); cur = w; if (ln.length === 2) break; }
+      // 4 baris, bukan 3. Komentar Denso rutin sepanjang "Auto start condition indication,
+      // page 2" - dipotong di baris ketiga, yang hilang justru penunjuk halamannya, dan
+      // potongannya tidak ditandai apa pun: kelihatan seperti komentar yang memang segitu.
+      else { ln.push(cur); cur = w; if (ln.length === CMT_LN - 1) break; }
     }
-    if (ln.length < 3 && cur) ln.push(cur);
-    ln.slice(0, 3).forEach((s, i) => o.push(
+    if (ln.length < CMT_LN && cur) ln.push(cur);
+    ln.slice(0, CMT_LN).forEach((s, i) => o.push(
       `<text class="cmt" x="${x}" y="${y + 22 + i * 11}">${esc(s)}</text>`));
   }
-  const opClass = v => VGLOB.has(v) ? 'og' : '';
+  // Warna operand = apa yang Studio tunjukkan, bukan selera:
+  //   hitam   variabel lokal program itu
+  //   ungu    variabel global
+  //   merah + stabilo   variabel yang PUNYA AT (dipetakan ke alamat memori/IO)
+  // Yang terakhir itu penanda paling penting di layar: operand ber-AT dibaca/ditulis dari
+  // luar program (HMI, unit IO), jadi mengubahnya tidak pernah cuma urusan program ini.
+  const opClass = v => (addrOf(v) ? 'at' : (isGlobal(v) ? 'og' : ''));
 
   // --- rel kiri & kanan, setinggi seluruh rung ---
   line(railL, rowY(0) - 14, railL, rowY(maxr) + 14, 'rail');
@@ -1291,6 +1545,21 @@ function ladderHtml(rung) {
   // ke tiap pin ditulis di sebelah pin-nya. Kalau file-nya tidak membawa daftar
   // pin, kotaknya tetap digambar dengan nama saja - lebih jujur daripada menebak
   // pin apa yang dipunya instruksi itu.
+  // Operand yang menempel di pin blok fungsi (`PD071_CUR`, `LT012`) itu OPERAND PENUH, sama
+  // seperti kontak biasa - jadi harus bisa diklik buat silang-rujuk. Sebelumnya cuma kotaknya
+  // yang bisa diklik, dan justru operand di pin itu yang paling sering ditanya ("angka ini
+  // ditulis siapa?"). Konstanta (`T#3S`, `UINT#44`) TIDAK dijadikan sasaran: itu nilai, bukan
+  // variabel, dan silang-rujuknya selalu kosong.
+  const konstanta = v => /#/.test(v) || /^[-\d]/.test(v) || /^(TRUE|FALSE)$/i.test(v);
+  function opdText(v, x, y, kanan) {
+    const t = `<text class="opd${kanan ? ' r' : ''}" x="${x}" y="${y}">${esc(v)}</text>`;
+    if (konstanta(v)) { o.push(t); return; }
+    const wTeks = String(v).length * 6.2 + 6;
+    o.push(`<g class="el" data-var="${esc(v)}">` +
+           `<rect class="hit" x="${kanan ? x - wTeks : x - 3}" y="${y - 11}" ` +
+           `width="${wTeks}" height="14"/>` + t + '</g>');
+  }
+
   function fbox(e, c, r) {
     const X = cx(c), Y = rowY(r);
     const nm = String(e.func || e.var || '?');
@@ -1299,23 +1568,29 @@ function ladderHtml(rung) {
     const wNeed = Math.max(FBW, nm.length * 7 + 20,
       ...Array.from({ length: rows }, (_, i) =>
         ((pin.in[i] && pin.in[i].name || '').length + (pin.out[i] && pin.out[i].name || '').length) * 6.2 + 26));
-    const w = Math.min(CW - 8, wNeed);
+    const w = Math.min(fbW || cw(c) - 8, Math.max(wNeed, fbW || 0));
     const top = Y - HDR - PINH / 2, h = HDR + Math.max(rows, 1) * PINH + 4;
     o.push(`<rect class="fb" x="${X - w / 2}" y="${top}" width="${w}" height="${h}"/>`);
     o.push(`<line class="fbsep" x1="${X - w / 2}" y1="${top + HDR}" x2="${X + w / 2}" y2="${top + HDR}"/>`);
     o.push(`<text class="fn" x="${X}" y="${top + 13}">${esc(nm)}</text>`);
+    // Nama INSTANCE di atas kotak, seperti Studio (`LT012` di atas `TON`). Tanpa itu dua
+    // timer berbeda tergambar sama persis, dan yang membaca tidak punya cara tahu timer mana
+    // yang sedang dilihat - padahal instance-nya yang menentukan preset dan status.
+    if (e.var && e.func && e.var !== e.func) {
+      o.push(`<text class="nm" x="${X}" y="${top - 6}">${esc(e.var)}</text>`);
+    }
     for (let i = 0; i < rows; i++) {
       const py = top + HDR + PINH / 2 + i * PINH + 4;
       const pi = pin.in[i], po = pin.out[i];
       if (pi) {
         o.push(`<text class="pin" x="${X - w / 2 + 5}" y="${py}">${esc(pi.name)}</text>`);
         line(X - w / 2 - 12, py - 4, X - w / 2, py - 4);
-        if (pi.operand) o.push(`<text class="opd r" x="${X - w / 2 - 15}" y="${py}">${esc(pi.operand)}</text>`);
+        if (pi.operand) opdText(pi.operand, X - w / 2 - 15, py, true);
       }
       if (po) {
         o.push(`<text class="pin r" x="${X + w / 2 - 5}" y="${py}">${esc(po.name)}</text>`);
         line(X + w / 2, py - 4, X + w / 2 + 12, py - 4);
-        if (po.operand) o.push(`<text class="opd" x="${X + w / 2 + 15}" y="${py}">${esc(po.operand)}</text>`);
+        if (po.operand) opdText(po.operand, X + w / 2 + 15, py, false);
       }
     }
     gap.push([r, X - w / 2, X + w / 2]);
@@ -1333,13 +1608,29 @@ function ladderHtml(rung) {
     gap.push([r, X - AR, X + AR]);
   }
 
+  // Tiap elemen dibungkus <g data-var> berikut satu kotak transparan seukuran selnya.
+  // Tanpa kotak itu yang bisa diklik cuma garis simbol setebal 1,6px dan teks namanya -
+  // meleset satu piksel berarti kliknya tidak terjadi, dan itu terbaca seperti fitur yang
+  // tidak jalan, bukan seperti sasaran yang kekecilan.
+  function grup(e, c, r, gambar) {
+    const i = o.length;
+    gambar();
+    const nama = e.var || e.func;
+    if (!nama) return;
+    const X = cx(c), Y = rowY(r);
+    o.splice(i, 0,
+      `<g class="el" data-var="${esc(nama)}"><rect class="hit" x="${X - cw(c) / 2}" ` +
+      `y="${Y - RH / 2 + 2}" width="${cw(c)}" height="${RH - 4}"/>`);
+    o.push('</g>');
+  }
+
   for (let r = 0; r <= maxr; r++) {
     for (let c = 0; c <= maxc; c++) {
       const e = at.get(r + ':' + c);
-      if (e) (e.kind === 'Function' ? fbox : contact)(e, c, r);
+      if (e) grup(e, c, r, () => (e.kind === 'Function' ? fbox : contact)(e, c, r));
     }
   }
-  outs.forEach((c, i) => coil(c, crow[i]));
+  outs.forEach((c, i) => grup(c, coilC, crow[i], () => coil(c, crow[i])));
 
   // --- kabel mendatar, dipotong di tempat simbolnya berdiri ---
   const wire = (r, x1, x2) => {
@@ -1354,6 +1645,60 @@ function ladderHtml(rung) {
   };
 
   wire(0, railL, railR);
+
+  // Palang cabang: PAKAI DATANYA kalau ada. `.smc2` Studio >= 1.66 membawa `VLs` - daftar
+  // ruas vertikal, satu ruas menyambung baris Y dan Y+1 di TEPI KIRI kolom X. Itu susunan
+  // yang sebenarnya, bukan tebakan, jadi gambarnya sama persis dengan layar Studio.
+  //
+  // Heuristik di bawahnya tetap ada untuk berkas Studio <= 1.56 yang tidak menyimpan VLs
+  // maupun koordinat. Jangan dihapus: yang lama tidak punya sumber lain buat ditebak.
+  // Studio MENGHILANGKAN X/Y kalau nilainya 0 - `{"Ix":9,"X":3}` itu palang di kolom 3 baris 0.
+  // Menuntut keduanya ada bikin palang baris pertama terbuang diam-diam, dan yang tersisa cuma
+  // palang paling kanan: cabangnya tergambar sebagai satu kotak besar sampai ujung rung.
+  const vls = (rung.vlinks || []).map(v => ({ X: v.X || 0, Y: v.Y || 0 }));
+  if (hasXY && vls.length) {
+    // Occupancy per baris dihitung dari SELURUH elemen rung - termasuk HLink yang disaring
+    // dari daftar gambar karena tidak punya nama.
+    // Satu baris bisa punya BEBERAPA potongan yang tidak bersambung: seal di kolom 0-2 dan,
+    // di baris yang sama, satu kontak cabang OR di kolom 4. Diambil min-max, dua potongan itu
+    // jadi satu kabel panjang yang melintasi ruang kosong di antaranya - kabel yang di Studio
+    // memang tidak ada, dan pembacanya jadi mengira dua cabang itu satu jalur.
+    const occ = new Map();
+    (rung.elements || []).forEach(e => {
+      const x = e.x || 0, y = e.y || 0;
+      if (!occ.has(y)) occ.set(y, new Set());
+      occ.get(y).add(x);
+    });
+    const potongan = r => {
+      const cols = [...(occ.get(r) || [])].sort((a, b) => a - b);
+      const out = [];
+      for (const c of cols) {
+        const last = out[out.length - 1];
+        if (last && c === last[1] + 1) last[1] = c; else out.push([c, c]);
+      }
+      return out;
+    };
+    vls.forEach(v => line(colX(v.X), rowY(v.Y), colX(v.X), rowY(v.Y + 1)));
+    for (let r = 1; r <= maxr; r++) {
+      // Baris cabang membentang dari palang paling kiri yang menyentuhnya sampai palang
+      // paling kanan - ditambah sel elemen yang berdiri di baris itu. Diambil dari titik
+      // yang MEMANG tersambung, jadi tidak ada ujung yang menggantung di udara.
+      // Tiap potongan digambar sendiri-sendiri, dari pembukanya sampai penutupnya.
+      //
+      // Kolom kosong di dalam satu potongan diisi Studio dengan elemen HLink - tanpa nama, jadi
+      // tidak ikut digambar, tapi POSISINYA yang menyatakan sampai kolom mana kabelnya nyambung.
+      // Penutupnya selalu tepi kiri kolom BERIKUTNYA, yaitu tempat palang berdiri.
+      const pot = potongan(r);
+      if (!pot.length) continue;
+      pot.forEach(([c0, c1]) => {
+        const kiri = c0 === 0 ? railL : colX(c0);
+        const kanan = crow.includes(r) && c1 >= coilC - 1 ? railR : colX(c1 + 1);
+        wire(r, kiri, kanan);
+      });
+    }
+    return `<div class="lad"><svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" ` +
+           `xmlns="http://www.w3.org/2000/svg">${o.join('')}</svg></div>`;
+  }
 
   // Cabang yang MULAI di kolom sama itu satu grup alternatif (OR) - dan grup itu
   // menutup di kolom yang sama, yaitu ujung cabang terpanjang di grupnya. Tanpa
@@ -1380,7 +1725,7 @@ function ladderHtml(rung) {
     const hasCoil = crow.includes(r);
     runs.forEach(b => {
       const end = b.last ? groupEnd.get(b.c0) : b.c1;
-      const x0 = colX(b.c0), x1 = colX(end) + CW;
+      const x0 = colX(b.c0), x1 = colX(end) + cw(end);
       wire(r, x0, x1);
       line(x0, rowY(0), x0, rowY(r));                 // titik cabang masuk
       // Kalau baris ini berakhir di coil sendiri, dia TIDAK balik ke jalur
@@ -1388,7 +1733,9 @@ function ladderHtml(rung) {
       if (!(hasCoil && b.last)) line(x1, rowY(0), x1, rowY(r));
     });
     if (hasCoil) {
-      const from = runs.length ? colX(groupEnd.get(runs[runs.length - 1].c0)) + CW : railL;
+      const from = runs.length
+        ? colX(groupEnd.get(runs[runs.length - 1].c0)) + cw(groupEnd.get(runs[runs.length - 1].c0))
+        : railL;
       if (!runs.length) line(railL, rowY(0), railL, rowY(r));
       wire(r, from, railR);
     }
@@ -1650,7 +1997,7 @@ function refBase(ref) { const s = String(ref), i = s.indexOf('#'); return i < 0 
 // kebayang bendanya, "CR_ST2_STP1_UP_POS" harus diterjemahkan dulu di kepala. Prefix
 // "ST<n>" dibuang karena kotaknya memang sudah milik station itu.
 function deviceLabel(sym) {
-  const k = VCMT.get(sym);
+  const k = cmtOf(sym);
   if (!k) return sym;
   return String(k).replace(/^ST\s*\d+\s*/i, '').replace(/\s+/g, ' ').trim() || sym;
 }
@@ -2697,33 +3044,10 @@ function draw() {
   $('#t-sum').innerHTML = h;
 
   // --- rung ---
-  let r = '';
-  p.programs.forEach(pr => pr.sections.forEach(s => {
-    if (!s.rungs.length) return;
-    const list = s.rungs.filter(x => !q || hit(x.comment) || x.elements.some(e => hit(e.var)));
-    if (!list.length) return;
-    r += `<div class="sec-h">${esc(pr.name)} &rsaquo; ${esc(s.name)} &mdash; ${list.length} rung</div>`;
-    list.slice(0, 200).forEach((x, i) => {
-      // Ekspresi boolean TIDAK lagi dicetak sebagai baris sendiri - barisnya
-      // memutus aliran antar rung, dan yang dicari orang di tab ini bentuk
-      // ladder-nya. Tapi tanda `~` (susunan cabang cuma pendekatan) TIDAK boleh
-      // hilang: dia pindah jadi penanda kecil di kolom nomor, dan ekspresi
-      // lengkapnya jadi tooltip. Terlihat kalau dicari, tidak mengganggu kalau
-      // tidak - yang penting bukan disembunyikan.
-      const { expr, outs, approx } = rungExpr(x);
-      const tip = (expr || 'TRUE') + (outs.length ? '  →  ' + outs.join(', ') : '') +
-                  (approx ? '\n\n~ susunan cabangnya disederhanakan satu tingkat, jadi ini pendekatan.' : '');
-      // Tidak ada lagi daftar alamat per rung. Komentarnya sudah tergambar hijau
-      // di bawah tiap simbol; barisnya cuma memutus aliran antar rung. Alamat
-      // fisiknya tetap ada di tab Variabel dan di tooltip.
-      r += `<div class="rung" title="${esc(tip)}">` +
-           `<div class="n">${i + 1}${approx ? '<b class="ap">~</b>' : ''}</div><div class="b">` +
-           (x.comment ? `<div class="c">${esc(x.comment)}</div>` : '') +
-           ladderHtml(x) + '</div></div>';
-    });
-    if (list.length > 200) r += `<div class="rung"><i>... ${list.length - 200} rung lagi disembunyikan (pakai pencarian untuk menyaring)</i></div>`;
-  }));
-  $('#t-rung').innerHTML = r || '<div class="rung"><i>tidak ada rung yang cocok</i></div>';
+  // Digambar terpisah (drawRungs), bukan di sini: tab ini menampilkan SATU section, dan yang
+  // menentukan section mana bukan kotak cari melainkan pohon project di kirinya.
+  drawTree();
+  drawRungs();
 
   // --- flowchart urutan gerakan ---
   let f = '';
@@ -2835,6 +3159,202 @@ function draw() {
   });
   $('#t-var').innerHTML = vh;
 }
+
+
+// ======================================================== tab Rung gaya Sysmac Studio
+// Satu section tampil sekali jalan. Project sungguhan punya ribuan rung di puluhan section;
+// menumpuk semuanya jadi satu daftar panjang bikin "buka section X" berarti menggulir mencari
+// judulnya, dan kotak cari jadi satu-satunya cara berpindah - padahal yang dicari orang di tab
+// ini bukan kata, melainkan tempat.
+let SEL = null;        // { prog, sect } yang sedang dibuka
+let TREE_HIDE = false;
+let XREF_ON = false;
+
+function sectionsOf(p) {
+  const out = [];
+  (p.programs || []).forEach(pr => (pr.sections || []).forEach(s => out.push({ pr, s })));
+  return out;
+}
+
+function findSection(prog, sect) {
+  const hit = sectionsOf(PROJ).filter(x => x.pr.name === prog && x.s.name === sect)[0];
+  return hit || null;
+}
+
+function drawTree() {
+  const el = $('#rungTree');
+  if (!el) return;
+  // Section pertama yang BERISI rung yang dipilih otomatis - section kosong sebagai tampilan
+  // pertama terbaca seperti pembacanya gagal, padahal cuma kebetulan section pertama kosong.
+  if (!SEL || !findSection(SEL.prog, SEL.sect)) {
+    const first = sectionsOf(PROJ).filter(x => (x.s.rungs || []).length)[0] || sectionsOf(PROJ)[0];
+    SEL = first ? { prog: first.pr.name, sect: first.s.name } : null;
+  }
+  let h = '<div class="grp">Programming</div>';
+  (PROJ.programs || []).forEach(pr => {
+    const tot = (pr.sections || []).reduce((a, x) => a + (x.rungs || []).length, 0);
+    h += `<div class="pg" data-prog="${esc(pr.name)}"><span class="caret">&#9660;</span>` +
+         `${esc(pr.name)}<span class="cnt">${tot || ''}</span></div>`;
+    (pr.sections || []).forEach(x => {
+      const n = (x.rungs || []).length;
+      const on = SEL && SEL.prog === pr.name && SEL.sect === x.name;
+      h += `<div class="sc${on ? ' on' : ''}${n ? '' : ' empty'}" data-prog="${esc(pr.name)}" ` +
+           `data-sect="${esc(x.name)}" title="${esc(x.kind || 'kosong')}">${esc(x.name)}` +
+           `<span class="cnt">${n || (x.kind === 'st' ? 'ST' : '')}</span></div>`;
+    });
+  });
+  el.innerHTML = h;
+  el.className = 'ptree' + (TREE_HIDE ? ' hide' : '');
+}
+
+function drawRungs(jumpTo) {
+  const box = $('#t-rung');
+  if (!box) return;
+  const q = ($('#q').value || '').toLowerCase();
+  const hit = v => !q || String(v).toLowerCase().includes(q);
+  const cur = SEL && findSection(SEL.prog, SEL.sect);
+  $('#rungPath').textContent = cur ? SEL.prog + ' \u203a ' + SEL.sect : 'pilih section di kiri';
+  if (!cur) { box.innerHTML = '<div class="rung"><i>project belum dibuka</i></div>'; return; }
+
+  if (cur.s.kind === 'st') {
+    box.innerHTML = '<pre class="rep" style="margin:0;padding:10px">' + esc(cur.s.st || '') + '</pre>';
+    return;
+  }
+  const list = (cur.s.rungs || []);
+  let r = '';
+  list.forEach((x, i) => {
+    // Pencarian MENYOROT, bukan menyaring: rung yang hilang dari daftar bikin nomor rung di
+    // layar tidak lagi sama dengan nomor rung di Studio, dan nomor itu yang dipakai orang
+    // waktu bicara satu sama lain.
+    const cocok = q && (hit(x.comment) || (x.elements || []).some(e => hit(e.var) || hit(e.func)));
+    const { expr, outs, approx } = rungExpr(x);
+    const tip = (expr || 'TRUE') + (outs.length ? '  \u2192  ' + outs.join(', ') : '') +
+                (approx ? '\n\n~ susunan cabangnya disederhanakan satu tingkat, jadi ini pendekatan.' : '');
+    r += `<div class="rung${cocok ? ' hitrow' : ''}" id="rung-${i}" title="${esc(tip)}">` +
+         `<div class="n">${i}${approx ? '<b class="ap">~</b>' : ''}</div><div class="b">` +
+         (x.comment ? `<div class="c">${esc(x.comment)}</div>` : '') +
+         ladderHtml(x) + '</div></div>';
+  });
+  box.innerHTML = r || '<div class="rung"><i>section ini tidak punya rung</i></div>';
+
+  if (typeof jumpTo === 'number' && box.querySelector) {
+    const t = box.querySelector('#rung-' + jumpTo);
+    if (t && t.scrollIntoView) {
+      t.scrollIntoView({ block: 'center' });
+      t.className += ' jumped';
+      setTimeout(() => { t.className = t.className.replace(/ ?jumped/, ''); }, 1700);
+    }
+  }
+}
+
+// Silang-rujuk terstruktur: bukan teks laporan, karena tiap barisnya harus bisa DILOMPATI.
+// Laporan `xref()` di tab sebelah tetap ada - itu buat dibaca, yang ini buat diklik.
+function xrefRows(name) {
+  const rows = [];
+  if (!name || !PROJ) return rows;
+  (PROJ.programs || []).forEach(pr => (pr.sections || []).forEach(s => {
+    (s.rungs || []).forEach((r, i) => {
+      (r.elements || []).forEach(e => {
+        if (e.var !== name) return;
+        rows.push({
+          prog: pr.name, sect: s.name, rung: i,
+          write: e.kind === 'Coil',
+          ref: e.kind === 'Coil' ? (e.set ? '-(S)-' : e.reset ? '-(R)-' : '-( )-')
+                                 : (e.nc ? '-|/|-' : '-| |-'),
+        });
+      });
+    });
+  }));
+  return rows;
+}
+
+function drawXref(name) {
+  const t = $('#xrefTable');
+  if (!t) return;
+  const rows = xrefRows(name);
+  let h = '<tr><th>Item</th><th>Location</th><th>Detail</th><th>Reference</th></tr>';
+  if (!name) {
+    h += '<tr><td colspan="4"><i>klik nama operand di rung, atau ketik namanya di atas</i></td></tr>';
+  } else if (!rows.length) {
+    h += `<tr><td colspan="4"><i>${esc(name)} tidak dipakai di rung manapun</i></td></tr>`;
+  } else {
+    rows.forEach(r => {
+      h += `<tr class="hit" data-prog="${esc(r.prog)}" data-sect="${esc(r.sect)}" data-rung="${r.rung}">` +
+           `<td class="mono">${esc(name)}</td><td>${esc(r.prog)}.${esc(r.sect)}</td>` +
+           `<td>${r.rung}</td><td class="${r.write ? 'w' : 'r'}">${esc(r.ref)}</td></tr>`;
+    });
+  }
+  t.innerHTML = h;
+}
+
+function openXref(name) {
+  XREF_ON = true;
+  $('#xrefDock').style.display = 'flex';
+  $('#xrefToggle').className = 'sbtn on';
+  if (name !== undefined) $('#xrefTarget').value = name;
+  drawXref($('#xrefTarget').value.trim());
+}
+
+// Klik di pohon: pilih section. Klik nama program: buka section pertamanya, bukan tidak
+// melakukan apa-apa - judul yang tidak bisa diklik terbaca seperti fitur yang belum jadi.
+$('#rungTree').addEventListener('click', ev => {
+  const sc = ev.target.closest ? ev.target.closest('.sc') : null;
+  if (sc) {
+    SEL = { prog: sc.getAttribute('data-prog'), sect: sc.getAttribute('data-sect') };
+    drawTree(); drawRungs();
+    return;
+  }
+  const pg = ev.target.closest ? ev.target.closest('.pg') : null;
+  if (pg) {
+    const nama = pg.getAttribute('data-prog');
+    const pr = (PROJ.programs || []).filter(x => x.name === nama)[0];
+    const s = pr && ((pr.sections || []).filter(x => (x.rungs || []).length)[0] || pr.sections[0]);
+    if (s) { SEL = { prog: nama, sect: s.name }; drawTree(); drawRungs(); }
+  }
+});
+
+$('#treeToggle').addEventListener('click', () => {
+  TREE_HIDE = !TREE_HIDE;
+  $('#rungTree').className = 'ptree' + (TREE_HIDE ? ' hide' : '');
+});
+
+$('#xrefToggle').addEventListener('click', () => {
+  XREF_ON = !XREF_ON;
+  $('#xrefDock').style.display = XREF_ON ? 'flex' : 'none';
+  $('#xrefToggle').className = 'sbtn' + (XREF_ON ? ' on' : '');
+  if (XREF_ON) drawXref($('#xrefTarget').value.trim());
+});
+$('#xrefClose').addEventListener('click', () => {
+  XREF_ON = false;
+  $('#xrefDock').style.display = 'none';
+  $('#xrefToggle').className = 'sbtn';
+});
+$('#xrefTarget').addEventListener('input', () => drawXref($('#xrefTarget').value.trim()));
+
+// Klik nama operand di dalam ladder -> jadikan Reference Target. Ini yang bikin pertanyaan
+// pertama waktu membaca program orang ("bit ini siapa yang nyalain?") kejawab tanpa berpindah tab.
+$('#t-rung').addEventListener('click', ev => {
+  const el = ev.target;
+  if (!el) return;
+  // Elemen dibungkus <g class="el" data-var>, jadi klik di simbolnya, di namanya, di
+  // komentarnya, atau di ruang kosong selnya sama-sama kena. Teks nama tetap diterima
+  // sebagai cadangan - rung yang digambar sebelum pembungkusnya ada tetap bisa diklik.
+  const g = el.closest ? el.closest('g.el') : null;
+  const cls = el.getAttribute ? (el.getAttribute('class') || '') : '';
+  const nama = g ? g.getAttribute('data-var')
+             : (cls.indexOf('nm') >= 0 ? (el.textContent || '').trim() : '');
+  if (nama) openXref(nama);
+});
+
+// Baris silang-rujuk diklik -> pindah section DAN gulir ke rungnya. Tanpa yang kedua,
+// lompatannya mendarat di awal section dan yang dicari tetap harus dicari lagi.
+$('#xrefTable').addEventListener('click', ev => {
+  const tr = ev.target.closest ? ev.target.closest('tr.hit') : null;
+  if (!tr) return;
+  SEL = { prog: tr.getAttribute('data-prog'), sect: tr.getAttribute('data-sect') };
+  drawTree();
+  drawRungs(+tr.getAttribute('data-rung'));
+});
 
 // ---------------------------------------------------------------- kejadian
 async function load(file) {

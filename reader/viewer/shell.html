@@ -122,6 +122,10 @@
      Operand global diwarnai beda (datanya dari kolom G= tabel SLWD). */
   .lad .nm{font:11px Consolas,monospace;fill:#111;text-anchor:middle}
   .lad .nm.og{fill:#c026a3}
+  /* Operand ber-AT: merah + stabilo, seperti Studio. Itu penanda bahwa operandnya dipetakan
+     ke alamat memori/IO - dibaca atau ditulis dari luar program ini (HMI, unit IO). */
+  .lad .nm.at{fill:#d61f1f}
+  .lad .hl{fill:#ffe0e0;stroke:none}
   .lad .cmt{font:10.5px "Segoe UI",Arial,sans-serif;fill:#0f7a2e;text-anchor:middle}
   .lad .fb{fill:#fff;stroke:#111;stroke-width:1}
   .lad .fbsep{stroke:#111;stroke-width:1}
@@ -170,9 +174,89 @@
   .fc-warn{font-size:12px;color:var(--warn);background:#fffbeb;border:1px solid #fcd34d;
            border-radius:6px;padding:8px 10px;margin:8px 0}
   .fc-skip{font-size:11.5px;color:var(--faint);margin-top:6px}
+  /* ===== Tab Rung gaya Sysmac Studio ===== */
+  .studio{display:flex;height:640px;border:1px solid var(--line);border-radius:8px;overflow:hidden;
+          background:var(--card)}
+  .ptree{flex:none;width:250px;border-right:1px solid var(--line);overflow:auto;background:#f7f9fc;
+         font-size:12.5px;padding:6px 0}
+  .ptree.hide{display:none}
+  .ptree .pg{padding:4px 10px;font-weight:650;color:var(--fg);cursor:pointer;white-space:nowrap;
+             display:flex;align-items:center;gap:6px}
+  .ptree .pg:hover{background:#e9eff8}
+  .ptree .pg .caret{color:var(--faint);font-size:10px;width:9px;display:inline-block}
+  .ptree .sc{padding:3px 10px 3px 30px;color:var(--muted);cursor:pointer;white-space:nowrap;
+             display:flex;align-items:center;gap:6px}
+  .ptree .sc:hover{background:#e9eff8}
+  .ptree .sc.on{background:var(--accent);color:#fff}
+  .ptree .sc .cnt{margin-left:auto;font-size:11px;color:var(--faint);font-variant-numeric:tabular-nums}
+  .ptree .sc.on .cnt{color:#dbe9ff}
+  /* Section tanpa rung tetap DITAMPILKAN, cuma diredupkan. Yang disembunyikan bikin orang
+     mengira section-nya tidak ada di project, padahal ada dan memang kosong. */
+  .ptree .sc.empty{opacity:.5}
+  .ptree .grp{padding:8px 10px 4px;font-size:10.5px;font-weight:700;letter-spacing:.07em;
+              text-transform:uppercase;color:var(--faint)}
+  .smain{flex:1;min-width:0;display:flex;flex-direction:column}
+  .sbar{display:flex;align-items:center;gap:8px;padding:5px 8px;border-bottom:1px solid var(--line);
+        background:#f4f7fa}
+  .sbtn{font-size:12px;padding:3px 9px;border:1px solid var(--line);border-radius:5px;
+        background:var(--card);color:var(--fg);cursor:pointer}
+  .sbtn:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-soft)}
+  .sbtn.on{background:var(--accent);border-color:var(--accent);color:#fff}
+  .spath{font-size:12.5px;color:var(--muted);font-family:Consolas,monospace}
+  .srungs{flex:1;min-height:0;overflow:auto;background:#fff}
+  /* Rung MEPET seperti Studio: satu garis pemisah tipis, tanpa jarak di antaranya. */
+  /* width:max-content bikin rung yang lebar benar-benar MENDORONG lebar isi wadahnya - itu yang
+     memunculkan satu scrollbar mendatar di bawah. Tanpa itu rung cuma meluber keluar diam-diam:
+     tidak ada scrollbar, dan bagian kanan rung tidak bisa dicapai sama sekali. */
+  .srungs .rung{border-bottom:1px solid #e3eaf2;margin:0;width:max-content;min-width:100%}
+  .srungs .rung .n{position:sticky;left:0;z-index:2}
+  .srungs .rung.hitrow{background:#fffbe6}
+  .srungs .rung .b{padding:0}
+  .srungs .lad{padding:0;overflow:visible;max-width:none}
+  .srungs .rung .c{margin:0}
+  .xdock{flex:none;border-top:1px solid var(--line);background:var(--card);max-height:240px;
+         display:flex;flex-direction:column}
+  .xhead{display:flex;align-items:center;gap:8px;padding:5px 8px;background:#f4f7fa;
+         border-bottom:1px solid var(--line);font-size:12.5px}
+  .xhead .xtarget{color:var(--muted)}
+  .xhead input{flex:0 1 320px;font:12px Consolas,monospace;padding:3px 7px;border:1px solid var(--line);
+               border-radius:5px}
+  .xbody{overflow:auto}
+  .xbody table{border-collapse:collapse;width:100%;font-size:12px}
+  .xbody th{position:sticky;top:0;background:#eef2f8;text-align:left;font-weight:600;
+            padding:4px 8px;border-bottom:1px solid var(--line)}
+  .xbody td{padding:3px 8px;border-bottom:1px solid var(--line-soft);white-space:nowrap}
+  .xbody tr.hit{cursor:pointer}
+  .xbody tr.hit:hover td{background:var(--accent-soft)}
+  .xbody .w{color:#b91c1c;font-weight:600}
+  .xbody .r{color:var(--muted)}
+  /* Rung yang barusan dilompati. Tanpa sorotan, "sudah sampai" tidak sama dengan "kelihatan":
+     di section berisi 200 rung yang dicari tetap harus ditebak sendiri. */
+  @keyframes rungjump{0%{background:#fff3bf}100%{background:transparent}}
+  .rung.jumped{animation:rungjump 1.6s ease-out}
+  /* Sasaran klik satu ELEMEN, bukan cuma teks namanya: <rect class="hit"> transparan seukuran
+     selnya. fill:transparent, BUKAN fill:none - yang kedua tidak menerima klik sama sekali di
+     SVG, jadi kotaknya ada tapi tidak pernah kena. */
+  .lad .hit{fill:transparent;cursor:pointer}
+  .lad .el:hover .hit{fill:rgba(37,99,235,.08)}
+  .lad .el:hover .nm{fill:var(--accent)}
+  .lad .nm{cursor:pointer}
+
+  .navback{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 14px}
+  .navback a{font-size:12.5px;color:var(--accent);text-decoration:none;border:1px solid var(--line);
+             border-radius:6px;padding:5px 10px}
+  .navback a:hover{border-color:var(--accent);background:var(--accent-soft)}
 </style>
 </head>
 <body>
+
+<!-- Taut balik ke generator. Dua halaman ini dulu tidak pernah saling menyebut: yang membuka
+     pembaca tidak punya cara tahu generatornya ada, dan sebaliknya. Path relatif dipakai supaya
+     jalan dua-duanya - dibuka lewat file:// maupun dilayani aplikasi lokal (scripts/app.js). -->
+<div class="navback"><a href="../home.html">&larr; Semua alat</a>
+  <a href="../index.html">Generator</a>
+  <a href="../TODO.md">TODO</a>
+  <a href="../docs/SYSMAC_INSTRUCTIONS.md">353 instruksi</a></div>
 
 <h1>Pembaca Project Sysmac (.smc2)</h1>
 <p class="hint">Sysmac Studio tidak punya export XML &mdash; hanya import. Tapi file <code>.smc2</code>
@@ -205,7 +289,37 @@ komputermu.</p>
   </div>
 
   <div class="panel on" id="p-sum"><div class="scroll"><table id="t-sum"></table></div></div>
-  <div class="panel" id="p-rung"><div class="scroll" id="t-rung"></div></div>
+  <!-- Tab Rung disusun seperti Sysmac Studio: pohon project di kiri, satu section tampil di
+       kanan, dan Cross Reference sebagai dok di bawah. Alasannya bukan gaya-gayaan: satu
+       project punya ribuan rung, dan menumpuk SEMUA section jadi satu daftar panjang bikin
+       "buka section X" berarti menggulir mencari judulnya. -->
+  <div class="panel" id="p-rung">
+    <div class="studio">
+      <aside class="ptree" id="rungTree"></aside>
+      <div class="smain">
+        <div class="sbar">
+          <button class="sbtn" id="treeToggle" title="Sembunyikan/tampilkan pohon project">&#9776;</button>
+          <span class="spath" id="rungPath">pilih section di kiri</span>
+          <span style="flex:1"></span>
+          <button class="sbtn" id="xrefToggle" title="Tampilkan/sembunyikan Cross Reference">Cross Reference</button>
+        </div>
+        <!-- SATU wadah yang menggulir, jadi scrollbar mendatarnya cuma satu dan ada di bawah -
+             seperti Studio. Dulu tiap rung punya overflow-x sendiri: rung lebar digulir
+             sendiri-sendiri dan kolomnya tidak pernah segaris antar rung. -->
+        <div class="srungs" id="t-rung"></div>
+        <div class="xdock" id="xrefDock" style="display:none">
+          <div class="xhead">
+            <b>Cross Reference</b>
+            <span class="xtarget">Reference Target :</span>
+            <input id="xrefTarget" type="search" placeholder="klik nama operand di rung, atau ketik di sini">
+            <span style="flex:1"></span>
+            <button class="sbtn" id="xrefClose" title="Tutup">&times;</button>
+          </div>
+          <div class="xbody"><table id="xrefTable"></table></div>
+        </div>
+      </div>
+    </div>
+  </div>
   <div class="panel" id="p-flow"><div class="scroll" id="t-flow"></div></div>
   <div class="panel" id="p-op"><div class="scroll"><table id="t-op"></table></div></div>
   <div class="panel" id="p-xref"><div class="scroll"><pre class="rep" id="t-xref"></pre></div></div>

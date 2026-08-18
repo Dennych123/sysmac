@@ -14,6 +14,8 @@
 //   node cli.js project.smc2 --xml out/       rung -> XML yang bisa DI-IMPORT Studio
 //   node cli.js project.smc2 --json out.json  dump mentah
 //   node cli.js project.smc2 --probe-fb       bentuk mentah kotak fungsi/FB
+//   node cli.js LAMA.smc2 --diff BARU.smc2    apa yang berubah di Studio
+//   node cli.js LAMA.smc2 --diff BARU.smc2 --diff-json d.json   sama, terstruktur
 //
 // PERINGATAN - format ini TIDAK didokumentasikan Omron dan bisa berubah di versi
 // Studio mana pun. Karena itu:
@@ -51,7 +53,25 @@ const write = (out, s) => { fs.writeFileSync(out, s, 'utf8'); return out; };
   setSymbols(p.variables);
 
   let i;
-  if ((i = flag('--json')) >= 0) {
+  if ((i = flag('--diff')) >= 0) {
+    const other = argAfter(i, null);
+    if (!other) { console.error('GAGAL: --diff butuh berkas .smc2 kedua'); process.exit(2); }
+    // Urutannya SELALU lama -> baru: berkas di argumen pertama dianggap versi lama,
+    // yang di belakang --diff versi baru. Ketuker, "+ variabel" dan "- variabel"
+    // ikut ketuker dan laporannya membaca terbalik tanpa satu pun tanda.
+    const q = await readProject(fs.readFileSync(other), unzip);
+    q.file = other;
+    const D = require('./diff.js');
+    const d = D.diffProjects(p, q);
+    let j;
+    if ((j = flag('--diff-json')) >= 0) {
+      const out = argAfter(j, 'smc2-diff.json');
+      write(out, JSON.stringify(d, null, 2));
+      console.log('WROTE ' + out);
+      console.log('');
+    }
+    console.log(D.diffReport(d, file, other));
+  } else if ((i = flag('--json')) >= 0) {
     const out = argAfter(i, 'smc2.json');
     write(out, JSON.stringify(p, null, 2));
     console.log('WROTE ' + out);

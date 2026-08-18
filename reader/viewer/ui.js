@@ -49,33 +49,10 @@ function draw() {
   $('#t-sum').innerHTML = h;
 
   // --- rung ---
-  let r = '';
-  p.programs.forEach(pr => pr.sections.forEach(s => {
-    if (!s.rungs.length) return;
-    const list = s.rungs.filter(x => !q || hit(x.comment) || x.elements.some(e => hit(e.var)));
-    if (!list.length) return;
-    r += `<div class="sec-h">${esc(pr.name)} &rsaquo; ${esc(s.name)} &mdash; ${list.length} rung</div>`;
-    list.slice(0, 200).forEach((x, i) => {
-      // Ekspresi boolean TIDAK lagi dicetak sebagai baris sendiri - barisnya
-      // memutus aliran antar rung, dan yang dicari orang di tab ini bentuk
-      // ladder-nya. Tapi tanda `~` (susunan cabang cuma pendekatan) TIDAK boleh
-      // hilang: dia pindah jadi penanda kecil di kolom nomor, dan ekspresi
-      // lengkapnya jadi tooltip. Terlihat kalau dicari, tidak mengganggu kalau
-      // tidak - yang penting bukan disembunyikan.
-      const { expr, outs, approx } = rungExpr(x);
-      const tip = (expr || 'TRUE') + (outs.length ? '  →  ' + outs.join(', ') : '') +
-                  (approx ? '\n\n~ susunan cabangnya disederhanakan satu tingkat, jadi ini pendekatan.' : '');
-      // Tidak ada lagi daftar alamat per rung. Komentarnya sudah tergambar hijau
-      // di bawah tiap simbol; barisnya cuma memutus aliran antar rung. Alamat
-      // fisiknya tetap ada di tab Variabel dan di tooltip.
-      r += `<div class="rung" title="${esc(tip)}">` +
-           `<div class="n">${i + 1}${approx ? '<b class="ap">~</b>' : ''}</div><div class="b">` +
-           (x.comment ? `<div class="c">${esc(x.comment)}</div>` : '') +
-           ladderHtml(x) + '</div></div>';
-    });
-    if (list.length > 200) r += `<div class="rung"><i>... ${list.length - 200} rung lagi disembunyikan (pakai pencarian untuk menyaring)</i></div>`;
-  }));
-  $('#t-rung').innerHTML = r || '<div class="rung"><i>tidak ada rung yang cocok</i></div>';
+  // Digambar terpisah (drawRungs), bukan di sini: tab ini menampilkan SATU section, dan yang
+  // menentukan section mana bukan kotak cari melainkan pohon project di kirinya.
+  drawTree();
+  drawRungs();
 
   // --- flowchart urutan gerakan ---
   let f = '';
@@ -187,6 +164,202 @@ function draw() {
   });
   $('#t-var').innerHTML = vh;
 }
+
+
+// ======================================================== tab Rung gaya Sysmac Studio
+// Satu section tampil sekali jalan. Project sungguhan punya ribuan rung di puluhan section;
+// menumpuk semuanya jadi satu daftar panjang bikin "buka section X" berarti menggulir mencari
+// judulnya, dan kotak cari jadi satu-satunya cara berpindah - padahal yang dicari orang di tab
+// ini bukan kata, melainkan tempat.
+let SEL = null;        // { prog, sect } yang sedang dibuka
+let TREE_HIDE = false;
+let XREF_ON = false;
+
+function sectionsOf(p) {
+  const out = [];
+  (p.programs || []).forEach(pr => (pr.sections || []).forEach(s => out.push({ pr, s })));
+  return out;
+}
+
+function findSection(prog, sect) {
+  const hit = sectionsOf(PROJ).filter(x => x.pr.name === prog && x.s.name === sect)[0];
+  return hit || null;
+}
+
+function drawTree() {
+  const el = $('#rungTree');
+  if (!el) return;
+  // Section pertama yang BERISI rung yang dipilih otomatis - section kosong sebagai tampilan
+  // pertama terbaca seperti pembacanya gagal, padahal cuma kebetulan section pertama kosong.
+  if (!SEL || !findSection(SEL.prog, SEL.sect)) {
+    const first = sectionsOf(PROJ).filter(x => (x.s.rungs || []).length)[0] || sectionsOf(PROJ)[0];
+    SEL = first ? { prog: first.pr.name, sect: first.s.name } : null;
+  }
+  let h = '<div class="grp">Programming</div>';
+  (PROJ.programs || []).forEach(pr => {
+    const tot = (pr.sections || []).reduce((a, x) => a + (x.rungs || []).length, 0);
+    h += `<div class="pg" data-prog="${esc(pr.name)}"><span class="caret">&#9660;</span>` +
+         `${esc(pr.name)}<span class="cnt">${tot || ''}</span></div>`;
+    (pr.sections || []).forEach(x => {
+      const n = (x.rungs || []).length;
+      const on = SEL && SEL.prog === pr.name && SEL.sect === x.name;
+      h += `<div class="sc${on ? ' on' : ''}${n ? '' : ' empty'}" data-prog="${esc(pr.name)}" ` +
+           `data-sect="${esc(x.name)}" title="${esc(x.kind || 'kosong')}">${esc(x.name)}` +
+           `<span class="cnt">${n || (x.kind === 'st' ? 'ST' : '')}</span></div>`;
+    });
+  });
+  el.innerHTML = h;
+  el.className = 'ptree' + (TREE_HIDE ? ' hide' : '');
+}
+
+function drawRungs(jumpTo) {
+  const box = $('#t-rung');
+  if (!box) return;
+  const q = ($('#q').value || '').toLowerCase();
+  const hit = v => !q || String(v).toLowerCase().includes(q);
+  const cur = SEL && findSection(SEL.prog, SEL.sect);
+  $('#rungPath').textContent = cur ? SEL.prog + ' \u203a ' + SEL.sect : 'pilih section di kiri';
+  if (!cur) { box.innerHTML = '<div class="rung"><i>project belum dibuka</i></div>'; return; }
+
+  if (cur.s.kind === 'st') {
+    box.innerHTML = '<pre class="rep" style="margin:0;padding:10px">' + esc(cur.s.st || '') + '</pre>';
+    return;
+  }
+  const list = (cur.s.rungs || []);
+  let r = '';
+  list.forEach((x, i) => {
+    // Pencarian MENYOROT, bukan menyaring: rung yang hilang dari daftar bikin nomor rung di
+    // layar tidak lagi sama dengan nomor rung di Studio, dan nomor itu yang dipakai orang
+    // waktu bicara satu sama lain.
+    const cocok = q && (hit(x.comment) || (x.elements || []).some(e => hit(e.var) || hit(e.func)));
+    const { expr, outs, approx } = rungExpr(x);
+    const tip = (expr || 'TRUE') + (outs.length ? '  \u2192  ' + outs.join(', ') : '') +
+                (approx ? '\n\n~ susunan cabangnya disederhanakan satu tingkat, jadi ini pendekatan.' : '');
+    r += `<div class="rung${cocok ? ' hitrow' : ''}" id="rung-${i}" title="${esc(tip)}">` +
+         `<div class="n">${i}${approx ? '<b class="ap">~</b>' : ''}</div><div class="b">` +
+         (x.comment ? `<div class="c">${esc(x.comment)}</div>` : '') +
+         ladderHtml(x) + '</div></div>';
+  });
+  box.innerHTML = r || '<div class="rung"><i>section ini tidak punya rung</i></div>';
+
+  if (typeof jumpTo === 'number' && box.querySelector) {
+    const t = box.querySelector('#rung-' + jumpTo);
+    if (t && t.scrollIntoView) {
+      t.scrollIntoView({ block: 'center' });
+      t.className += ' jumped';
+      setTimeout(() => { t.className = t.className.replace(/ ?jumped/, ''); }, 1700);
+    }
+  }
+}
+
+// Silang-rujuk terstruktur: bukan teks laporan, karena tiap barisnya harus bisa DILOMPATI.
+// Laporan `xref()` di tab sebelah tetap ada - itu buat dibaca, yang ini buat diklik.
+function xrefRows(name) {
+  const rows = [];
+  if (!name || !PROJ) return rows;
+  (PROJ.programs || []).forEach(pr => (pr.sections || []).forEach(s => {
+    (s.rungs || []).forEach((r, i) => {
+      (r.elements || []).forEach(e => {
+        if (e.var !== name) return;
+        rows.push({
+          prog: pr.name, sect: s.name, rung: i,
+          write: e.kind === 'Coil',
+          ref: e.kind === 'Coil' ? (e.set ? '-(S)-' : e.reset ? '-(R)-' : '-( )-')
+                                 : (e.nc ? '-|/|-' : '-| |-'),
+        });
+      });
+    });
+  }));
+  return rows;
+}
+
+function drawXref(name) {
+  const t = $('#xrefTable');
+  if (!t) return;
+  const rows = xrefRows(name);
+  let h = '<tr><th>Item</th><th>Location</th><th>Detail</th><th>Reference</th></tr>';
+  if (!name) {
+    h += '<tr><td colspan="4"><i>klik nama operand di rung, atau ketik namanya di atas</i></td></tr>';
+  } else if (!rows.length) {
+    h += `<tr><td colspan="4"><i>${esc(name)} tidak dipakai di rung manapun</i></td></tr>`;
+  } else {
+    rows.forEach(r => {
+      h += `<tr class="hit" data-prog="${esc(r.prog)}" data-sect="${esc(r.sect)}" data-rung="${r.rung}">` +
+           `<td class="mono">${esc(name)}</td><td>${esc(r.prog)}.${esc(r.sect)}</td>` +
+           `<td>${r.rung}</td><td class="${r.write ? 'w' : 'r'}">${esc(r.ref)}</td></tr>`;
+    });
+  }
+  t.innerHTML = h;
+}
+
+function openXref(name) {
+  XREF_ON = true;
+  $('#xrefDock').style.display = 'flex';
+  $('#xrefToggle').className = 'sbtn on';
+  if (name !== undefined) $('#xrefTarget').value = name;
+  drawXref($('#xrefTarget').value.trim());
+}
+
+// Klik di pohon: pilih section. Klik nama program: buka section pertamanya, bukan tidak
+// melakukan apa-apa - judul yang tidak bisa diklik terbaca seperti fitur yang belum jadi.
+$('#rungTree').addEventListener('click', ev => {
+  const sc = ev.target.closest ? ev.target.closest('.sc') : null;
+  if (sc) {
+    SEL = { prog: sc.getAttribute('data-prog'), sect: sc.getAttribute('data-sect') };
+    drawTree(); drawRungs();
+    return;
+  }
+  const pg = ev.target.closest ? ev.target.closest('.pg') : null;
+  if (pg) {
+    const nama = pg.getAttribute('data-prog');
+    const pr = (PROJ.programs || []).filter(x => x.name === nama)[0];
+    const s = pr && ((pr.sections || []).filter(x => (x.rungs || []).length)[0] || pr.sections[0]);
+    if (s) { SEL = { prog: nama, sect: s.name }; drawTree(); drawRungs(); }
+  }
+});
+
+$('#treeToggle').addEventListener('click', () => {
+  TREE_HIDE = !TREE_HIDE;
+  $('#rungTree').className = 'ptree' + (TREE_HIDE ? ' hide' : '');
+});
+
+$('#xrefToggle').addEventListener('click', () => {
+  XREF_ON = !XREF_ON;
+  $('#xrefDock').style.display = XREF_ON ? 'flex' : 'none';
+  $('#xrefToggle').className = 'sbtn' + (XREF_ON ? ' on' : '');
+  if (XREF_ON) drawXref($('#xrefTarget').value.trim());
+});
+$('#xrefClose').addEventListener('click', () => {
+  XREF_ON = false;
+  $('#xrefDock').style.display = 'none';
+  $('#xrefToggle').className = 'sbtn';
+});
+$('#xrefTarget').addEventListener('input', () => drawXref($('#xrefTarget').value.trim()));
+
+// Klik nama operand di dalam ladder -> jadikan Reference Target. Ini yang bikin pertanyaan
+// pertama waktu membaca program orang ("bit ini siapa yang nyalain?") kejawab tanpa berpindah tab.
+$('#t-rung').addEventListener('click', ev => {
+  const el = ev.target;
+  if (!el) return;
+  // Elemen dibungkus <g class="el" data-var>, jadi klik di simbolnya, di namanya, di
+  // komentarnya, atau di ruang kosong selnya sama-sama kena. Teks nama tetap diterima
+  // sebagai cadangan - rung yang digambar sebelum pembungkusnya ada tetap bisa diklik.
+  const g = el.closest ? el.closest('g.el') : null;
+  const cls = el.getAttribute ? (el.getAttribute('class') || '') : '';
+  const nama = g ? g.getAttribute('data-var')
+             : (cls.indexOf('nm') >= 0 ? (el.textContent || '').trim() : '');
+  if (nama) openXref(nama);
+});
+
+// Baris silang-rujuk diklik -> pindah section DAN gulir ke rungnya. Tanpa yang kedua,
+// lompatannya mendarat di awal section dan yang dicari tetap harus dicari lagi.
+$('#xrefTable').addEventListener('click', ev => {
+  const tr = ev.target.closest ? ev.target.closest('tr.hit') : null;
+  if (!tr) return;
+  SEL = { prog: tr.getAttribute('data-prog'), sect: tr.getAttribute('data-sect') };
+  drawTree();
+  drawRungs(+tr.getAttribute('data-rung'));
+});
 
 // ---------------------------------------------------------------- kejadian
 async function load(file) {

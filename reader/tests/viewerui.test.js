@@ -91,7 +91,8 @@ try {
   // Epilog cuma MENGAMBIL rujukan dari lingkup yang sama - tidak mengubah
   // perilaku apa pun, jadi yang diuji tetap kode yang dikirim ke browser.
   api = new Function('document', 'window', 'URL', 'Blob', 'DecompressionStream', 'setTimeout',
-                     script + '\n;return { load: load, draw: draw };')(
+                     script + '\n;return { load: load, draw: draw, xrefRows: xrefRows, ' +
+                     'drawRungs: drawRungs, sel: function () { return SEL; } };')(
     document, windowStub, URLStub, BlobStub, globalThis.DecompressionStream, setTimeout);
 } catch (e) {
   chk('halaman bisa dijalankan', false, e.message);
@@ -193,6 +194,76 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
     chk('--xml: dibangun js/lib.js milik generator, bukan salinan',
         one.includes('Susmax Studio'));
   }
+
+  // ============================================ tab Rung gaya Studio
+  // Tampilannya bukan hiasan: satu section sekali jalan, pohon project buat berpindah, dan
+  // silang-rujuk yang BISA DILOMPATI. Yang dijaga di sini bagian yang runtuh tanpa tanda -
+  // pohon yang tidak bisa diklik, dan lompatan yang mendarat di section yang salah.
+  const tree = get('#rungTree').innerHTML;
+  chk('pohon project terisi', /P000_Main/.test(tree) && /P011_WIP_Transfer/.test(tree),
+      tree.slice(0, 80));
+  chk('pohon menyebut section, bukan cuma program',
+      /Device_Input/.test(tree) && /AutoRunning/.test(tree));
+  chk('section kosong tetap ditampilkan, cuma diredupkan', /class="sc[^"]*empty/.test(tree));
+  chk('satu section terpilih otomatis, dan yang BERISI rung',
+      !!api.sel() && get('#rungPath').textContent.indexOf(api.sel().sect) >= 0,
+      get('#rungPath').textContent);
+  chk('yang tampil cuma section terpilih, bukan semua sekaligus',
+      !/Device_Input[\s\S]*AutoRunning/.test(get('#t-rung').innerHTML));
+
+  // Klik section di pohon. Target ditiru sesuai yang dilihat penangannya - closest('.sc').
+  const evt = attrs => ({ target: fakeTarget(attrs), preventDefault() {} });
+  const fakeTarget = attrs => ({
+    closest: sel => (sel === '.sc' && attrs.sect) || (sel === '.pg' && !attrs.sect) ||
+                    (sel === 'tr.hit' && attrs.rung !== undefined)
+      ? { getAttribute: k => (k === 'data-prog' ? attrs.prog
+                            : k === 'data-sect' ? attrs.sect : String(attrs.rung)) }
+      : null,
+  });
+  get('#rungTree').fire('click', evt({ prog: 'P011_WIP_Transfer', sect: 'AutoRunning' }));
+  chk('klik section di pohon memindah tampilan',
+      api.sel().sect === 'AutoRunning' && /AutoRunning/.test(get('#rungPath').textContent),
+      get('#rungPath').textContent);
+  chk('rung section itu tergambar', get('#t-rung').innerHTML.includes('<svg'));
+
+  // Pohon bisa disembunyikan - itu yang diminta supaya ladder-nya dapat lebar penuh.
+  get('#treeToggle').fire('click');
+  chk('pohon bisa disembunyikan', /hide/.test(get('#rungTree').className), get('#rungTree').className);
+  get('#treeToggle').fire('click');
+  chk('dan ditampilkan lagi', !/hide/.test(get('#rungTree').className));
+
+  // --- silang-rujuk terstruktur ---
+  const rows = api.xrefRows('LB100');
+  chk('xrefRows menemukan pemakaian operand', rows.length >= 1, rows.length + ' baris');
+  chk('tiap baris menyebut program, section, dan NOMOR rung',
+      rows.every(r => r.prog && r.sect && typeof r.rung === 'number'),
+      JSON.stringify(rows[0] || {}));
+  chk('kontak dan coil dibedakan', rows.every(r => /-\|/.test(r.ref) || /-\(/.test(r.ref)),
+      JSON.stringify(rows.map(r => r.ref)));
+  chk('operand yang tidak dipakai mengembalikan daftar kosong, bukan galat',
+      api.xrefRows('TIDAK_ADA_BIT_INI').length === 0);
+
+  get('#xrefToggle').fire('click');
+  chk('dok Cross Reference bisa dibuka', get('#xrefDock').style.display === 'flex',
+      get('#xrefDock').style.display);
+  get('#xrefTarget').value = 'LB100';
+  get('#xrefTarget').fire('input');
+  chk('tabel silang-rujuk terisi dari kotak target',
+      /LB100/.test(get('#xrefTable').innerHTML), get('#xrefTable').innerHTML.slice(0, 70));
+
+  // Lompatan: baris diklik harus MEMINDAH section, bukan cuma menggulir di section sekarang.
+  const tuju = api.xrefRows('LB100')[0];
+  get('#rungTree').fire('click', evt({ prog: 'P000_Main', sect: 'Device_Input' }));
+  get('#xrefTable').fire('click', evt({ prog: tuju.prog, sect: tuju.sect, rung: tuju.rung }));
+  chk('klik baris silang-rujuk melompat ke section yang benar',
+      api.sel().prog === tuju.prog && api.sel().sect === tuju.sect,
+      JSON.stringify(api.sel()));
+  chk('rung yang dituju punya jangkar buat digulirkan',
+      get('#t-rung').innerHTML.includes('id="rung-' + tuju.rung + '"'),
+      'rung-' + tuju.rung);
+
+  get('#xrefClose').fire('click');
+  chk('dok bisa ditutup lagi', get('#xrefDock').style.display === 'none');
 
   console.log('\n' + (fail ? fail + ' GAGAL' : 'SEMUA LULUS'));
   process.exit(fail ? 1 : 0);

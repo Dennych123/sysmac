@@ -185,8 +185,16 @@ const vlines = svg => (svg.match(/<line class="w"[^>]*>/g) || [])
       (g1.match(/<line class="w"/g) || []).length + ' segmen');
   chk('rung seri TIDAK punya link vertikal cabang', vlines(g1).length === 0,
       vlines(g1).length + ' garis vertikal');
-  chk('rung paralel PUNYA link vertikal cabang', vlines(g2).length === 2,
+  // SATU palang, bukan dua. Studio cuma menyimpan palang PENUTUP cabang (`VLs`); pembukanya
+  // rel kiri itu sendiri, karena kedua baris berangkat dari rel. Dulu di sini dua, waktu
+  // palangnya masih DITEBAK dari koordinat - sekarang digambar dari VLs, jadi jumlahnya sama
+  // dengan yang ada di berkasnya.
+  chk('rung paralel PUNYA link vertikal cabang', vlines(g2).length === 1,
       vlines(g2).length + ' garis vertikal');
+  // Dan cabangnya harus benar-benar menempel ke rel kiri - kalau mulai di colX(0), ada celah
+  // 12px dan cabangnya tergambar menggantung.
+  chk('cabang menempel ke rel kiri', /<line class="w" x1="8"/.test(g2),
+      (g2.match(/<line class="w" x1="[\d.]+" y1="[\d.]+"/g) || []).slice(0, 3).join(' '));
   chk('kontak NC dibedakan warnanya', /class="sy ncc"/.test(g3));
   // Studio menggambar coil sebagai LINGKARAN penuh, bukan dua busur "( )".
   chk('coil digambar sebagai lingkaran penuh', /<circle class="sy co"/.test(g1));
