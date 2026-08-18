@@ -322,12 +322,108 @@ HTML = '''<!doctype html>
   .sidenav .n{float:right;font-size:11px;color:var(--faint);font-weight:400}
   .sidenav a.on .n{color:var(--accent-dk)}
   body{padding-left:214px}
-  /* Layar sempit: nav-nya disembunyikan, bukan dipaksa muat. Halamannya tetap bisa dipakai
-     dengan menggulir seperti sebelum ada nav. */
-  @media (max-width:1100px){ .sidenav{display:none} body{padding-left:28px} }
+  /* Layar sempit: nav-nya tidak dipaksa muat, tapi juga TIDAK hilang begitu saja. Dulu di bawah
+     1100px dia `display:none` tanpa jejak apa pun - di jendela sempit (atau panel browser di
+     dalam editor) navigasinya lenyap dan terbaca seperti fitur yang rusak, bukan seperti tata
+     letak yang menyesuaikan. Sekarang dia bersembunyi di balik tombol yang kelihatan. */
+  .navtoggle{display:none;position:fixed;top:10px;left:10px;z-index:60;width:36px;height:32px;
+             border:1px solid var(--line);border-radius:7px;background:var(--card);color:var(--fg);
+             font-size:15px;line-height:1;cursor:pointer;box-shadow:var(--shadow)}
+  @media (max-width:1100px){
+    .navtoggle{display:block}
+    body{padding-left:28px;padding-top:52px}
+    .sidenav{transform:translateX(-100%);transition:transform .18s ease;box-shadow:var(--shadow)}
+    .sidenav.open{transform:none}
+  }
+
+  /* ===== Panel Tools - jalan masuk ke SELURUH alat di repo =====
+     Sebelum ini generator dan pembaca .smc2 tidak saling menyebut sama sekali: dua halaman
+     yang tidak pernah bertaut, ditambah lima skrip CLI yang cuma ada di README. Yang membuka
+     index.html tidak punya cara tahu bahwa alat-alat itu ada. */
+  .tool-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(310px,1fr));gap:12px;margin:4px 0 8px}
+  .tool{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+        padding:13px 15px 12px;box-shadow:var(--shadow);display:flex;flex-direction:column;gap:7px}
+  .tool h3{margin:0;font-size:14px;font-weight:650;display:flex;align-items:center;gap:7px}
+  .tool h3 .ico{font-size:15px}
+  .tool p{margin:0;color:var(--muted);font-size:12.8px;line-height:1.5}
+  .tool .go{display:inline-block;align-self:flex-start;margin-top:auto;padding:5px 12px;border-radius:6px;
+            background:var(--accent);color:#fff;text-decoration:none;font-size:12.5px;font-weight:600}
+  .tool .go:hover{background:var(--accent-dk)}
+  .tool .go.ghost{background:var(--card);color:var(--accent);border:1px solid var(--accent)}
+  /* Perintah CLI-nya diklik = tersalin. Ini yang bikin kartu berguna waktu halaman dibuka dari
+     file:// - alat berbasis berkas tidak bisa dijalankan dari halaman, tapi perintahnya tidak
+     perlu diketik ulang dari README. */
+  .tool .cmd{font-family:Consolas,Menlo,monospace;font-size:11.8px;background:var(--bg);
+             border:1px solid var(--line-soft);border-radius:5px;padding:6px 8px;cursor:pointer;
+             word-break:break-all;color:var(--fg)}
+  .tool .cmd:hover{border-color:var(--accent);background:var(--accent-soft)}
+  .tool .cmd::before{content:"$ ";color:var(--faint)}
+  .tool .tag{font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;
+             padding:2px 6px;border-radius:4px;background:var(--accent-soft);color:var(--accent-dk)}
+  .tool .tag.srv{background:#fdf3e3;color:var(--warn)}
+  .tool .tag.cli{background:#eef1f5;color:var(--faint)}
+  .tool.dim .go{background:#9aa4b2;pointer-events:none}
+  .tool .why{font-size:12px;color:var(--faint)}
+  .tool-note{font-size:12.5px;color:var(--muted);margin:0 0 10px}
+  .tool-note b{color:var(--warn)}
+  .doclinks{display:flex;flex-wrap:wrap;gap:8px;margin:2px 0 6px}
+  .doclinks a{font-size:12.5px;color:var(--accent);text-decoration:none;border:1px solid var(--line);
+              background:var(--card);border-radius:6px;padding:5px 10px}
+  .doclinks a:hover{border-color:var(--accent);background:var(--accent-soft)}
+
+  /* ===== Ringkasan hasil =====
+     Sebelum ini satu-satunya cara menilai hasil generate adalah men-scroll XML mentah di
+     textarea. Yang mau diketahui hampir selalu sama dan tidak ada di situ tanpa dihitung
+     sendiri: section mana yang keisi, dan berapa rung. Section yang KOSONG yang paling
+     penting kelihatan - itu tanda ada yang tidak terbangkitkan, dan di XML mentah bentuknya
+     cuma ketiadaan, bukan sesuatu yang bisa dilihat. */
+  .ov{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+      padding:12px 14px;margin:0 0 12px;box-shadow:var(--shadow)}
+  .ov .ov-t{font-size:14px;font-weight:650;margin:0 0 2px}
+  .ov .ov-sub{font-size:12.5px;color:var(--muted);margin:0 0 10px}
+  .ov table{border-collapse:collapse;width:100%;font-size:12.5px}
+  .ov th{text-align:left;font-weight:600;color:var(--faint);font-size:11.5px;text-transform:uppercase;
+         letter-spacing:.04em;padding:0 8px 5px 0;border-bottom:1px solid var(--line-soft)}
+  .ov td{padding:5px 8px 5px 0;border-bottom:1px solid var(--line-soft);vertical-align:top}
+  .ov td.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap;width:1%}
+  .ov .pname{font-family:Consolas,Menlo,monospace;font-size:12px}
+  .ov .secs{color:var(--muted);font-size:12px;line-height:1.7}
+  .ov .sec-chip{display:inline-block;background:var(--bg);border:1px solid var(--line-soft);
+                border-radius:5px;padding:1px 7px;margin:0 5px 4px 0;white-space:nowrap}
+  .ov .sec-chip b{font-variant-numeric:tabular-nums;color:var(--fg)}
+  /* Section kosong ditandai, bukan disembunyikan. Yang hilang tidak bisa dilihat; yang kosong bisa. */
+  .ov .sec-chip.zero{border-color:#fcd34d;background:#fffbeb;color:var(--warn)}
+  .ov tfoot td{font-weight:650;border-bottom:none;padding-top:8px}
+
+  /* Warning yang bisa diklik. Yang TIDAK bisa dibiarkan tampak biasa - kursor pointer di baris
+     yang tidak melakukan apa-apa lebih buruk daripada baris yang jelas cuma teks. */
+  /* Undo/redo di kepala panel Motion. Yang mati DITAMPILKAN mati (disabled), bukan disembunyikan:
+     tombol yang hilang-muncul bikin barisnya bergeser tiap klik, dan yang dicari pindah tempat. */
+  /* Status aplikasi lokal di nav samping. Halaman ini sering dibuka dari file:// sementara
+     servernya jalan (atau sebaliknya), dan tanpa penanda, taut "NB alarm sync" kelihatan mati
+     tanpa sebab - atau kelihatan hidup lalu membuka halaman yang tidak ada. */
+  .srv-nav{font-size:11.5px;padding:5px 10px;margin:0 0 4px;border-radius:6px;line-height:1.35;
+           background:var(--bg);color:var(--faint);border:1px solid var(--line-soft)}
+  .srv-nav.on{background:#f0fdf4;border-color:#bbf7d0;color:#166534}
+  .srv-nav.off{background:#fef2f2;border-color:#fecaca;color:#991b1b}
+
+  .undo-btn{margin-left:8px;padding:3px 10px;font-size:12px;border-radius:6px;border:1px solid var(--line);
+            background:var(--card);color:var(--accent);cursor:pointer}
+  .undo-btn:hover:not(:disabled){border-color:var(--accent);background:var(--accent-soft)}
+  .undo-btn:disabled{color:var(--faint);cursor:default;opacity:.55}
+
+  .warn-item.warn-jump{cursor:pointer;border-radius:5px}
+  .warn-item.warn-jump:hover{background:var(--accent-soft)}
+  /* Panahnya ditulis sebagai karakter, bukan escape CSS. Template ini string Python BIASA, jadi
+     "\\2192" yang ditulis tunggal dimakan Python duluan jadi karakter kontrol - jebakan yang di
+     CLAUDE.md dan tetap kena lagi di sini. Berkasnya UTF-8; tidak ada yang perlu di-escape. */
+  .warn-item.warn-jump::after{content:" →";color:var(--accent);font-weight:700}
+  @keyframes jumphit{0%{box-shadow:0 0 0 3px var(--accent)}100%{box-shadow:0 0 0 3px transparent}}
+  .jump-hit{animation:jumphit 1.4s ease-out;border-radius:7px}
 </style>
 </head>
 <body>
+<button class="navtoggle" id="navToggle" title="Sections &amp; tools">&#9776;</button>
 <nav class="sidenav" id="sideNav">
   <div class="nav-t">Sections</div>
   <a href="#sec-project">Project file</a>
@@ -338,6 +434,11 @@ HTML = '''<!doctype html>
   <a href="#sec-cond">Conditions</a>
   <a href="#sec-motion">Motion sequence</a>
   <a href="#results">Results <span class="n" id="navFileCount"></span></a>
+  <div class="nav-t" style="padding-top:14px">Tools</div>
+  <div class="srv-nav" id="srvNav" title="status aplikasi lokal">memeriksa server&hellip;</div>
+  <a href="home.html" id="navHome">&#8962; All tools &amp; docs</a>
+  <a href="reader/smc2-viewer.html" id="navReader">.smc2 reader</a>
+  <a href="http://127.0.0.1:7654/tools" id="navApp">NB alarm sync</a>
 </nav>
 <div class="topbar">
   <div class="brand">
@@ -454,11 +555,14 @@ HTML = '''<!doctype html>
 <div class="sec-head" id="sec-motion">
   <h2>Motion sequence</h2>
   <span class="help" data-tip="A station can hold several sequence variants, each with its own condition bit - leave it empty and the variant always runs. Only the variant whose condition is true will run. Click a solenoid to drop a step, then drag from the yellow dot to another step to say what has to finish first. A step waiting on two or more others gets an AND/OR badge you can toggle. Drag steps only to tidy the layout.">?</span>
+  <button class="undo-btn" id="undoBtn" disabled>&#8630; Undo</button>
+  <button class="undo-btn" id="redoBtn" disabled>&#8631; Redo</button>
   <span class="help" data-tip="IF/ELSE - one in, two out (Y on the right, N below). Once the decision is taken the branch holds, and the two sides interlock so they can never be on together. SET/RESET memory - a latching bit; every set and reset trigger for one bit is merged into a single rung, so there is no double coil. ALARM - takes an AL slot automatically, latches itself and joins the category group you pick. To merge two branches, drag both Y and N into the same step and set its badge to OR. Click a step to edit its bit, category and comment. Select and press Delete to remove.">blocks</span>
 </div>
 <div id="motionPanel"></div>
 
 <div id="results"></div>
+
 <footer class="foot">
   <span>Made by</span>
   <a href="https://github.com/Dennych123" target="_blank" rel="noopener">Dennych123</a>
@@ -1621,6 +1725,17 @@ function importSequenceJSON(stKey, jsonText) {
     });
     var cc = (raw.conditionComments && typeof raw.conditionComments === 'object') ? raw.conditionComments : {};
     var cp = (raw.conditionPositions && typeof raw.conditionPositions === 'object') ? raw.conditionPositions : {};
+    // Node condition YATIM - sudah ditaruh di kanvas tapi belum disambungkan ke node manapun.
+    // Sebelumnya node ini lenyap tiap export-import: node condition tidak disimpan di array
+    // `nodes`, melainkan dibangun ulang dari rujukan `after`, jadi yang belum dirujuk siapa pun
+    // tidak punya jejak buat dibangun kembali. Yang hilang bukan cuma kotaknya - komentarnya
+    // ikut, dan itu justru alasan kotaknya ditaruh lebih dulu.
+    //
+    // Tidak perlu medan baru: `conditionPositions` dan `conditionComments` sudah ditulis buat
+    // SEMUA node condition waktu export, termasuk yang yatim. Yang kurang cuma pembacaannya.
+    Object.keys(cp).concat(Object.keys(cc)).forEach(function (bit) {
+      if (!motionIds[bit] && extraBits.indexOf(bit) < 0) extraBits.push(bit);
+    });
     extraBits.forEach(function (bit) {
       var p = cp[bit] || {};
       var bx = Number(p.x), by = Number(p.y);
@@ -1737,9 +1852,143 @@ function renderWarnings(list, raw) {
       d.appendChild(c);
       // Prefix "ST1: " dibuang - sudah jadi judul grupnya, gak perlu diulang tiap baris
       d.appendChild(document.createTextNode(w.message.replace(/^[A-Za-z0-9_]+:\\s*/, '')));
+      // Warning yang menyebut aktuator atau station bisa diklik: halamannya panjang, dan
+      // "ST1: no matching limit switch for actuator ..." tidak ada gunanya kalau yang mana-nya
+      // masih harus dicari sendiri di panel yang jauh di atas.
+      var target = warnTarget(w);
+      if (target) {
+        d.className += ' warn-jump';
+        d.title = 'klik: lompat ke ' + (w.device || w.station);
+        d.addEventListener('click', function () { jumpTo(target); });
+      }
       warnEl.appendChild(d);
     });
   });
+}
+
+// Yang dituju satu baris warning. Aktuator lebih spesifik daripada station, jadi dicoba dulu -
+// warning yang membawa `device` justru yang paling sering perlu dilihat barangnya.
+//
+// Dicari lewat penanda data-dev/data-st, BUKAN lewat teks yang tampil: teks judul ikut nama
+// station yang diketik orang, dan pencocokan lewat teks berhenti jalan begitu formatnya diubah -
+// tanpa error, barisnya cuma berhenti melompat dan tidak ada yang tahu sampai ada yang coba.
+function warnTarget(w) {
+  if (w.device) {
+    var byDev = document.querySelector('[data-dev="' + w.device + '"]');
+    if (byDev) return byDev;
+  }
+  if (w.station) {
+    var all = document.querySelectorAll('[data-st="' + w.station + '"]');
+    // Kotak station di panel Motion yang dituju, bukan baris Confirm Mode pertama milik station
+    // itu - yang terakhir bikin klik "warning station" mendarat di aktuator acak.
+    for (var i = 0; i < all.length; i++) {
+      if (all[i].className.indexOf('station-box') >= 0) return all[i];
+    }
+    if (all.length) return all[0];
+  }
+  return null;
+}
+
+function jumpTo(el) {
+  // <details> yang tertutup: elemennya ADA di DOM tapi tingginya nol, jadi scrollIntoView
+  // mendarat di tempat yang salah dan yang dicari tetap tidak kelihatan. Semua pembungkusnya
+  // dibuka dulu, dari luar ke dalam.
+  var p = el.parentNode;
+  while (p && p.nodeType === 1) {
+    if (p.tagName === 'DETAILS') p.open = true;
+    p = p.parentNode;
+  }
+  el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  // Sorotan sesaat. Tanpa itu halaman cuma melompat dan yang mana-nya tetap harus ditebak -
+  // di panel berisi 20 aktuator, "sudah sampai" tidak sama dengan "kelihatan".
+  el.className += ' jump-hit';
+  setTimeout(function () { el.className = el.className.replace(/ ?jump-hit/, ''); }, 1400);
+}
+
+// Ringkasan hasil generate, dibaca dari XML yang BARU DITULIS - bukan dari hitungan yang
+// disimpan generator terpisah. Dua sumber angka untuk hal yang sama selalu berakhir beda, dan
+// yang salah justru yang dipercaya karena dia yang tampil.
+//
+// Dibaca dengan regex, bukan DOMParser: berkas gabungan bisa ratusan KB dan diparse jadi DOM
+// tiap generate cuma buat menghitung dua elemen. Yang dicari dua penanda yang bentuknya tetap
+// dan sudah dijaga suite xsd - <Program name="..."> dan <BodyContent ... name="...">.
+function programOverview(xml) {
+  var out = [];
+  var reProg = /<Program\\b[^>]*\\bname="([^"]*)"/g;
+  var reSect = /<BodyContent\\b[^>]*\\bname="([^"]*)"/g;
+  var starts = [], m;
+  while ((m = reProg.exec(xml))) starts.push({ name: m[1], at: m.index });
+  starts.forEach(function (p, i) {
+    var end = i + 1 < starts.length ? starts[i + 1].at : xml.length;
+    var body = xml.slice(p.at, end);
+    var secs = [];
+    reSect.lastIndex = 0;
+    var s, pos = [];
+    while ((s = reSect.exec(body))) pos.push({ name: s[1], at: s.index });
+    pos.forEach(function (sp, k) {
+      var e = k + 1 < pos.length ? pos[k + 1].at : body.length;
+      secs.push({ name: sp.name, rungs: (body.slice(sp.at, e).match(/<Rung\\b/g) || []).length });
+    });
+    out.push({ name: p.name, sections: secs,
+               rungs: secs.reduce(function (a, x) { return a + x.rungs; }, 0) });
+  });
+  return out;
+}
+
+function buildOverview(payload) {
+  var combined = null;
+  for (var i = 0; i < payload.files.length; i++) {
+    if (/\\.xml$/i.test(payload.files[i].name)) { combined = payload.files[i]; break; }
+  }
+  if (!combined) return null;
+  var progs = programOverview(combined.xml);
+  if (!progs.length) return null;
+
+  var box = document.createElement('div'); box.className = 'ov';
+  var t = document.createElement('div'); t.className = 'ov-t';
+  t.textContent = 'Hasil generate';
+  var sub = document.createElement('div'); sub.className = 'ov-sub';
+  box.appendChild(t); box.appendChild(sub);
+
+  var tbl = document.createElement('table');
+  tbl.innerHTML = '<thead><tr><th>Program</th><th class="num">Rung</th><th>Section</th></tr></thead>';
+  var tb = document.createElement('tbody');
+  var totR = 0, totS = 0, kosong = 0;
+  progs.forEach(function (p) {
+    totR += p.rungs; totS += p.sections.length;
+    var tr = document.createElement('tr');
+    var td1 = document.createElement('td'); td1.className = 'pname'; td1.textContent = p.name;
+    var td2 = document.createElement('td'); td2.className = 'num'; td2.textContent = p.rungs;
+    var td3 = document.createElement('td'); td3.className = 'secs';
+    p.sections.forEach(function (s) {
+      var c = document.createElement('span');
+      c.className = 'sec-chip' + (s.rungs ? '' : ' zero');
+      if (!s.rungs) kosong++;
+      // textContent, bukan innerHTML: nama section ikut nama station yang DIKETIK orang, dan
+      // nama yang memuat < atau & lewat innerHTML merusak sisa baris tanpa error apa pun.
+      c.appendChild(document.createTextNode(s.name + ' '));
+      var bb = document.createElement('b'); bb.textContent = s.rungs;
+      c.appendChild(bb);
+      td3.appendChild(c);
+    });
+    tr.appendChild(td1); tr.appendChild(td2); tr.appendChild(td3);
+    tb.appendChild(tr);
+  });
+  tbl.appendChild(tb);
+  var tf = document.createElement('tfoot');
+  var trf = document.createElement('tr');
+  trf.innerHTML = '<td>' + progs.length + ' program</td><td class="num">' + totR +
+                  '</td><td>' + totS + ' section' +
+                  (kosong ? ', ' + kosong + ' kosong' : '') + '</td>';
+  tf.appendChild(trf); tbl.appendChild(tf);
+  box.appendChild(tbl);
+
+  var gv = (payload.globalRows || []).length;
+  var ai = payload.arrayInfo;
+  sub.textContent = combined.name + ' - ' + totR + ' rung, ' + gv + ' variabel global' +
+    (ai ? ', AL ' + ai.alFilled + ' + MF ' + ai.mfFilled + ' slot terisi' : '') +
+    (kosong ? '. Section bertanda kuning tidak punya satu rung pun.' : '');
+  return box;
 }
 
 function renderResults(payload) {
@@ -1792,6 +2041,11 @@ function renderResults(payload) {
   // Spreadsheet AL/MF ditaruh SEBELUM fold "Download per program" dan di luar fold itu. Waktu masih
   // di dalam fold, tabelnya cuma kelihatan sebagai textarea mentah yang ke-scroll - persis yang mau
   // dihindari, karena yang dibutuhkan itu menyalin satu kolom, bukan membaca TSV.
+  // Ringkasan ditaruh PALING ATAS di hasil - yang pertama ditanya setelah Generate selalu
+  // "jadi apa saja", dan sebelum ini jawabannya cuma bisa didapat dengan men-scroll XML.
+  var ov = buildOverview(payload);
+  if (ov) resEl.appendChild(ov);
+
   var gsheet = buildGlobalSheet();
   if (gsheet) resEl.appendChild(gsheet);
   var nbp = buildNbPanel(payload.files);
@@ -1820,7 +2074,87 @@ function renderResults(payload) {
   resEl.appendChild(details);
 }
 
+// ===== Undo / redo =====
+//
+// Yang disimpan SNAPSHOT SELURUH state editor, bukan operasi terbaliknya. Alasannya bukan
+// kepraktisan: undo yang menyusun kebalikan tiap operasi salah begitu ada SATU jalur mutasi yang
+// terlewat - dan salahnya berupa graph yang tidak konsisten, tanpa tanda apa pun. Snapshot tidak
+// bisa gagal begitu; yang terburuk cuma satu langkah undo menggabung dua perubahan.
+//
+// Karena itu titik pemanggilannya juga tidak perlu lengkap: `checkpoint()` membandingkan state
+// sekarang dengan yang terakhir dicatat dan TIDAK melakukan apa-apa kalau sama. Panggilan
+// berlebih aman, dan panggilan yang terlewat cuma menggabung langkah - tidak pernah merusak.
+var histPast = [], histFuture = [], histNow = null, histRestoring = false;
+var HIST_MAX = 60;   // ~60 langkah; snapshot-nya JSON kecil, tapi tidak perlu tak terhingga
+
+function histSnap() {
+  return JSON.stringify({ m: motionState, c: conditionState, n: stationNames,
+                          o: actuatorOverrides, k: motionCounters });
+}
+
+function histApply(snap) {
+  // Selama memulihkan, checkpoint HARUS diam. Tanpa penjaga ini, histApply memanggil
+  // regenerate() -> checkpoint(), dan checkpoint melihat state berubah (memang berubah - baru
+  // saja dipulihkan) lalu mencatat undo-nya sendiri sebagai langkah baru: riwayatnya tumbuh
+  // tiap kali di-undo dan Ctrl+Z tidak pernah sampai ke awal.
+  histRestoring = true;
+  var s = JSON.parse(snap);
+  motionState = s.m || {};
+  conditionState = s.c || {};
+  stationNames = s.n || {};
+  actuatorOverrides = s.o || {};
+  motionCounters = s.k || {};
+  // Yang diseleksi bisa saja sudah tidak ada di state yang dipulihkan - dibiarkan, panel
+  // menggambar sorotan ke node yang tidak ada lagi dan tombol Delete berikutnya menghapus
+  // sesuatu yang lain.
+  selected = null;
+  renderMotionPanel();
+  renderConditionPanel();
+  if (typeof renderStationNamesPanel === 'function') renderStationNamesPanel();
+  regenerate();
+  histRestoring = false;
+  histNow = histSnap();
+  updateUndoButtons();
+}
+
+function checkpoint() {
+  if (histRestoring) return;
+  var s = histSnap();
+  if (histNow === null) { histNow = s; return; }   // keadaan awal, belum ada yang berubah
+  if (s === histNow) return;                       // tidak ada yang berubah - jangan catat
+  histPast.push(histNow);
+  if (histPast.length > HIST_MAX) histPast.shift();
+  // Perubahan baru membuang jalur redo. Kalau tidak, redo mengembalikan potongan state dari
+  // cabang lain dan hasilnya campuran yang tidak pernah ada.
+  histFuture.length = 0;
+  histNow = s;
+  updateUndoButtons();
+}
+
+function undo() {
+  if (!histPast.length) return false;
+  histFuture.push(histNow);
+  histApply(histPast.pop());
+  return true;
+}
+
+function redo() {
+  if (!histFuture.length) return false;
+  histPast.push(histNow);
+  histApply(histFuture.pop());
+  return true;
+}
+
+function updateUndoButtons() {
+  var u = document.getElementById('undoBtn'), r = document.getElementById('redoBtn');
+  if (u) { u.disabled = !histPast.length; u.title = 'Ctrl+Z - ' + histPast.length + ' langkah'; }
+  if (r) { r.disabled = !histFuture.length; r.title = 'Ctrl+Shift+Z - ' + histFuture.length + ' langkah'; }
+}
+
 function regenerate() {
+  // Dicatat SEBELUM apa pun dikirim ke generator: pada titik ini state editor sudah berubah,
+  // dan tiap perubahan yang sampai ke layar pasti lewat sini atau lewat render panel.
+  checkpoint();
   if (!lastSplitMsg) return;
   flowStore.motionSequences = {};
   Object.keys(motionState).forEach(function (st) {
@@ -2165,6 +2499,14 @@ function onDocMouseUp(ev) {
 }
 
 function onDocKeyDown(ev) {
+  // Ctrl+Z / Ctrl+Shift+Z. Dilewat kalau fokusnya di kotak isian - di situ Ctrl+Z milik kotak
+  // itu, dan merebutnya bikin ketikan yang mau dibatalkan malah membatalkan perubahan graph.
+  if ((ev.ctrlKey || ev.metaKey) && (ev.key === 'z' || ev.key === 'Z' || ev.key === 'y' || ev.key === 'Y')) {
+    if (document.activeElement && /input|textarea/i.test(document.activeElement.tagName || '')) return;
+    ev.preventDefault && ev.preventDefault();
+    if (ev.key === 'y' || ev.key === 'Y' || ev.shiftKey) redo(); else undo();
+    return;
+  }
   if ((ev.key === 'Delete' || ev.key === 'Backspace') && selected) {
     if (document.activeElement && /input|textarea/i.test(document.activeElement.tagName || '')) return;
     ev.preventDefault && ev.preventDefault();
@@ -2190,6 +2532,7 @@ function renderMotionPanel() {
     ensureStation(stKey);
 
     var box = document.createElement('div'); box.className = 'station-box';
+    box.setAttribute('data-st', stKey);
     var title = document.createElement('div'); title.className = 'station-title'; title.textContent = stKey + (stationNames[stKey] ? ' - ' + stationNames[stKey] : '');
     box.appendChild(title);
 
@@ -2398,6 +2741,7 @@ function renderConditionPanel() {
     ensureConditionStation(stKey);
 
     var box = document.createElement('div'); box.className = 'station-box';
+    box.setAttribute('data-st', stKey);
     var title = document.createElement('div'); title.className = 'station-title'; title.textContent = stKey + (stationNames[stKey] ? ' - ' + stationNames[stKey] : '');
     box.appendChild(title);
     if (!conditionState[stKey].length) {
@@ -2550,6 +2894,11 @@ function renderConfirmModePanel() {
       // -nya harus dicari sendiri di daftar panjang.
       var flag = ioFlagOf(d.name);
       var row = document.createElement('div'); row.className = 'stname-lbl cm-row' + (flag ? ' cm-' + flag.kind : '');
+      // Penanda buat lompatan dari panel warning. Dipasang di sini, bukan dicari lewat teks
+      // judulnya: judul ikut nama station yang diketik orang, dan pencarian lewat teks berhenti
+      // cocok begitu formatnya diubah - tanpa error, tombolnya cuma berhenti melompat.
+      row.setAttribute('data-dev', d.name);
+      row.setAttribute('data-st', stKey);
       if (flag) row.title = flag.message;
       var head = document.createElement('div'); head.className = 'cm-head';
       var b = document.createElement('b'); b.textContent = stKey + ' / ' + d.name;
@@ -2857,9 +3206,28 @@ document.getElementById('genBtn').addEventListener('click', function () {
 (function () {
   var nav = document.getElementById('sideNav');
   if (!nav) return;
+
+  // Tombol ☰ cuma kelihatan di layar sempit (CSS). Nav ditutup lagi begitu salah satu tautnya
+  // diklik - di layar sempit dia menutupi isi halaman, jadi kalau tetap terbuka, yang barusan
+  // dituju justru ketutupan.
+  var toggle = document.getElementById('navToggle');
+  if (toggle) {
+    toggle.addEventListener('click', function () {
+      nav.className = nav.className.indexOf('open') >= 0 ? 'sidenav' : 'sidenav open';
+    });
+    nav.addEventListener('click', function (ev) {
+      if (ev.target && ev.target.tagName === 'A') nav.className = 'sidenav';
+    });
+  }
+
   var links = Array.prototype.slice.call(nav.getElementsByTagName('a'));
   var targets = links.map(function (a) {
-    return { a: a, el: document.getElementById(a.getAttribute('href').slice(1)) };
+    var href = a.getAttribute('href') || '';
+    // Taut ke halaman lain (pembaca .smc2, aplikasi lokal) BUKAN jangkar di halaman ini -
+    // href.slice(1) untuk taut itu menghasilkan "eader/smc2-viewer.html", dan tanpa saringan ini
+    // sorotan "bagian yang sedang dilihat" ikut menganggapnya bagian yang hilang.
+    if (href.charAt(0) !== '#') return { a: a, el: null };
+    return { a: a, el: document.getElementById(href.slice(1)) };
   }).filter(function (t) { return t.el; });
 
   targets.forEach(function (t) {
@@ -2892,10 +3260,322 @@ document.getElementById('genBtn').addEventListener('click', function () {
 document.addEventListener('mousemove', onDocMouseMove);
 document.addEventListener('mouseup', onDocMouseUp);
 document.addEventListener('keydown', onDocKeyDown);
+
+// Status aplikasi lokal. DITANYAKAN ke servernya lewat /api/ping, bukan ditebak dari
+// location.protocol: halaman ini sering dibuka dari disk sementara servernya memang jalan, dan
+// tebakan dari protokol bikin taut yang siap dipakai kelihatan mati.
+(function () {
+  var el = document.getElementById('srvNav');
+  if (!el) return;
+  function tandai(hidup, j) {
+    el.className = 'srv-nav ' + (hidup ? 'on' : 'off');
+    el.textContent = hidup ? 'server ON - ' + (j && j.root ? j.root.split(/[\/]/).pop() : '127.0.0.1')
+                           : 'server OFF - klik Susmax.cmd';
+  }
+  function cek() {
+    var mati = setTimeout(function () { tandai(false); }, 1500);
+    fetch('http://127.0.0.1:7654/api/ping', { cache: 'no-store' })
+      .then(function (r) { return r.json(); })
+      .then(function (j) { clearTimeout(mati); tandai(!!j.ok, j); })
+      .catch(function () { clearTimeout(mati); tandai(false); });
+  }
+  cek();
+  setInterval(cek, 15000);
+})();
+
+// Titik nol riwayat. Tanpa ini, checkpoint pertama memakai keadaan SESUDAH perubahan sebagai
+// dasar - jadi perubahan pertama tidak bisa di-undo, dan itu persis perubahan yang paling
+// sering mau dibatalkan (salah taruh node di project yang baru dibuka).
+checkpoint();
+(function () {
+  var u = document.getElementById('undoBtn'), r = document.getElementById('redoBtn');
+  if (u) u.addEventListener('click', function () { undo(); });
+  if (r) r.addEventListener('click', function () { redo(); });
+  updateUndoButtons();
+})();
 </script>
 </body>
 </html>
 '''
+
+# ===================================================================== home.html
+# Halaman utama: daftar SELURUH alat di repo. Dipisah dari generator dengan sengaja - generator
+# itu satu halaman kerja panjang dengan navigasi sampingnya sendiri, dan menempelkan daftar alat
+# di ujungnya bikin jalan masuk ke alat lain cuma ketemu kalau seseorang menggulir sampai bawah.
+# Yang pertama dibuka orang harus daftar alatnya.
+TOOLS_CARDS = """<p class="tool-note" id="toolMode"></p>
+<div class="tool-grid" id="toolGrid">
+
+  <div class="tool">
+    <h3><span class="ico">&#9881;</span>Program generator <span class="tag">offline</span></h3>
+    <p>I/O list plus flowchart in, importable Sysmac XML and the global variable table out.
+       Four gates run before anything is written: XSD shape, FUN/FB pin shape, rung wiring,
+       and per-program declaration.</p>
+    <a class="go" href="index.html">Open generator</a>
+  </div>
+
+  <div class="tool" data-needs="server">
+    <h3><span class="ico">&#128260;</span>Edit assistance <span class="tag srv">server</span></h3>
+    <p>Catat versi .smc2 sebelum menyunting, lihat riwayatnya, kembalikan ke versi mana pun -
+       persis byte-nya. Yang disimpan berkas .smc2 aslinya berikut teks hasil ekstrak, jadi
+       <code>git diff</code> kebaca dan pemulihannya tetap utuh.</p>
+    <a class="go" href="http://127.0.0.1:7654/edit">Buka Edit assistance</a>
+  </div>
+
+  <div class="tool">
+    <h3><span class="ico">&#128269;</span>.smc2 reader <span class="tag">offline</span></h3>
+    <p>Open a Sysmac project without Sysmac Studio: program tree, rungs, operand inventory,
+       cross-reference, variable table - and export rungs back to importable XML.
+       Drag the .smc2 onto the page; nothing is uploaded anywhere.</p>
+    <a class="go" href="reader/smc2-viewer.html">Open reader</a>
+  </div>
+
+  <div class="tool">
+    <h3><span class="ico">&#8644;</span>Compare two .smc2 <span class="tag cli">CLI</span></h3>
+    <p>What changed in Studio. A .smc2 is a ZIP, so git only ever says "binary file differs".
+       This separates the three that matter: rung logic, canvas-only edits, and shifted
+       addresses or alarm numbers - the last one is invisible on both Studio and the NB screen.</p>
+    <code class="cmd">node scripts/smc2_diff.js OLD.smc2 NEW.smc2</code>
+  </div>
+
+  <div class="tool" data-needs="server">
+    <h3><span class="ico">&#128276;</span>NB-Designer alarm sync <span class="tag srv">server</span></h3>
+    <p>Push alarm comments from the .smc2 straight into the NB project, or build the
+       AlarmLib.csv for the Import button. Nothing is written until you ask; the old file is
+       always backed up first.</p>
+    <a class="go" href="http://127.0.0.1:7654/tools">Open local app</a>
+    <code class="cmd">node scripts/nb_sync.js project.smc2 NB_FOLDER</code>
+  </div>
+
+  <div class="tool">
+    <h3><span class="ico">&#128220;</span>Make a .smc2 readable to git <span class="tag cli">CLI</span></h3>
+    <p>Unpack the project into deterministic text - one file per section, variables and alarm
+       texts sorted, canvas coordinates left out. Commit that next to the .smc2 and
+       <code>git diff</code> finally shows which rung changed, instead of "binary files differ".</p>
+    <code class="cmd">node scripts/smc2_extract.js project.smc2 history/ --clean</code>
+  </div>
+
+  <div class="tool">
+    <h3><span class="ico">&#128172;</span>Write comments back to .smc2 <span class="tag cli">CLI</span></h3>
+    <p>Array element comments (AL[n] / MF[n]) written back into the project file itself - the
+       one thing XML import cannot carry. The rebuilt container is unpacked and compared entry
+       by entry before your original file is touched.</p>
+    <code class="cmd">node scripts/smc2_comment.js project.smc2 ArrayComments.tsv</code>
+  </div>
+
+  <div class="tool">
+    <h3><span class="ico">&#128225;</span>OPC UA browser <span class="tag cli">CLI</span></h3>
+    <p>The Sysmac simulator can open an OPC UA server, so a running NX program can be watched
+       and driven from outside - no reverse engineering. Run the simulation first, then
+       Simulation &rarr; Use the OPC UA Server for the simulator.</p>
+    <code class="cmd">node tools/opcua/browse.js --anon --watch GSB000 LB400</code>
+  </div>
+
+  <div class="tool">
+    <h3><span class="ico">&#10003;</span>Validate XML against the real XSD <span class="tag cli">CLI</span></h3>
+    <p>Studio only ever says "(Import failed)" with no line number. The schema it ships with
+       names the element and the line. Run this before carrying anything into Studio.</p>
+    <code class="cmd">pwsh scripts/validate_xml.ps1</code>
+  </div>
+
+  <div class="tool">
+    <h3><span class="ico">&#129302;</span>MCP server for AI tools <span class="tag cli">CLI</span></h3>
+    <p>Four tools over stdio - list_devices, get_project, validate_project, generate. The AI edits
+       the project JSON and never touches XML or ladder: a model that writes rungs directly
+       produces ladder that imports cleanly and is wrong once the machine moves, which none of the
+       four gates can catch.</p>
+    <code class="cmd">node scripts/mcp.js</code>
+  </div>
+
+  <div class="tool">
+    <h3><span class="ico">&#128187;</span>Generate without a browser <span class="tag cli">CLI</span></h3>
+    <p>The same pipeline this page runs, headless - for scripting, for CI, or for an AI that
+       edits the project JSON instead of touching XML.</p>
+    <code class="cmd">node scripts/core.js project.json out/</code>
+  </div>
+
+</div>
+<div class="doclinks">
+  <a href="README.md">README</a>
+  <a href="CLAUDE.md">Working notes</a>
+  <a href="TODO.md">TODO</a>
+  <a href="docs/SYSMAC_INSTRUCTIONS.md">353 instructions (FUN/FB + pins)</a>
+  <a href="reader/README.md">.smc2 format notes</a>
+</div>
+<script>
+// Kartu bertanda SERVER cuma hidup kalau halaman ini memang dilayani aplikasi lokal. Dibiarkan
+// tampak aktif di file://, tombolnya membuka halaman yang tidak ada dan yang kelihatan cuma
+// "situs tidak bisa dihubungi" - kesalahan yang terbaca seperti alatnya rusak.
+(function () {
+  var note = document.getElementById('toolMode');
+  var badge = document.getElementById('srvBadge');
+  var cards = document.querySelectorAll('.tool[data-needs=server]');
+
+  function pakai(hidup, info) {
+    if (badge) {
+      badge.className = 'srv-badge ' + (hidup ? 'srv-on' : 'srv-off');
+      badge.innerHTML = hidup
+        ? '&#9679; Aplikasi lokal <b>HIDUP</b> di 127.0.0.1:' + info.port +
+          ' &mdash; folder kerja <b>' + info.root + '</b>'
+        : '&#9675; Aplikasi lokal <b>MATI</b>. Klik dua kali <code>Susmax.cmd</code>, atau jalankan ' +
+          '<code>node scripts/app.js --ws &lt;folder project&gt;</code>. ' +
+          'Pembaca .smc2 dan dokumen tetap jalan tanpa itu.';
+    }
+    if (note) {
+      note.innerHTML = hidup
+        ? 'Semua alat di bawah tinggal diklik.'
+        : 'Halaman ini dibuka langsung dari disk, jadi alat yang butuh baca/tulis berkas belum ' +
+          'bisa dipakai. Yang lain tetap jalan.';
+    }
+    for (var i = 0; i < cards.length; i++) {
+      cards[i].className = cards[i].className.replace(/ ?dim/, '') + (hidup ? '' : ' dim');
+    }
+  }
+
+  // Ditanyakan ke servernya, bukan ditebak dari `location.protocol`: halaman ini sering dibuka
+  // dari disk sementara servernya memang jalan - dan menebak dari protokol bikin tombolnya
+  // diredupkan padahal alatnya siap. `/api/ping` satu-satunya yang boleh lintas asal.
+  function cek() {
+    var mati = setTimeout(function () { pakai(false); }, 1500);
+    fetch('http://127.0.0.1:7654/api/ping', { cache: 'no-store' })
+      .then(function (r) { return r.json(); })
+      .then(function (j) { clearTimeout(mati); pakai(!!j.ok, j); })
+      .catch(function () { clearTimeout(mati); pakai(false); });
+  }
+  cek();
+  setInterval(cek, 15000);
+  // Perintah CLI diklik = tersalin. Yang gagal disalin TIDAK boleh diam - kalau tidak, orang
+  // menempel isi clipboard yang lama dan menjalankan perintah yang salah.
+  var cmds = document.querySelectorAll('.tool .cmd');
+  for (var k = 0; k < cmds.length; k++) {
+    cmds[k].title = 'click to copy';
+    cmds[k].onclick = function () {
+      var el = this, teks = el.textContent;
+      copyTextToClipboard(teks).then(function () {
+        var old = el.style.borderColor;
+        el.style.borderColor = '#15803d';
+        setTimeout(function () { el.style.borderColor = old; }, 700);
+      }, function () { window.prompt('Copy this command:', teks); });
+    };
+  }
+})();
+</script>
+"""
+
+HOME = """<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Susmax - Sysmac toolkit</title>
+<style>
+  :root{
+    --fg:#111827;--muted:#4b5563;--faint:#6b7280;
+    --line:#d6dbe3;--line-soft:#e6eaf0;--card:#fff;--bg:#f1f4f8;
+    --accent:#2563eb;--accent-dk:#1d4ed8;--accent-soft:#eff5ff;
+    --ok:#15803d;--warn:#b45309;--danger:#b91c1c;
+    --radius:8px;--shadow:0 1px 2px rgba(16,24,40,.06),0 1px 3px rgba(16,24,40,.08);
+  }
+  *{box-sizing:border-box}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
+       max-width:1180px;margin:0 auto;padding:34px 26px 70px;color:var(--fg);background:var(--bg);
+       font-size:14px;line-height:1.55}
+  h1{font-size:26px;font-weight:650;margin:0 0 4px;letter-spacing:-.01em}
+  .lede{color:var(--muted);font-size:14.5px;margin:0 0 6px;max-width:70ch}
+  .facts{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0 26px}
+  .facts span{font-size:12px;color:var(--muted);background:var(--card);border:1px solid var(--line);
+              border-radius:999px;padding:4px 11px}
+  h2{font-size:15px;font-weight:650;margin:30px 0 10px;padding:0 0 0 10px;
+     border-left:3px solid var(--accent)}
+  code{font-family:Consolas,Menlo,monospace;font-size:.92em;background:var(--accent-soft);
+       border:1px solid #dbe6fb;border-radius:4px;padding:1px 4px}
+  .tool-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:13px;margin:4px 0 8px}
+  .tool{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+        padding:14px 16px 13px;box-shadow:var(--shadow);display:flex;flex-direction:column;gap:7px}
+  .tool h3{margin:0;font-size:14px;font-weight:650;display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+  .tool h3 .ico{font-size:15px}
+  .tool p{margin:0;color:var(--muted);font-size:12.8px;line-height:1.5}
+  .tool .go{display:inline-block;align-self:flex-start;margin-top:auto;padding:6px 13px;border-radius:6px;
+            background:var(--accent);color:#fff;text-decoration:none;font-size:12.5px;font-weight:600}
+  .tool .go:hover{background:var(--accent-dk)}
+  .tool .go.ghost{background:var(--card);color:var(--accent);border:1px solid var(--accent)}
+  .tool .cmd{font-family:Consolas,Menlo,monospace;font-size:11.8px;background:var(--bg);
+             border:1px solid var(--line-soft);border-radius:5px;padding:6px 8px;cursor:pointer;
+             word-break:break-all;color:var(--fg)}
+  .tool .cmd:hover{border-color:var(--accent);background:var(--accent-soft)}
+  .tool .cmd::before{content:"$ ";color:var(--faint)}
+  .tool .tag{font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;
+             padding:2px 6px;border-radius:4px;background:var(--accent-soft);color:var(--accent-dk)}
+  .tool .tag.srv{background:#fdf3e3;color:var(--warn)}
+  .tool .tag.cli{background:#eef1f5;color:var(--faint)}
+  .tool.dim .go{background:#9aa4b2;pointer-events:none}
+  .tool-note{font-size:12.5px;color:var(--muted);margin:0 0 12px}
+  .tool-note b{color:var(--warn)}
+  .doclinks{display:flex;flex-wrap:wrap;gap:8px;margin:6px 0}
+  .doclinks a{font-size:12.5px;color:var(--accent);text-decoration:none;border:1px solid var(--line);
+              background:var(--card);border-radius:6px;padding:6px 11px}
+  .doclinks a:hover{border-color:var(--accent);background:var(--accent-soft)}
+  /* Penanda status server. Ditulis SEBAGAI FAKTA, bukan tebakan dari protokol halaman: halaman
+     yang dibuka dari file:// tetap bisa memakai aplikasi lokal kalau servernya jalan, dan
+     sebaliknya halaman yang dilayani server tetap perlu tahu folder kerjanya yang mana. */
+  .srv-badge{font-size:12.5px;border-radius:7px;padding:8px 12px;margin:0 0 12px;border:1px solid var(--line);
+             background:var(--card);color:var(--muted)}
+  .srv-badge b{font-family:Consolas,monospace}
+  .srv-on{border-color:#bbf7d0;background:#f0fdf4;color:#166534}
+  .srv-off{border-color:#fecaca;background:#fef2f2;color:#991b1b}
+  .srv-cek{opacity:.75}
+  .srv-badge code{background:#fff;border:1px solid var(--line)}
+  footer{margin-top:34px;padding-top:14px;border-top:1px solid var(--line);color:var(--faint);font-size:12.5px}
+  footer a{color:var(--accent);text-decoration:none}
+</style>
+</head>
+<body>
+<h1>Susmax &mdash; Sysmac toolkit</h1>
+<p class="lede">IO list masuk, program Omron Sysmac yang siap di-import keluar &mdash; berikut alat
+yang dipakai setelah programnya masuk mesin: pembaca project <code>.smc2</code>, pembanding dua
+versi, sinkron alarm ke NB-Designer, dan jembatan OPC UA ke simulator.</p>
+<div class="facts"><span>tanpa npm install</span><span>tanpa node_modules</span>
+  <span>jalan offline dari file://</span><span>33 suite tes</span>
+  <span>divalidasi ke XSD resmi Omron</span></div>
+
+<h2>Alat</h2>
+<div id="srvBadge" class="srv-badge srv-cek">Memeriksa aplikasi lokal&hellip;</div>
+@@TOOLS@@
+
+<h2>Dokumen</h2>
+<div class="doclinks">
+  <a href="README.md">README</a>
+  <a href="CLAUDE.md">Working notes</a>
+  <a href="TODO.md">TODO</a>
+  <a href="docs/SYSMAC_INSTRUCTIONS.md">353 instructions (FUN/FB + pins)</a>
+  <a href="reader/README.md">.smc2 format notes</a>
+</div>
+
+<footer>Made by <a href="https://github.com/Dennych123" target="_blank" rel="noopener">Dennych123</a>
+  &middot; <a href="https://github.com/Dennych123/sysmac" target="_blank" rel="noopener">github.com/Dennych123/sysmac</a></footer>
+
+<script>
+// Salinan kecil, sengaja: halaman ini tidak memuat satu pun skrip generator. Menariknya cuma buat
+// satu fungsi salin bikin home.html ikut membawa seluruh pipeline ratusan KB.
+function copyTextToClipboard(text) {
+  if (navigator.clipboard && navigator.clipboard.writeText) return navigator.clipboard.writeText(text);
+  return new Promise(function (resolve, reject) {
+    try {
+      var ta = document.createElement('textarea');
+      ta.value = text; ta.style.position = 'fixed'; ta.style.top = '-1000px';
+      document.body.appendChild(ta); ta.focus(); ta.select();
+      var ok = document.execCommand('copy');
+      document.body.removeChild(ta);
+      if (ok) resolve(); else reject(new Error('browser menolak perintah copy'));
+    } catch (e) { reject(e); }
+  });
+}
+</script>
+</body>
+</html>
+"""
+
+home = HOME.replace('@@TOOLS@@', TOOLS_CARDS)
 
 out = (HTML
        .replace('__PARSE_JS__', json.dumps(PARSE))
@@ -2936,3 +3616,25 @@ else:
 outpath = os.path.join(_D, 'index.html')
 open(outpath, 'w', encoding='utf-8').write(out)
 print("WROTE", outpath, len(out), "bytes")
+
+# home.html lewat penjagaan yang SAMA dengan index.html. Halaman kedua yang tidak diperiksa itu
+# justru tempat karakter kontrol nyasar bersembunyi: tidak ada tes yang menjalankannya, dan yang
+# rusak baru kelihatan waktu ada yang membukanya.
+_badh = [(i, ord(c)) for i, c in enumerate(home) if ord(c) < 32 and c not in '\n\r\t']
+if _badh:
+    _ctx = home[max(0, _badh[0][0] - 70):_badh[0][0] + 30].replace('\n', ' ')
+    raise SystemExit("BUILD GAGAL (home.html): %d karakter kontrol.\n  konteks: ...%s..."
+                     % (len(_badh), _ctx))
+if _sh.which('node'):
+    for _i, _js in enumerate(_re.findall(r'<script>(.*?)</script>', home, _re.S)):
+        _fh = _tf.NamedTemporaryFile('w', suffix='.js', delete=False, encoding='utf-8')
+        _fh.write(_js); _fh.close()
+        _r = _sp.run(['node', '--check', _fh.name], capture_output=True, text=True)
+        os.unlink(_fh.name)
+        if _r.returncode != 0:
+            raise SystemExit("BUILD GAGAL: blok <script> #%d di home.html rusak.\n%s"
+                             % (_i + 1, _r.stderr.strip()))
+
+homepath = os.path.join(_D, 'home.html')
+open(homepath, 'w', encoding='utf-8').write(home)
+print("WROTE", homepath, len(home), "bytes")

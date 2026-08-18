@@ -76,6 +76,32 @@ const back=M.motionState().ST2[0].nodes;
 const pos=o=>o.map(n=>n.id+'@'+n.x+','+n.y).sort().join(' | ');
 chk('posisi identik setelah import', pos(back)===pos(asli[0].nodes), '\n     sebelum: '+pos(asli[0].nodes)+'\n     sesudah: '+pos(back));
 
+// --- 3b. node condition YATIM (belum disambung ke node manapun) ikut selamat ---
+// Node condition tidak disimpan di array `nodes`, melainkan dibangun ulang dari rujukan `after`.
+// Yang belum dirujuk siapa pun karena itu tidak punya jejak sama sekali - dan yang hilang bukan
+// cuma kotaknya: komentarnya ikut, padahal komentar itu justru alasan kotaknya ditaruh duluan.
+const yatim=[{condition:'',comment:'',nodes:[
+  {id:'n1',type:'motion',sol:'SOL_ST1_STP4_CHK',after:['LB300'],join:'AND',x:10,y:20},
+  {id:'LB300',type:'condition',bit:'LB300',comment:'dirujuk n1',x:100,y:200},
+  {id:'LB399',type:'condition',bit:'LB399',comment:'belum disambung',x:300,y:400}
+]}];
+M.setState({STY:yatim});
+const yj=M.variantsToJSON('STY');
+chk('export menyebut bit yatim', /LB399/.test(yj), /LB399/.test(yj)?'':'tidak ada LB399 di JSON');
+const yerr=M.importSequenceJSON('STZ',yj);
+chk('import varian bernode yatim tanpa error', yerr===null, String(yerr));
+const yback=M.motionState().STZ[0].nodes;
+const yatimBack=yback.filter(n=>n.id==='LB399')[0];
+chk('node condition yatim tidak hilang setelah round-trip', !!yatimBack,
+    yback.map(n=>n.id).join(' '));
+chk('komentar node yatim ikut selamat', yatimBack&&yatimBack.comment==='belum disambung',
+    yatimBack?JSON.stringify(yatimBack.comment):'-');
+chk('posisi node yatim ikut selamat', yatimBack&&yatimBack.x===300&&yatimBack.y===400,
+    yatimBack?yatimBack.x+','+yatimBack.y:'-');
+// Yang dirujuk `after` tetap dibangun seperti dulu - perbaikannya tidak boleh bikin node dobel.
+chk('bit yang dirujuk tidak jadi dua node',
+    yback.filter(n=>n.id==='LB300').length===1, yback.map(n=>n.id).join(' '));
+
 // --- 4. JSON lama tanpa x/y tetap jalan (auto-layout) ---
 const lawas='[{"condition":"","nodes":[{"id":"n1","sol":"SOL_A","after":[],"join":"AND"},{"id":"n2","sol":"SOL_B","after":["n1"],"join":"AND"}]}]';
 const err2=M.importSequenceJSON('ST3',lawas);
