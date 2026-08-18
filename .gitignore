@@ -2,7 +2,9 @@ node_modules/
 __pycache__/
 *.pyc
 /tmp/
-# snapshot graph lama yang dibikin `graphify update` tiap kali rebuild - riwayatnya udah ada di git
-graphify-out/20*/
+# Keluaran graphify: hasil generate, bukan sumber. Riwayat repo ini sudah ada di git, dan
+# cache AST-nya bikin tiap commit membawa berkas yang tidak dibaca siapa pun.
+graphify-out/
+**/graphify-out/
 mdf ats new.smc2
 *.smc2
