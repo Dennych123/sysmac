@@ -37,6 +37,18 @@ const LOG = "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<Log version=\"1.66.0\"
 
 const OEM = "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<Solution>\n  <Entity type=\"Group\" subtype=\"IecPous\" name=\"POUs\" id=\"g0\">\n    <ChildEntities>\n      <Entity type=\"Group\" subtype=\"IecPrograms\" name=\"Programs\" id=\"g1\">\n        <ChildEntities>\n          <Entity type=\"Program\" subtype=\"MultipartLadder\" name=\"P000_Main\" id=\"p0\">\n            <ChildEntities>\n              <Entity type=\"PouBody\" subtype=\"Ladder\" name=\"Device_Input\" id=\"2222\">\n                <ChildEntities>\n                  <Entity type=\"PouBodySourceHolder\" name=\"source\" id=\"8888\" />\n                </ChildEntities>\n              </Entity>\n              <Entity type=\"PouBody\" subtype=\"Ladder\" name=\"Timers\" id=\"4444\" />\n              <Entity type=\"PouBody\" subtype=\"ST\" name=\"Calc\" id=\"3333\" />\n            </ChildEntities>\n          </Entity>\n          <Entity type=\"Program\" subtype=\"MultipartLadder\" name=\"P011_WIP_Transfer\" id=\"p1\">\n            <ChildEntities>\n              <Entity type=\"PouBody\" subtype=\"Ladder\" name=\"AutoRunning\" id=\"1111\">\n                <ChildEntities>\n                  <Entity type=\"PouBodySourceHolder\" name=\"source\" id=\"9999\" />\n                </ChildEntities>\n              </Entity>\n            </ChildEntities>\n          </Entity>\n        </ChildEntities>\n      </Entity>\n    </ChildEntities>\n  </Entity>\n</Solution>\n";
 
+// Penugasan task: DI SINI-lah nama program mengikat kedua kalinya. Pohon project di .oem cuma
+// menyatakan program itu ADA; berkas inilah yang menyatakan program itu DIJALANKAN, dan
+// urutannya. Rename yang cuma menyentuh .oem meninggalkan berkas ini menunjuk nama lama -
+// programnya berhenti dieksekusi dan Studio tidak mengeluh, karena dua-duanya berkas sah.
+//
+// Ada di fixture supaya tes rename bisa GAGAL kalau peran ini terlewat. Tanpa ini, tesnya
+// lulus dengan memeriksa pohon project saja - persis kegagalan yang paling mahal.
+const TASK = "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<data>\n  <GeneralSettingsData TaskExecutionCondition=\"2000\" ExecutionPriority=\"4\">\n    <Programs>\n      <AssociatedProgramData ProgramName=\"P000_Main\" InstanceName=\"P000_Main\" StartupSetting=\"TRUE\" SequenceNumber=\"1\" IsDebugProgram=\"false\" />\n      <AssociatedProgramData ProgramName=\"P011_WIP_Transfer\" InstanceName=\"P011_WIP_Transfer\" StartupSetting=\"TRUE\" SequenceNumber=\"2\" IsDebugProgram=\"false\" />\n    </Programs>\n  </GeneralSettingsData>\n</data>\n";
+
+// Satu berkas per program, isinya cuma nama instance-nya. Peran ketiga.
+const ASSOC = n => "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<AssociatedProgramModel xmlns=\"http://schemas.datacontract.org/2004/07/Omron.Cxap.Modules.TaskConfiguration.Models\"><PouInstanceName>" + n + "</PouInstanceName></AssociatedProgramModel>\n";
+
 // Isi berkas .xml milik PouBodySourceHolder - variabel bantu hasil compile,
 // BUKAN ladder. Ada di sini justru supaya salah-ambil id ketahuan.
 const DECOY = "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<ArrayOfCxilVariable>\n  <CxilVariable><Name>_TMP_0001</Name><Type>BOOL</Type></CxilVariable>\n  <CxilVariable><Name>_TMP_0002</Name><Type>WORD</Type></CxilVariable>\n</ArrayOfCxilVariable>\n";
@@ -131,6 +143,25 @@ const VARS = '[SLWD version=1.0]\n' + [
   "++D=BOOL\tN=GSB000\tG=VAR_GLOBAL\tCom=Always ON",
   "++D=BOOL\tN=PWR_ON\tG=VAR_GLOBAL\tCom=Power on delay done",
   "++D=BOOL\tN=LB102\tCom=Local flag, bukan global",
+  // Array alarm ber-AT + komen PER ELEMEN (medan EC=). Ini satu-satunya bentuk yang dibaca
+  // nb_sync buat mengisi Alarm/Event Setting NB, jadi tanpa entri ini seluruh tesnya cuma
+  // SKIP - dan skrip yang berhenti disinkronkan kelihatan persis sama dengan yang lulus.
+  //
+  // Dua elemen sengaja BEDA bentuk teksnya, karena dua-duanya ada di project sungguhan:
+  //   [1] sudah membawa penanda "AL[1]" (ditulis ke .smc2 oleh smc2_comment.js)
+  //   [2] membawa stub bernomor "AL002_" tanpa penanda
+  // Ditempel apa adanya, yang pertama jadi "AL[1]AL[1]..." dan tiap sinkron menambah satu.
+  "++D=ARRAY[1..2] OF BOOL\tN=AL\tAT=%H400.00\tG=VAR_GLOBAL\tCom=Alarm bit"
+    + "\tEC=<ECs><EC EK=\"[1]\" C=\"AL[1]Emergency stop\" /><EC EK=\"[2]\" C=\"AL002_ Spare\" /></ECs>",
+  // Array kedua sengaja mulai di BIT BUKAN NOL dan melewati batas word: %H400.14 berarti
+  // MF[1]=400.14, MF[2]=400.15, MF[3]=401.00. Di project mesin sungguhan MF memang ber-AT
+  // %H406.04, menyambung AL yang berakhir di 406.03 - array yang mulai di bit 0 itu justru
+  // yang jarang. Bit awalnya diabaikan, seluruh alarm MF bergeser dan sebagiannya menabrak
+  // alamat AL: layar NB menampilkan teks yang benar untuk bit yang salah, tanpa satu pun
+  // pesan galat.
+  "++D=ARRAY[1..3] OF BOOL\tN=MF\tAT=%H400.14\tG=VAR_GLOBAL\tCom=Motion fault bit"
+    + "\tEC=<ECs><EC EK=\"[1]\" C=\"MF[1]Clamp\" /><EC EK=\"[2]\" C=\"MF002_ Spare\" />"
+    + "<EC EK=\"[3]\" C=\"MF[3]Lift\" /></ECs>",
 ].join('\n') + '\n';
 
 // (nama di dalam zip, isi, dikompres?)
@@ -144,6 +175,11 @@ const ENTRIES = [
   [SOL + '/4444.xml', LADDER_FB, true],
   [SOL + '/8888.xml', DECOY, true],
   [SOL + '/9999.xml', DECOY, true],
+  // Penugasan task + satu berkas AssociatedProgramModel per program. Ini yang bikin tes rename
+  // punya arti: nama program mengikat di tiga tempat, dan pohon project cuma satu di antaranya.
+  [SOL + '/7777.xml', TASK, true],
+  [SOL + '/aaa0.xml', ASSOC('P000_Main'), true],
+  [SOL + '/aaa1.xml', ASSOC('P011_WIP_Transfer'), true],
   // STORED, bukan deflate - pembacanya punya dua jalur, dua-duanya diuji.
   [SOL + '/vars.slwd', VARS, false],
 ];

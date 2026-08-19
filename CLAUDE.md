@@ -17,6 +17,8 @@ node scripts/nb_sync.js <smc2> <folderNB> [--rebuild] [--write]   # komen alarm 
 node scripts/nb_apply.js <csv|json> <folderNB>          # lihat dulu, TIDAK menulis
 node scripts/nb_apply.js <csv|json> <folderNB> --write  # tempel ke project NB, backup dulu
 node scripts/smc2_diff.js LAMA.smc2 BARU.smc2           # apa yang berubah di Studio (hanya baca)
+node scripts/smc2_rename.js x.smc2 LAMA=BARU [--write]   # ganti nama program (task ikut)
+node scripts/smc2_section.js x.smc2 spec.json [--write] # tambah section ladder ke .smc2
 node scripts/smc2_extract.js x.smc2 history/ --clean    # .smc2 -> teks yang kebaca `git diff`
 node scripts/app.js --ws C:/kerja                      # aplikasi lokal + API, folder kerja disetel
 node scripts/mcp.js --ws C:/kerja                      # server MCP, folder kerja yang sama
@@ -92,6 +94,19 @@ jalan di mesin (`Prepare HMI CE INSERTl`), bukan dikarang:
 **Aritmetika alamatnya WAJIB sama dengan `hmiClaimRange()`** - fungsi yang menaruh blok AT
 AL/MF di PLC. Beda sedikit, teks alarmnya benar tapi bit yang dipantau lain, dan tidak ada yang
 memberi tahu. Ada tes yang mengadu baris pertama CSV ke kolom AT di TSV.
+
+**Elemen ke-n dihitung dari BIT AT-nya, bukan dari word-nya saja.** Array kedua hampir tidak
+pernah mulai di bit 0: di project mesin ini `MF` ber-AT `%H406.04`, tepat menyambung `AL` yang
+berakhir di `406.03`. `nb_sync.js` sempat memakai word saja, jadi `MF[1]` jatuh di `406.00` -
+90 alarm bergeser empat bit DAN menabrak alamat `AL` yang sah, dengan teks yang tetap benar di
+layar. Sekarang alamat ganda menghentikan skrip, bukan cuma diperingatkan.
+
+**Alarm dan Event Setting diisi dari sumber yang SAMA.** Satu komen elemen di `.smc2` jadi satu
+baris di dua daftar itu. Kalau salah satunya kosong, `--rebuild` meminjam cetakan dari cadangan
+`.nbp.*.bak` di folder yang sama - BUKAN dari daftar sebelah: `<EventObject>` punya `Condition`
+dan `Function` yang menentukan kapan event tercatat, dan `<AlarmObject>` tidak punya keduanya.
+NB-Designer memang bisa mengosongkan Event Setting sendiri waktu project disimpan (dia menulis
+`<EventObjects/>`), jadi ini bukan kejadian sekali.
 
 `nb_apply.js` **tidak menulis apa-apa tanpa `--write`**, dan yang lama selalu disalin dulu ke
 `.bak` bertanggal yang tidak pernah menimpa cadangan sebelumnya. Menimpa `AlarmLib.csv`
@@ -499,6 +514,75 @@ Yang membuatnya aman, dan jangan dihilangkan: container baru **dibongkar ulang d
 dibandingkan entri per entri SEBELUM berkas aslinya disentuh**. ZIP rusak baru mengumumkan
 diri waktu Studio menolak membuka project, dan saat itu berkasnya sudah tertimpa. Semua entri
 lain (`.manifest`, `.oem`, `.log`, XML) dikemas ulang byte per byte.
+
+**Nama program juga bisa ditulis — `scripts/smc2_rename.js`.** Kelas yang sama: teks di dalam
+ZIP, rung tidak disentuh. Yang bikin ini beda dari mengganti komen: nama program TERIKAT di
+beberapa tempat sekaligus, dan yang paling menentukan bukan pohon project.
+
+| peran | di mana | kalau terlewat |
+|---|---|---|
+| pohon project | `.oem` `Entity type="Program"` `name=` + `DN=` | programnya hilang dari layar |
+| simpul penugasan | `.oem` `Entity type="NexAssociatedProgram"` `name=` + `DN=` | tautan task putus |
+| **penugasan task** | `<task>.xml` `<AssociatedProgramData ProgramName= InstanceName=>` | **program BERHENTI DIEKSEKUSI, Studio tidak mengeluh** |
+| instance | `<id>.xml` `<PouInstanceName>` | tautan task putus |
+| qualifier variabel | `<VariableName>NAMA.var</VariableName>` | data trace / kondisi monitor menunjuk yang tidak ada |
+| cache build | `NexBuildVerifierGroup` `<a:Key>` | Studio rebuild — tidak berbahaya, tapi jadi tidak konsisten |
+
+Karena itu penggantiannya dihitung PER PERAN dan tiap peran dilaporkan sendiri: peran yang
+angkanya nol itu tanda ada tempat terlewat, bukan tanda tidak ada yang perlu diganti. Cari-ganti
+buta memberi total besar yang menyenangkan sambil melewatkan satu peran — dan peran itu biasanya
+penugasan task, satu-satunya yang kegagalannya tidak kelihatan dari mana pun.
+
+`SequenceNumber` **tidak disentuh**. Nomor di nama program itu label, bukan urutan; menyamakan
+keduanya berarti diam-diam menyusun ulang urutan jalan mesin. Di project `Ce Insert Track`
+nomornya justru tidak searah dengan urutan eksekusi (`P010_Main` jalan sebelum `P002_Servo`) —
+itu memang begitu, bukan kesalahan.
+
+Penomoran yang dipakai = standar Denso ditambah satu konvensi yang TIDAK tertulis di dokumen
+tapi konsisten di project-project nyata: **motion/servo selalu program 2, HMI selalu 3**.
+
+```
+P001_Initial   P002_Servo   P003_HMI   P010_Main   P011..P042 station   P700-P999 khas mesin
+```
+
+### SECTION BARU juga bisa ditulis langsung — `scripts/smc2_section.js`
+
+Dibuktikan di Studio 19 Agustus 2026, lewat satu berkas probe berisi empat varian berdampingan.
+Ini **menambah** section yang seluruh isinya kita susun sendiri — bukan menyunting rung yang
+sudah ada, yang tetap terlarang karena reader cuma menerjemahkan ~54% rung dengan eksak.
+
+**Akhiran baris WAJIB CRLF.** Ini penemuan yang membalik probe pertama, dan bentuk kegagalannya
+paling menipu: berkas ladder yang berakhir `}\n` menghasilkan section yang **MUNCUL di Multiview
+Explorer dengan rung KOSONG**, dan Studio mengeluh `No instruction in rung` — bukan "berkas
+rusak". Varian LF dan CRLF diuji berdampingan, sisanya identik: yang CRLF terisi, yang LF kosong.
+Tiap rung diakhiri CRLF, termasuk yang terakhir.
+
+Dua hal lain yang ikut terjawab probe itu, dan dua-duanya menghemat tebakan:
+
+| | |
+|---|---|
+| urutan entri di ZIP | **tidak berpengaruh**. Varian yang ditaruh sesudah `.oem` sama berhasilnya dengan yang sebelum |
+| kotak inline ST (`__type:"IST"`) | **jalan**. Itu jalan keluar untuk yang di ladder butuh blok belum-terbukti — perbandingan `STRING`, misalnya |
+
+Bentuk JSON rung-nya ditiru dari tulisan Studio sendiri, dan tiga sifatnya gampang salah:
+
+```
+Ix       penghitung GLOBAL satu rung: elemen dulu, lalu LRI, lalu RRI, lalu tiap VL
+HL       pengisi kolom kosong di baris cabang - TIDAK ikut menghabiskan Ix
+X, Y, Ix DIHILANGKAN kalau nilainya 0
+```
+
+`tests/smc2section.test.js` mengadu keluaran builder ke rung sungguhan dari project mesin
+(`P011_ST1_Supply_Feeder/AutoRunning` rung 1) — sampai `VLs:[{Ix:9,X:3}]`.
+
+**Nama section dibatasi Studio, dan pelanggarannya baru kelihatan setelah project dibuka:**
+tidak boleh diawali garis bawah / angka / `P_`, tidak boleh diakhiri garis bawah, tidak boleh
+dua garis bawah berturut-turut, maksimal 127 byte. Diperiksa sebelum menulis, bukan sesudah.
+
+Satu section = tiga entity di `.oem` (`PouBody` + `SourceHolder` + `PouBodySourceHolder`, plus
+satu `Inline/StructuredText` per kotak ST) dan dua berkas: `<PouBody-id>.xml` berisi rung, dan
+`<PouBodySourceHolder-id>.xml` berisi artefak compile. Artefaknya ditulis versi paling tipis —
+Studio membangunnya ulang waktu Build.
 
 **Rung tetap TIDAK boleh ditulis.** Reader cuma menerjemahkan ~54% rung dengan eksak, dan rung
 yang ditulis atas tebakan ter-import mulus lalu salah waktu mesin bergerak — kelas kegagalan
@@ -923,6 +1007,8 @@ menghasilkan berkas yang sama persis.**
 | `scripts/nb_sync.js` | komen alarm `.smc2` -> `.nbp`, Alarm + Event Setting |
 | `scripts/nb_apply.js` `nb_common.js` | menyiapkan AlarmLib.csv, pencari project NB |
 | `scripts/smc2_comment.js` `smc2_write.js` | menulis balik komen elemen ke `.smc2` |
+| `scripts/smc2_rename.js` | ganti nama program di `.smc2` - tujuh peran sekaligus, termasuk penugasan task |
+| `scripts/smc2_section.js` | tambah section ladder ke `.smc2` - CRLF wajib, inline ST didukung |
 | `scripts/smc2_diff.js` `reader/diff.js` | bandingkan dua `.smc2`, hanya baca |
 | `scripts/smc2_extract.js` | `.smc2` -> teks deterministik buat di-commit |
 | `scripts/mcp.js` | server MCP: 13 alat (generator + berkas + smc2 + git) |

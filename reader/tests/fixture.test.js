@@ -51,7 +51,7 @@ chk('nama section terbaca, bukan GUID',
     /Device_Input/.test(sum.out) && /AutoRunning/.test(sum.out) && /Calc/.test(sum.out) &&
     /Timers/.test(sum.out));
 chk('section ST dikenali', /Calc\s+ST \d+ char/.test(sum.out));
-chk('tabel variabel terbaca', /VARIABEL\s*:\s*10 \(5 punya alamat IO\)/.test(sum.out),
+chk('tabel variabel terbaca', /VARIABEL\s*:\s*12 \(7 punya alamat IO\)/.test(sum.out),
     (sum.out.match(/VARIABEL.*/) || [''])[0]);
 
 // --- ekspresi boolean ---
@@ -136,7 +136,7 @@ const vlines = svg => (svg.match(/<line class="w"[^>]*>/g) || [])
 (async () => {
   const buf = fs.readFileSync(FIXTURE);
   const files = await M.unzip(buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength));
-  chk('ZIP kebaca tanpa library', files.size === 10, files.size + ' entri');
+  chk('ZIP kebaca tanpa library', files.size === 13, files.size + ' entri');
 
   // Dua section ladder JSON sekarang (AutoRunning 1111, Timers 4444) - dipetakan
   // per nama berkas, bukan "yang terakhir menang".
@@ -153,8 +153,14 @@ const vlines = svg => (svg.match(/<line class="w"[^>]*>/g) || [])
 
   chk('ladder JSON terbaca', json && json.length === 7, json ? json.length + ' rung' : 'tidak ada');
   chk('section ladder kedua terbaca', fbRungs && fbRungs.length === 2);
-  chk('tabel variabel terbaca', vars.length === 10, vars.length + ' variabel');
-  chk('alamat IO ikut kebaca', vars.filter(v => v.address).length === 5);
+  chk('tabel variabel terbaca', vars.length === 12, vars.length + ' variabel');
+  // Medan EC= (komen per elemen array) itu satu-satunya sumber teks alarm di dalam .smc2.
+  // Kalau berhenti terbaca, nb_sync melapor "tidak ada yang bisa disinkronkan" - kalimat yang
+  // terbaca seperti project tanpa alarm, bukan seperti pembaca yang rusak.
+  const al = vars.find(v => v.name === 'AL');
+  chk('komen per elemen array terbaca', !!(al && al.elementComments && al.elementComments[1]),
+      al ? JSON.stringify(al.elementComments) : 'AL tidak ada');
+  chk('alamat IO ikut kebaca', vars.filter(v => v.address).length === 7);
 
   // INI penjaga bug-nya. Viewer pernah tidak menyalin X/Y dari CLs, dan akibatnya
   // ladder tidak pernah tergambar sama sekali sementara semua rung ditandai

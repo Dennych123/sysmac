@@ -82,6 +82,56 @@ const RE_TEXT = /(<Font\b[^>]*>)([\s\S]*?)(<\/Font>)/;
 function escXml(s) {
   return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
+// Penanda dibuang DULU, berapa pun jumlahnya, baru satu ditempel - jadi sinkron kedua kali
+// menghasilkan teks yang sama persis dengan yang pertama.
+//
+// Ini bukan kehati-hatian berlebih: komen elemen di .smc2 SENDIRI sudah berpenanda
+// ("AL[1]Emergency stop"), karena penandanya memang ditulis ke sana lewat smc2_comment.js.
+// Menempel penanda lagi di atasnya menghasilkan "AL[1]AL[1]Emergency stop" di layar NB, dan
+// tiap putaran sinkron menambah satu lagi. Yang paling merugikan: kolom Message NB sempit,
+// jadi penanda ganda MENDORONG teks alarmnya sendiri keluar layar - operator melihat nomor
+// dua kali dan keterangan faultnya terpotong.
+//
+// Stub bernomor ("AL005_ Spare") ikut dibuang di sini, dan urutannya penting: stub itu berada
+// DI BELAKANG penanda ("AL[5]AL005_ Spare"), jadi pembuangan harus berputar sampai tidak ada
+// yang berubah lagi - sekali jalan cuma mengupas lapis terluar.
+function tanpaPenanda(s) {
+  let t = String(s);
+  for (;;) {
+    const u = t.replace(/^\s*(AL|MF)\[\d+\]\s*/, '').replace(/^\s*(AL|MF)\d+_\s*/, '');
+    if (u === t) return t;
+    t = u;
+  }
+}
+// Daftar yang KOSONG tetap bisa diisi, dan cetakannya diambil dari CADANGAN .nbp di folder yang
+// sama - bukan dari daftar sebelah. NB-Designer memang bisa mengosongkan Event Setting sendiri
+// waktu project disimpan, dan tanpa jalan ini satu-satunya cara mengisinya lagi adalah membuat
+// entri dengan tangan di NB - persis pekerjaan yang skrip ini ada untuk menghapusnya.
+//
+// Kenapa BUKAN menyalin dari <AlarmObject>: medannya beda, dan bedanya bukan kosmetik -
+//   AlarmObject   State="On" BeepDelay="0"   <Font Size="16" Color="0xff0000">
+//   EventObject   Beep="0"                   <Condition>1</Condition>
+//                                            <Function ID="32" Type="0">65535</Function>
+//                                            <Content Size="81" Color="0xff" ...><Font>
+// Condition dan Function menentukan KAPAN event tercatat dan apa yang dijalankannya. Dikarang,
+// hasilnya tetap ter-import dan tetap salah - kelas kegagalan yang paling mahal di repo ini.
+// Cadangan berisi markup yang ditulis NB-Designer sendiri, jadi tidak ada yang ditebak.
+function cetakanDariCadangan(tag) {
+  const dir = path.dirname(nbpPath), awal = path.basename(nbpPath) + '.';
+  let baks;
+  try { baks = fs.readdirSync(dir); } catch (e) { return null; }
+  // Terbaru dulu: cadangan paling akhir yang paling mendekati bentuk project sekarang.
+  baks = baks.filter(f => f.startsWith(awal) && f.endsWith('.bak'))
+             .map(f => path.join(dir, f))
+             .sort((a, b) => fs.statSync(b).mtimeMs - fs.statSync(a).mtimeMs);
+  for (const f of baks) {
+    let s;
+    try { s = fs.readFileSync(f, 'utf8'); } catch (e) { continue; }
+    const m = (s.match(reObj(tag)) || [])[0];
+    if (m) return { obj: m, dari: path.basename(f), jml: (s.match(reObj(tag)) || []).length };
+  }
+  return null;
+}
 
 (async function main() {
   let smcBuf, nbp;
@@ -101,16 +151,34 @@ function escXml(s) {
   // PLC yang jadi acuan, NB yang ikut. Nama elemen ditulis di depan teks alarm - itu memang
   // konvensi project NB aslinya ("AL[1]Emergency stop..."), dan gunanya persis ini: jadi
   // sambungan yang bertahan walau alamat maupun teksnya berubah.
+  // Alamat elemen dihitung dari BIT AT-nya, bukan dari word saja. Array kedua hampir tidak
+  // pernah mulai di bit 0: di project mesin ini MF ber-AT %H406.04, tepat menyambung AL yang
+  // berakhir di 406.03. Bit awalnya diabaikan, MF[1] jatuh di 406.00 - empat bit terlalu awal,
+  // dan seluruh 90 alarm MF ikut bergeser. Yang bikin ini mahal: layar NB tetap menampilkan
+  // teks yang benar sementara bit yang dipantaunya milik alarm lain, dan tidak ada satu pun
+  // pesan galat. Lebih buruk lagi, MF hasil geseran menabrak alamat AL yang sah, jadi satu bit
+  // punya dua entri dan tidak ada yang menyebutnya.
   const peta = {};
   arrays.forEach(a => {
     Object.keys(a.els).forEach(k => {
-      const i = +k - 1;
+      const i = a.bit + (+k - 1);
       peta[a.nama + '[' + k + ']'] = {
         addr: (a.word + Math.floor(i / 16)) + '.' + String(i % 16).padStart(2, '0'),
         teks: a.els[k], area: a.area
       };
     });
   });
+  // Dua elemen di alamat yang sama itu tanda aritmetikanya salah, bukan sekadar data aneh -
+  // dan diam-diam berarti alarm yang satu tidak akan pernah muncul. Disebut, bukan dilewati.
+  const perAddr = {};
+  Object.keys(peta).forEach(k => { (perAddr[peta[k].addr] = perAddr[peta[k].addr] || []).push(k); });
+  const tabrak = Object.keys(perAddr).filter(a => perAddr[a].length > 1);
+  if (tabrak.length) {
+    console.error('BERHENTI: ' + tabrak.length + ' alamat dipakai lebih dari satu elemen .smc2 -');
+    tabrak.slice(0, 5).forEach(a => console.error('  ' + a + '   ' + perAddr[a].join(' + ')));
+    console.error('Periksa kolom AT array AL/MF di Sysmac. Ditulis begini, satu alarm menimpa yang lain.');
+    process.exit(1);
+  }
   console.log('.smc2 : ' + arrays.map(a => a.nama + ' ' + Object.keys(a.els).length + ' komen @%' + a.area + a.word + '.' + String(a.bit).padStart(2, '0')).join('   '));
   (arrays.tanpaKomen || []).forEach(x => console.log('        ' + x + ' punya alamat tapi BELUM ada komen elemennya - dilewati'));
 
@@ -124,14 +192,36 @@ function escXml(s) {
       return (+a[0] - +b[0]) || (+a[1] - +b[1]);
     });
     console.log('');
+    // Cetakan tiap daftar ditentukan SEKALI di sini, lalu dipakai lagi waktu menulis - kalau
+    // laporan dan penulisan memutuskannya sendiri-sendiri, yang dilaporkan dan yang ditulis
+    // bisa berbeda, dan bedanya cuma kelihatan di layar NB.
+    const cetakan = {};
     TAG.forEach(t => {
       const n = (nbp.match(reObj(t)) || []).length;
-      console.log('MODE REBUILD ' + t.replace('Object', ' Setting') + ': ' + n + ' dibuang, diganti ' + urut.length + ' dari .smc2.'
-        + (n > urut.length ? '   (' + (n - urut.length) + ' tidak berasal dari .smc2, ikut hilang)' : ''));
+      const nama = t.replace('Object', ' Setting');
+      if (n) {
+        cetakan[t] = { obj: (nbp.match(reObj(t)) || [])[0], asal: 'daftar ini sendiri' };
+        console.log('MODE REBUILD ' + nama + ': ' + n + ' dibuang, diganti ' + urut.length + ' dari .smc2.'
+          + (n > urut.length ? '   (' + (n - urut.length) + ' tidak berasal dari .smc2, ikut hilang)' : ''));
+        return;
+      }
+      // Daftar kosong: isi tetap, cetakannya dipinjam dari cadangan .nbp di folder yang sama.
+      // NB-Designer bisa mengosongkan Event Setting sendiri waktu project disimpan, dan daftar
+      // kosong yang dilewati diam-diam terbaca persis seperti sinkron yang berhasil.
+      const c = cetakanDariCadangan(t);
+      if (!c) {
+        console.log('MODE REBUILD ' + nama + ': KOSONG, dan tidak ada cadangan .nbp yang punya <' + t + '> -');
+        console.log('              DILEWATI. Medan <' + t + '> tidak sama dengan daftar sebelah, jadi tidak dikarang.');
+        console.log('              Buat SATU entri di NB-Designer, simpan, lalu ulangi - satu entri cukup.');
+        return;
+      }
+      cetakan[t] = { obj: c.obj, asal: c.dari };
+      console.log('MODE REBUILD ' + nama + ': KOSONG - diisi ' + urut.length + ' dari .smc2.');
+      console.log('              cetakan dipinjam dari cadangan ' + c.dari + ' (' + c.jml + ' entri di situ).');
     });
-    console.log('              cetakan diambil dari objek pertama project ini, jadi font/PLC-nya ikut apa adanya.');
+    console.log('              cetakan = markup NB-Designer sendiri, jadi font/PLC/Condition ikut apa adanya.');
     console.log('');
-    urut.slice(0, 3).forEach(k => console.log('  ' + peta[k].addr + '   ' + k + peta[k].teks.replace(/^(AL|MF)\d+_\s*/, '')));
+    urut.slice(0, 3).forEach(k => console.log('  ' + peta[k].addr + '   ' + k + tanpaPenanda(peta[k].teks)));
     console.log('  ... total ' + urut.length);
     if (!write) {
       console.log('');
@@ -139,19 +229,37 @@ function escXml(s) {
       return;
     }
     let isi = nbp;
+    const diisi = [];
     TAG.forEach(t => {
+      if (!cetakan[t]) return;                      // sudah dilaporkan DILEWATI di atas
       const semua = isi.match(reObj(t)) || [];
-      if (!semua.length) return;
-      const cetak = semua[0];
+      diisi.push(t.replace('Object', ''));
+      const cetak = cetakan[t].obj;
       const objs = urut.map((k, i) => cetak
         // [0-9] bukan backslash-d: pola ini pernah ditulis lewat heredoc yang memakan
         // backslash-nya, jadi regexnya berubah jadi 'd+' dan ID tidak pernah diganti -
         // 190 objek ber-ID sama, dan NB cuma menyimpan satu entri per ID.
         .replace(new RegExp('^<' + t + ' ID="[0-9]+"'), '<' + t + ' ID="' + i + '"')
         .replace(RE_ADDR, m0 => m0.replace(/>\d+\.\d+</, '>' + peta[k].addr + '<'))
-        .replace(RE_TEXT, (_, x, __, z) => x + escXml(k + peta[k].teks.replace(/^(AL|MF)\d+_\s*/, '')) + z));
+        .replace(RE_TEXT, (_, x, __, z) => x + escXml(k + tanpaPenanda(peta[k].teks)) + z));
       const tandai = '@@' + t + '@@';
-      semua.forEach((o, i) => { isi = isi.replace(o, i === 0 ? tandai : ''); });
+      if (semua.length) {
+        semua.forEach((o, i) => { isi = isi.replace(o, i === 0 ? tandai : ''); });
+      } else {
+        // Daftar kosong belum punya objek yang bisa ditukar penanda, jadi penandanya
+        // disisipkan ke dalam KONTAINER-nya. NB-Designer menulis kontainer kosong sebagai
+        // <EventObjects/> - bentuk itu HARUS ikut dikenali, kalau tidak entri barunya tidak
+        // punya tempat dan hilang tanpa satu pun pesan.
+        const wadah = t + 's';
+        const reWadah = new RegExp('<' + wadah + '\\s*\\/>|<' + wadah + '>\\s*<\\/' + wadah + '>');
+        if (!reWadah.test(isi)) {
+          console.log('LEWAT    : <' + wadah + '> tidak ketemu di .nbp - ' + t.replace('Object', ' Setting')
+            + ' tidak diisi.');
+          diisi.pop();
+          return;
+        }
+        isi = isi.replace(reWadah, '<' + wadah + '>' + tandai + '</' + wadah + '>');
+      }
       isi = isi.replace(tandai, objs.join(''));
     });
     const t0 = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 14);
@@ -160,7 +268,10 @@ function escXml(s) {
     fs.copyFileSync(nbpPath, bak0);
     fs.writeFileSync(nbpPath, isi, 'utf8');
     console.log('cadangan : ' + bak0);
-    console.log('DITULIS  : ' + urut.length + ' entri di Alarm dan Event Setting, ' + nbpPath);
+    // Daftar yang benar-benar diisi disebut satu per satu. "Alarm dan Event Setting" ditulis
+    // tetap bikin daftar yang dilewati terbaca seperti sudah beres.
+    console.log('DITULIS  : ' + urut.length + ' entri di ' + (diisi.join(' + ') || '(tidak ada daftar)')
+      + ' Setting, ' + nbpPath);
     return;
   }
 
@@ -180,9 +291,9 @@ function escXml(s) {
       cocok++; sudah[kunci] = 1;
       const am = RE_ADDR.exec(blok);
       const alamatLama = am ? am[1] + '.' + am[2] : '?';
-      // Stub bernomor ("AL001_ ") dibuang: penanda AL[1] di depannya sudah menyebut nomor
-      // yang sama, dan dua-duanya bikin pesan di layar terpotong lebih awal.
-      const teksBaru = escXml(kunci + d.teks.replace(/^(AL|MF)\d+_\s*/, ''));
+      // Penanda dan stub bernomor sama-sama dibuang dulu (lihat tanpaPenanda): teks di .smc2
+      // sudah membawa "AL[1]" sendiri, jadi menempel begitu saja menumpuknya tiap sinkron.
+      const teksBaru = escXml(kunci + tanpaPenanda(d.teks));
       let hasil = blok;
       if (am && alamatLama !== d.addr) {
         pindahAlamat++;
@@ -205,6 +316,16 @@ function escXml(s) {
   const objPertama = (nbp.match(reObj('AlarmObject')) || [])[0] || '';
   const areaNb = (/<AddressType[^>]*>([^<]+)<\/AddressType>/.exec(objPertama) || [])[1] || '?';
   console.log('.nbp  : ' + found.nbp + '   ' + TAG.map(t => (nbp.match(reObj(t)) || []).length + ' ' + t.replace('Object', '')).join(' + ') + ', area ' + areaNb);
+  // Tanpa --rebuild, sinkron hanya MENGGANTI teks entri yang sudah ada - daftar kosong berarti
+  // tidak ada satu pun yang disentuh. Angka 0 di baris atas gampang terlewat, dan yang terbaca
+  // cuma "DITULIS 379 teks" - seolah dua daftar sudah sama. Ini disebut sendiri.
+  TAG.forEach(t => {
+    if ((nbp.match(reObj(t)) || []).length) return;
+    console.log('        ' + t.replace('Object', ' Setting') + ' KOSONG - tanpa --rebuild sinkron hanya mengganti');
+    console.log('        teks entri yang sudah ada, jadi daftar ini tidak akan terisi. --rebuild MENGISINYA:');
+    console.log('        cetakannya dipinjam dari cadangan .nbp.*.bak, isinya dari .smc2 - sama persis');
+    console.log('        alamat dan teksnya dengan daftar sebelah.');
+  });
   // Yang dicocokkan cuma ANGKA word.bit, bukan areanya. Nama area di kedua alat memang beda
   // (Sysmac %W400.00, NB H_bit 400.00) dan tidak ada peta resmi antara keduanya, jadi menebak
   // padanannya lebih berbahaya daripada menyebutkan bedanya dan membiarkan orang memutuskan.
@@ -254,7 +375,9 @@ function escXml(s) {
     console.log('TIDAK ADA yang cocok - base word-nya beda, bukan berkasnya yang salah.');
     console.log('  NB     : word ' + wordNb[0] + ' .. ' + wordNb[wordNb.length - 1]);
     arrays.forEach(a => {
-      const akhir = a.word + Math.floor((Math.max.apply(null, Object.keys(a.els).map(Number)) - 1) / 16);
+      // Bit awal AT ikut dihitung, sama seperti waktu menyusun peta - kalau tidak, jangkauan
+      // yang dicetak di sini menunjuk word yang lain daripada yang benar-benar ditulis.
+      const akhir = a.word + Math.floor((a.bit + Math.max.apply(null, Object.keys(a.els).map(Number)) - 1) / 16);
       console.log('  Sysmac : ' + a.nama + ' word ' + a.word + ' .. ' + akhir);
     });
     console.log('');
