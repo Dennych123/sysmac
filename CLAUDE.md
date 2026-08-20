@@ -584,6 +584,33 @@ satu `Inline/StructuredText` per kotak ST) dan dua berkas: `<PouBody-id>.xml` be
 `<PouBodySourceHolder-id>.xml` berisi artefak compile. Artefaknya ditulis versi paling tipis —
 Studio membangunnya ulang waktu Build.
 
+**Teks ST di dalam kotak inline JUGA butuh escape yang lebih panjang dari JSON standar — kena
+sekali, jangan diulang.** Studio menulis baris baru sebagai `\u000d\u000a` (bukan `\r\n`), tab
+sebagai `\u0009`, garis miring sebagai `\/`. `\r\n` pendek tetap JSON yang sah tapi pembaca
+Studio tidak mengenalinya, dan cara gagalnya paling menipu di antara semua bug di berkas ini:
+**seluruh isi kotak ST terbaca sebagai SATU baris.** Karena baris pertama ST hampir selalu
+komentar `//`, seluruh isi kotak jadi komentar, dan Studio mengeluh `There must be at least
+one line of valid code (excluding comments)` menunjuk `line 1, column 0` — bukan "escape tidak
+dikenal", bukan "berkas rusak". `jsonStudio()` di `smc2_section.js` menulis keempat escape itu
+sesudah `JSON.stringify`, bukan sebelum — supaya urutan escape-nya sendiri tidak ikut kena ganti.
+
+**`smc2_section.js` juga bisa menambah VARIABEL**, ke tabel program (`ExternalVars`/`Vars`) dan
+ke tabel global sekaligus — satu spec, satu tulis, karena section yang memakai simbol yang belum
+didaftar tidak akan pernah benar. Baris baru diselipkan di **akhir grupnya**, bukan akhir berkas:
+grup ditentukan kepala `+GN=...` yang berlaku, dan baris VAR yang nyasar ke bawah kepala
+VAR_EXTERNAL ikut dianggap external tanpa satu pun tanda. Retain (`R=1`) itu medan per-baris di
+format teks ini — beda dari XML import yang menaruhnya di atribut *kontainer* `GlobalVars`; dua
+jalur yang sama-sama sah, jangan tertukar bentuknya.
+
+**Jatah memori retain NX1P2 cuma 32 KB, dan itu jarang terasa sampai tiba-tiba 98%.** Array
+`STRING` yang retain makan tempat lebih cepat dari intuisi: `ARRAY[0..99] OF STRING[56]` dua
+buah saja (kanban + trace) sudah ~11,4 KB. Ditambah project yang sudah jalan biasanya sudah
+memakai jatahnya sendiri (~14 KB di `Ce Insert Track`), jadi rancangan yang "kelihatan wajar di
+atas kertas" bisa langsung mendorong meteran Studio ke merah. Hitung `N × ukuran-per-baris`
+sebelum menulis array retain baru, jangan menebak — dan kecilkan N (baris setup) dan panjang
+`STRING` ke ukuran yang benar-benar terpakai (QR asli 30/44 byte, bukan 56 yang dibulatkan ke
+atas tanpa alasan) sebelum menambah kotak/kolom.
+
 **Rung tetap TIDAK boleh ditulis.** Reader cuma menerjemahkan ~54% rung dengan eksak, dan rung
 yang ditulis atas tebakan ter-import mulus lalu salah waktu mesin bergerak — kelas kegagalan
 yang seluruh empat gerbang dibangun untuk menangkalnya. Itu butuh buktinya sendiri.
