@@ -5,6 +5,11 @@ kode tapi menyebabkan kerusakan senyap kalau dilanggar.
 
 Daftar pekerjaan yang belum selesai ada di [TODO.md](TODO.md).
 
+Repo ini ALATNYA. Project mesin yang dikerjakan pakai alat ini ada terpisah di
+**<https://github.com/Dennych123/ceinsert>** (branch `main`) - `.smc2` + project NB + XML import
++ simulator OPC UA-nya, dengan `CLAUDE.md` sendiri berisi hal-hal khas mesin itu. Di mesin ini
+ter-clone di `../../track`.
+
 ## Perintah
 
 ```bash
