@@ -148,9 +148,46 @@ if (fs.existsSync(smc)) {
   const outA = String(rebuild3().stdout);
   chk('daftar kosong tanpa cadangan: DILEWATI', /Event Setting: KOSONG, dan tidak ada cadangan/.test(outA),
       (outA.split(String.fromCharCode(10)).find(l => /Event Setting/.test(l)) || '').slice(0, 70));
-  chk('laporan DITULIS tidak mengaku mengisi Event',
-      !/DITULIS[\s\S]*Event/.test(outA),
-      (outA.split(String.fromCharCode(10)).find(l => /^DITULIS/.test(l)) || '').slice(0, 70));
+  // Yang diperiksa BARIS DITULIS-nya sendiri, bukan seluruh keluaran sesudahnya: baris
+  // peringatan di bawahnya memang menyebut Event, justru untuk bilang daftarnya masih kosong.
+  const dit = outA.split(String.fromCharCode(10)).find(l => /^DITULIS/.test(l)) || '';
+  chk('laporan DITULIS tidak mengaku mengisi Event', !/Event/.test(dit), dit.slice(0, 70));
+  // Baris TERAKHIR yang dibaca halaman /edit dan pemantau otomatis. Tanpa ini, keluar 0 +
+  // "DITULIS 5 entri" terbaca sebagai lampu hijau sementara Event Setting kosong - itu yang
+  // sempat kejadian di project mesin, dan tidak ada satu pun tanda selama berhari-hari.
+  const akhirA = outA.trim().split(String.fromCharCode(10)).slice(-1)[0] || '';
+  chk('baris terakhir mengaku Event masih kosong', /MASIH KOSONG/.test(akhirA), akhirA.slice(0, 70));
+
+  // (c) TANPA --rebuild, daftar kosong tetap diisi - dan daftar yang SUDAH terisi tidak
+  // dipangkas. Dua operasi itu sempat digabung di bawah satu flag, jadi satu-satunya cara
+  // mengisi Event Setting adalah ikut membuang alarm yang tidak berasal dari .smc2. Mengisi
+  // yang kosong tidak bisa menghilangkan apa pun, jadi tidak perlu flag maupun keputusan.
+  // Ini yang bikin sinkron OTOMATIS lengkap sendiri sesudah NB-Designer mengosongkannya.
+  const nbp4 = path.join(nbDir3, 'Polos.nbp');
+  const cadangan4 = '<NBProject><AlarmObjects>' + OBJ('AlarmObject', 7, '400.00', 'lama') + '</AlarmObjects>'
+    + '<EventObjects><EventObject ID="9" HMIID="0"><Address><RegAddr>'
+    + '<AddressType SystemID="56">H_bit</AddressType>'
+    + '<AddressValue Type="Bit" Length="1" CodeType="0">400.00</AddressValue></RegAddr></Address>'
+    + '<Condition>1</Condition><Content><Font>lama</Font></Content></EventObject></EventObjects></NBProject>';
+  // Alarm sengaja dikasih SATU entri yang tidak ada di .smc2 (900.00): kalau jalur ini diam-diam
+  // ikut me-rebuild, entri itulah yang hilang - dan hilangnya tidak kelihatan dari jumlah saja.
+  fs.writeFileSync(nbp4, '<NBProject><AlarmObjects>' + OBJ('AlarmObject', 7, '400.00', 'lama')
+    + OBJ('AlarmObject', 8, '900.00', 'punya orang') + '</AlarmObjects><EventObjects/></NBProject>');
+  fs.writeFileSync(nbp4 + '.20200101000000.bak', cadangan4);
+  const rC = spawnSync(process.execPath,
+    [path.join(__dirname, '..', 'scripts', 'nb_sync.js'), smc, nbp4, '--write'], { encoding: 'utf8' });
+  const isi4 = fs.readFileSync(nbp4, 'utf8');
+  chk('tanpa --rebuild: Event yang kosong tetap diisi', cacah(isi4, 'EventObject') === 5,
+      cacah(isi4, 'EventObject') + ' event');
+  chk('tanpa --rebuild: Alarm yang sudah terisi TIDAK dipangkas',
+      /900\.00/.test(isi4) && cacah(isi4, 'AlarmObject') === 2, cacah(isi4, 'AlarmObject') + ' alarm');
+  chk('exit 0', rC.status === 0, 'exit ' + rC.status);
+  // Pemantau otomatis menjalankan ini tiap Studio menyimpan. Putaran kedua yang tetap menulis
+  // berarti tiap simpanan bikin satu .bak baru dan satu commit riwayat yang isinya tidak berubah.
+  const ulang = spawnSync(process.execPath,
+    [path.join(__dirname, '..', 'scripts', 'nb_sync.js'), smc, nbp4, '--write'], { encoding: 'utf8' });
+  chk('jalan kedua kali tidak mengubah apa-apa', fs.readFileSync(nbp4, 'utf8') === isi4,
+      (String(ulang.stdout).split(String.fromCharCode(10)).find(l => /Tidak ada yang perlu/.test(l)) || 'BERUBAH'));
 
   // (b) ada cadangan ber-EventObject: daftar kosong diisi, dan isinya WAJIB sama persis dengan
   // Alarm - alamat dan teksnya. Itu seluruh gunanya: satu komen di .smc2, dua daftar di NB.

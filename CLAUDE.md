@@ -107,11 +107,31 @@ berakhir di `406.03`. `nb_sync.js` sempat memakai word saja, jadi `MF[1]` jatuh 
 layar. Sekarang alamat ganda menghentikan skrip, bukan cuma diperingatkan.
 
 **Alarm dan Event Setting diisi dari sumber yang SAMA.** Satu komen elemen di `.smc2` jadi satu
-baris di dua daftar itu. Kalau salah satunya kosong, `--rebuild` meminjam cetakan dari cadangan
-`.nbp.*.bak` di folder yang sama - BUKAN dari daftar sebelah: `<EventObject>` punya `Condition`
-dan `Function` yang menentukan kapan event tercatat, dan `<AlarmObject>` tidak punya keduanya.
-NB-Designer memang bisa mengosongkan Event Setting sendiri waktu project disimpan (dia menulis
-`<EventObjects/>`), jadi ini bukan kejadian sekali.
+baris di dua daftar itu. Daftar yang KOSONG diisi **tanpa `--rebuild`**: cetakannya dipinjam dari
+cadangan `.nbp.*.bak` di folder yang sama - BUKAN dari daftar sebelah, karena `<EventObject>` punya
+`Condition` dan `Function` yang menentukan kapan event tercatat dan `<AlarmObject>` tidak punya
+keduanya. NB-Designer memang bisa mengosongkan Event Setting sendiri waktu project disimpan (dia
+menulis `<EventObjects/>`), jadi ini bukan kejadian sekali - dan karena tanpa flag, sinkron
+otomatis memperbaikinya sendiri di simpanan berikutnya.
+
+**Mengisi daftar kosong BUKAN `--rebuild`.** Dua-duanya sempat digabung di bawah satu flag, dan
+akibatnya satu-satunya cara mengisi Event Setting adalah ikut memangkas Alarm Setting: di project
+mesin ini 492 alarm jadi 190, membuang 302 entri yang tidak berasal dari `.smc2`. Daftar kosong
+tidak punya apa pun yang bisa hilang, jadi tidak perlu flag maupun keputusan siapa-siapa;
+`--rebuild` tetap perlu untuk MENGGANTI daftar yang sudah terisi. `isiUlang()` dipakai dua-duanya -
+dua salinan penyusun daftar cepat atau lambat berbeda, dan bedanya cuma kelihatan di layar NB.
+
+**Keluar 0 TIDAK berarti dua daftar terisi, dan itu sempat terbaca sebagai lampu hijau berhari-hari.**
+Daftar yang dilewati dilaporkan di tengah keluaran, sementara halaman `/edit` cuma menampilkan
+`r.err || 'selesai'` dan pemantau otomatis cuma mengirim BARIS TERAKHIR (`api.js`). Sekarang baris
+terakhir itu sendiri yang mengaku (`PERHATIAN: ... MASIH KOSONG`), dan lampu halaman ikut membacanya.
+Penjaganya di `tests/nbfind.test.js`.
+
+**Pencocokan lewat penanda `AL[n]` di depan teks, jadi entri yang penandanya terhapus di NB tidak
+akan pernah ketemu lagi.** Di project mesin ini `AL[11]` kena: teksnya benar, alamatnya benar, cuma
+penandanya hilang - jadi sinkron melewatinya dan melaporkannya sebagai "ada di .smc2 tapi belum ada
+alarmnya di NB". Perbaikannya menempelkan penandanya lagi di NB, bukan menambah pencocokan alamat:
+alamat itu justru yang sedang disinkronkan.
 
 `nb_apply.js` **tidak menulis apa-apa tanpa `--write`**, dan yang lama selalu disalin dulu ke
 `.bak` bertanggal yang tidak pernah menimpa cadangan sebelumnya. Menimpa `AlarmLib.csv`
@@ -136,6 +156,17 @@ Tulis `'\\n'`, `"\\25B8"`. Jebakan ini kena **empat kali** dalam satu sesi,
 termasuk di dalam komentar yang memperingatkannya. Build sekarang menolak
 menulis output kalau ada karakter kontrol, dan menjalankan `node --check` pada
 tiap blok `<script>` — tapi lebih murah tidak membuatnya sejak awal.
+
+**Jebakan yang sama berlaku di `scripts/edit_page.js`.** Seluruh JS halaman `/edit` hidup di dalam
+satu template literal backtick, jadi `split('\n')` yang ditulis tunggal jadi baris baru
+sungguhan waktu halamannya dirender - string JS-nya terputus dan halaman mati. Tulis `\\n`,
+atau lebih murah: jangan pakai escape sama sekali di situ (cari substring, jangan pecah per baris).
+
+**Menulis berkas lewat heredoc shell memakan satu backslash tiap pasang.** `\\s` yang
+diketik di dalam heredoc sampai ke berkas sebagai `\s`, dan di string JS `'\s'`
+jadi `s` biasa - regexnya berubah arti tanpa satu pun galat. Kena dua kali dalam satu sesi, di
+baris yang sudah berkomentar memperingatkannya. Kalau harus menulis backslash lewat jalur itu,
+pakai `chr(92)` dan periksa hasilnya dengan `grep`, jangan percaya apa yang diketik.
 
 **`js/*.js` berbentuk badan fungsi** yang menerima `msg`, `flow`, `node` dan
 mengembalikan `msg`. Itu warisan bentuk Node-RED (Node-RED-nya sendiri sudah

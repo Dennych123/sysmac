@@ -133,10 +133,54 @@ function cetakanDariCadangan(tag) {
   return null;
 }
 
+// Baris TERAKHIR yang dicetak dibaca sebagai RINGKASAN: halaman /edit dan pemantau otomatis
+// cuma menampilkan baris itu. Daftar yang tetap kosong harus muncul DI SITU, bukan cuma di
+// tengah laporan - lampu hijau bertulis "selesai" sementara Event Setting kosong adalah persis
+// kegagalan yang skrip ini ada untuk mencegah, dan yang paling lama tidak ketahuan.
+let akhir = '';
+function akhiri() {
+  const kosong = TAG.filter(t => !(akhir.match(reObj(t)) || []).length);
+  if (!kosong.length) return;
+  console.log('PERHATIAN: ' + kosong.map(t => t.replace('Object', ' Setting')).join(' + ')
+    + ' MASIH KOSONG di .nbp' + (write ? '' : ' (belum ada yang ditulis)') + '.');
+}
+
+// Menyusun ulang SATU daftar dari .smc2, memakai cetakan markup NB-Designer sendiri (ID, alamat
+// dan teksnya yang diganti - sisanya apa adanya). Dipakai dua jalur: --rebuild yang MENGGANTI
+// daftar terisi, dan pengisian daftar KOSONG yang jalan tanpa flag apa pun. Dua salinan cepat
+// atau lambat berbeda, dan bedanya cuma kelihatan di layar NB.
+//
+// null = kontainer <Xs> tidak ada di .nbp. Entri baru tidak punya tempat, dan entri yang hilang
+// tanpa satu pun pesan itu kelas kegagalan yang paling mahal di berkas ini.
+function isiUlang(isi, t, cetak, urut, peta) {
+  // [0-9] bukan backslash-d: pola ini pernah ditulis lewat heredoc yang memakan backslash-nya,
+  // jadi regexnya berubah jadi 'd+' dan ID tidak pernah diganti - 190 objek ber-ID sama, dan
+  // NB cuma menyimpan satu entri per ID.
+  const objs = urut.map((k, i) => cetak
+    .replace(new RegExp('^<' + t + ' ID="[0-9]+"'), '<' + t + ' ID="' + i + '"')
+    .replace(RE_ADDR, m0 => m0.replace(/>[0-9]+\.[0-9]+</, '>' + peta[k].addr + '<'))
+    .replace(RE_TEXT, (_, x, __, z) => x + escXml(k + tanpaPenanda(peta[k].teks)) + z));
+  const semua = isi.match(reObj(t)) || [];
+  const tandai = '@@' + t + '@@';
+  if (semua.length) {
+    semua.forEach((o, i) => { isi = isi.replace(o, i === 0 ? tandai : ''); });
+  } else {
+    // Daftar kosong belum punya objek yang bisa ditukar penanda, jadi penandanya disisipkan ke
+    // dalam KONTAINER-nya. NB-Designer menulis kontainer kosong sebagai <EventObjects/> - bentuk
+    // itu HARUS ikut dikenali, kalau tidak entri barunya hilang tanpa pesan.
+    const wadah = t + 's';
+    const reWadah = new RegExp('<' + wadah + '\\s*\\/>|<' + wadah + '>\\s*<\\/' + wadah + '>');
+    if (!reWadah.test(isi)) return null;
+    isi = isi.replace(reWadah, '<' + wadah + '>' + tandai + '</' + wadah + '>');
+  }
+  return isi.replace(tandai, objs.join(''));
+}
+
 (async function main() {
   let smcBuf, nbp;
   try { smcBuf = fs.readFileSync(smcPath); } catch (e) { console.error('.smc2 tidak terbaca: ' + e.message); process.exit(2); }
   try { nbp = fs.readFileSync(nbpPath, 'utf8'); } catch (e) { console.error('.nbp tidak terbaca: ' + e.message); process.exit(2); }
+  akhir = nbp;
   if (nbp.indexOf('<AlarmObject') < 0) {
     console.error('tidak ada satu pun <AlarmObject> di ' + nbpPath + ' - ini bukan project NB-Designer, atau alarmnya belum pernah dibuat.');
     process.exit(2);
@@ -182,15 +226,19 @@ function cetakanDariCadangan(tag) {
   console.log('.smc2 : ' + arrays.map(a => a.nama + ' ' + Object.keys(a.els).length + ' komen @%' + a.area + a.word + '.' + String(a.bit).padStart(2, '0')).join('   '));
   (arrays.tanpaKomen || []).forEach(x => console.log('        ' + x + ' punya alamat tapi BELUM ada komen elemennya - dilewati'));
 
+  // Urutan entri = urutan ALAMAT, dan dihitung di luar dua cabang di bawah: yang mengisi
+  // daftar kosong tanpa flag memakai urutan yang sama persis dengan --rebuild, jadi dua daftar
+  // NB tidak pernah berselisih urutan.
+  const urut = Object.keys(peta).sort((x, y) => {
+    const a = peta[x].addr.split('.'), b = peta[y].addr.split('.');
+    return (+a[0] - +b[0]) || (+a[1] - +b[1]);
+  });
+
   if (rebuild) {
     // Cetakannya diambil dari alarm yang SUDAH ADA di project ini, bukan dikarang: PLCID,
     // PLCGEID, token area, font, warna - semuanya milik project itu sendiri, dan satu-satunya
     // yang diganti ID, alamat, dan teksnya. Mengarang cetakan berarti menebak medan yang tidak
     // kita mengerti.
-    const urut = Object.keys(peta).sort((x, y) => {
-      const a = peta[x].addr.split('.'), b = peta[y].addr.split('.');
-      return (+a[0] - +b[0]) || (+a[1] - +b[1]);
-    });
     console.log('');
     // Cetakan tiap daftar ditentukan SEKALI di sini, lalu dipakai lagi waktu menulis - kalau
     // laporan dan penulisan memutuskannya sendiri-sendiri, yang dilaporkan dan yang ditulis
@@ -232,41 +280,21 @@ function cetakanDariCadangan(tag) {
     const diisi = [];
     TAG.forEach(t => {
       if (!cetakan[t]) return;                      // sudah dilaporkan DILEWATI di atas
-      const semua = isi.match(reObj(t)) || [];
-      diisi.push(t.replace('Object', ''));
-      const cetak = cetakan[t].obj;
-      const objs = urut.map((k, i) => cetak
-        // [0-9] bukan backslash-d: pola ini pernah ditulis lewat heredoc yang memakan
-        // backslash-nya, jadi regexnya berubah jadi 'd+' dan ID tidak pernah diganti -
-        // 190 objek ber-ID sama, dan NB cuma menyimpan satu entri per ID.
-        .replace(new RegExp('^<' + t + ' ID="[0-9]+"'), '<' + t + ' ID="' + i + '"')
-        .replace(RE_ADDR, m0 => m0.replace(/>\d+\.\d+</, '>' + peta[k].addr + '<'))
-        .replace(RE_TEXT, (_, x, __, z) => x + escXml(k + tanpaPenanda(peta[k].teks)) + z));
-      const tandai = '@@' + t + '@@';
-      if (semua.length) {
-        semua.forEach((o, i) => { isi = isi.replace(o, i === 0 ? tandai : ''); });
-      } else {
-        // Daftar kosong belum punya objek yang bisa ditukar penanda, jadi penandanya
-        // disisipkan ke dalam KONTAINER-nya. NB-Designer menulis kontainer kosong sebagai
-        // <EventObjects/> - bentuk itu HARUS ikut dikenali, kalau tidak entri barunya tidak
-        // punya tempat dan hilang tanpa satu pun pesan.
-        const wadah = t + 's';
-        const reWadah = new RegExp('<' + wadah + '\\s*\\/>|<' + wadah + '>\\s*<\\/' + wadah + '>');
-        if (!reWadah.test(isi)) {
-          console.log('LEWAT    : <' + wadah + '> tidak ketemu di .nbp - ' + t.replace('Object', ' Setting')
-            + ' tidak diisi.');
-          diisi.pop();
-          return;
-        }
-        isi = isi.replace(reWadah, '<' + wadah + '>' + tandai + '</' + wadah + '>');
+      const hasil = isiUlang(isi, t, cetakan[t].obj, urut, peta);
+      if (hasil === null) {
+        console.log('LEWAT    : <' + t + 's> tidak ketemu di .nbp - ' + t.replace('Object', ' Setting')
+          + ' tidak diisi.');
+        return;
       }
-      isi = isi.replace(tandai, objs.join(''));
+      isi = hasil;
+      diisi.push(t.replace('Object', ''));
     });
     const t0 = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 14);
     let bak0 = nbpPath + '.' + t0 + '.bak', n0 = 1;
     while (fs.existsSync(bak0)) bak0 = nbpPath + '.' + t0 + '-' + (++n0) + '.bak';
     fs.copyFileSync(nbpPath, bak0);
     fs.writeFileSync(nbpPath, isi, 'utf8');
+    akhir = isi;
     console.log('cadangan : ' + bak0);
     // Daftar yang benar-benar diisi disebut satu per satu. "Alarm dan Event Setting" ditulis
     // tetap bikin daftar yang dilewati terbaca seperti sudah beres.
@@ -316,15 +344,35 @@ function cetakanDariCadangan(tag) {
   const objPertama = (nbp.match(reObj('AlarmObject')) || [])[0] || '';
   const areaNb = (/<AddressType[^>]*>([^<]+)<\/AddressType>/.exec(objPertama) || [])[1] || '?';
   console.log('.nbp  : ' + found.nbp + '   ' + TAG.map(t => (nbp.match(reObj(t)) || []).length + ' ' + t.replace('Object', '')).join(' + ') + ', area ' + areaNb);
-  // Tanpa --rebuild, sinkron hanya MENGGANTI teks entri yang sudah ada - daftar kosong berarti
-  // tidak ada satu pun yang disentuh. Angka 0 di baris atas gampang terlewat, dan yang terbaca
-  // cuma "DITULIS 379 teks" - seolah dua daftar sudah sama. Ini disebut sendiri.
+  // Daftar yang KOSONG diisi DI SINI, tanpa --rebuild. Ini bukan operasi yang sama: --rebuild
+  // MEMBUANG daftar yang sudah terisi (di project mesin itu 302 alarm yang tidak berasal dari
+  // .smc2 ikut hilang), sementara daftar kosong tidak punya apa pun yang bisa hilang. Digabung
+  // jadi satu flag, satu-satunya cara mengisi Event Setting adalah ikut memangkas Alarm Setting -
+  // dan itu bukan tukar-tambah yang perlu ada.
+  //
+  // Ini juga yang membuat sinkron OTOMATIS lengkap sendiri: NB-Designer mengosongkan Event
+  // Setting sendiri waktu project disimpan, dan tanpa jalan ini pemantau akan terus melapor
+  // "sudah tersinkron" untuk satu daftar yang tidak pernah terisi lagi.
+  const diisiBaru = [];
   TAG.forEach(t => {
     if ((nbp.match(reObj(t)) || []).length) return;
-    console.log('        ' + t.replace('Object', ' Setting') + ' KOSONG - tanpa --rebuild sinkron hanya mengganti');
-    console.log('        teks entri yang sudah ada, jadi daftar ini tidak akan terisi. --rebuild MENGISINYA:');
-    console.log('        cetakannya dipinjam dari cadangan .nbp.*.bak, isinya dari .smc2 - sama persis');
-    console.log('        alamat dan teksnya dengan daftar sebelah.');
+    const nama = t.replace('Object', ' Setting');
+    const c = cetakanDariCadangan(t);
+    if (!c) {
+      console.log('        ' + nama + ' KOSONG, dan tidak ada cadangan .nbp yang punya <' + t + '> -');
+      console.log('        DILEWATI. Medan <' + t + '> tidak sama dengan daftar sebelah, jadi tidak dikarang.');
+      console.log('        Buat SATU entri di NB-Designer, simpan, lalu ulangi - satu entri cukup.');
+      return;
+    }
+    const hasil = isiUlang(baru, t, c.obj, urut, peta);
+    if (hasil === null) {
+      console.log('        ' + nama + ' KOSONG, tapi <' + t + 's> tidak ketemu di .nbp - DILEWATI.');
+      return;
+    }
+    baru = hasil;
+    diisiBaru.push(nama);
+    console.log('        ' + nama + ' KOSONG - diisi ' + urut.length + ' dari .smc2, alamat dan teks');
+    console.log('        sama persis dengan daftar sebelah. Cetakan dipinjam dari cadangan ' + c.dari + '.');
   });
   // Yang dicocokkan cuma ANGKA word.bit, bukan areanya. Nama area di kedua alat memang beda
   // (Sysmac %W400.00, NB H_bit 400.00) dan tidak ada peta resmi antara keduanya, jadi menebak
@@ -395,7 +443,9 @@ function cetakanDariCadangan(tag) {
   // `ubahTeks + pindahAlamat`, bukan variabel `ubah` yang tidak pernah ada. Barisnya CUMA
   // dilewati waktu `--write`, jadi ReferenceError-nya tidak pernah kelihatan lewat "Lihat dulu"
   // - yang gagal justru satu-satunya jalur yang benar-benar menulis.
-  if (!ubahTeks && !pindahAlamat) { console.log('\nTidak ada yang perlu diubah.'); return; }
+  // Daftar yang baru diisi ikut dihitung: tanpa itu sinkron yang teksnya kebetulan sudah sama
+  // berhenti di sini dan Event Setting yang barusan disusun tidak pernah sampai ke berkas.
+  if (!ubahTeks && !pindahAlamat && !diisiBaru.length) { console.log('\nTidak ada yang perlu diubah.'); return; }
   // .nbp itu SELURUH project HMI - layar, tag, setelan. Cadangan wajib, dan tidak boleh
   // menimpa cadangan sebelumnya.
   const t = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 14);
@@ -403,6 +453,9 @@ function cetakanDariCadangan(tag) {
   while (fs.existsSync(bak)) bak = nbpPath + '.' + t + '-' + (++n) + '.bak';
   fs.copyFileSync(nbpPath, bak);
   fs.writeFileSync(nbpPath, baru, 'utf8');
+  akhir = baru;
   console.log('\ncadangan : ' + bak);
-  console.log('DITULIS  : ' + ubahTeks + ' teks, ' + pindahAlamat + ' alamat di ' + nbpPath);
-})().catch(e => { console.error(e.message); process.exit(1); });
+  console.log('DITULIS  : ' + ubahTeks + ' teks, ' + pindahAlamat + ' alamat'
+    + (diisiBaru.length ? ', ' + urut.length + ' entri baru di ' + diisiBaru.join(' + ') : '')
+    + ' di ' + nbpPath);
+})().then(akhiri).catch(e => { console.error(e.message); process.exit(1); });

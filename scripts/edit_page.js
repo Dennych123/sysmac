@@ -275,9 +275,10 @@ function cekPantau(){
     $('watchInfo').className = 'status' + (r.lastError ? ' bad' : '');
     $('watchInfo').textContent = bagian.join('  |  ');
     if (r.nb) {
-      $('nbStatus').className = 'status ' + (r.nb.code === 0 ? 'ok' : 'bad');
+      var ok = r.nb.code === 0 && !nbKosong(r.nb.out);
+      $('nbStatus').className = 'status ' + (ok ? 'ok' : 'bad');
       $('nbStatus').textContent = r.nb.code === 0
-        ? ('tersinkron otomatis: ' + (r.nb.out || 'selesai'))
+        ? ((ok ? 'tersinkron otomatis: ' : 'sinkron otomatis BELUM LENGKAP: ') + (r.nb.out || 'selesai'))
         : ('sinkron otomatis GAGAL: ' + (r.nb.err || 'tidak diketahui'));
     }
   }, function(){});
@@ -401,14 +402,21 @@ function pulihkan(el, hmi){
 }
 
 // ----------------------------------------------------------------------- HMI
+// Keluar 0 TIDAK berarti dua daftar terisi: nb_sync melewati daftar yang tidak punya cetakan
+// dan tetap sukses. Lampu hijau di situ terbaca "alarm dan event sudah sync" - dan Event
+// Setting yang kosong baru ketahuan waktu layar NB dibuka.
+function nbKosong(s){ return /MASIH KOSONG/.test(s||''); }
+
 function nbSync(tulis){
   if (!PLC) return log('pilih folder project dulu', true);
   if (!HMI) return log('folder project ini tidak punya project NB-Designer', true);
   $('nbStatus').className = 'status';
   $('nbStatus').textContent = tulis ? 'menulis ke HMI...' : 'memeriksa...';
   api('nb/sync',{smc2:PLC, nb:HMI, write:!!tulis}).then(function(r){
-    $('nbStatus').className = 'status ' + (r.code === 0 ? 'ok' : 'bad');
-    $('nbStatus').textContent = (r.code === 0 ? '' : 'GAGAL: ') + (r.err || 'selesai');
+    var kosong = nbKosong(r.out);
+    $('nbStatus').className = 'status ' + (r.code === 0 && !kosong ? 'ok' : 'bad');
+    $('nbStatus').textContent = (r.code === 0 ? '' : 'GAGAL: ')
+      + (r.err || (kosong ? 'ada daftar yang MASIH KOSONG - baca laporan di bawah' : 'selesai'));
     $('log').textContent = r.out || r.err || '';
   }, function(e){
     $('nbStatus').className = 'status bad';
