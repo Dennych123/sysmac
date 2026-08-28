@@ -42,6 +42,10 @@ var MAIN_EXPORTS = ["PWR_ON","PLC_GOOD","AUTO_MODE","IND_MODE","NO_FAULT","HOME_
 
 function stripAS(n){ return n.replace(/^AS_/,""); }
 function pad(n,w){ return ("0000"+n).slice(-w); }
+// Alamat IO buat DIBACA manusia di komen (bukan nama simbol): "CH0_13" -> "CH0.13". portName()
+// menormalkan bentuk alamat lebih dulu (numeric "0.13" -> "CH000_13"), lalu titik dikembalikan biar
+// cocok dengan yang tercetak di gambar IO. Dipakai buat nyisipin alamat di depan komen PH/PX/LS.
+function addrLabel(addr){ return portName(addr).replace(/_/g,'.'); }
 // Token komen buat matching sensor. Dipecah per KATA (spasi) doang, tanda baca di dalam kata dibuang tapi
 // angkanya tetap nempel ke kata induknya: "STOPPER-2" -> "STOPPER2", bukan ["STOPPER","2"]. Dua alasan:
 //  1. angka itu satu-satunya pembeda antar unit sejenis (STOPPER-2 vs STOPPER-5, POSITION-1 vs POSITION-2).
@@ -119,7 +123,7 @@ var STMAP = {};
 ukeys.forEach(function(k,i){
     var n = parseInt(k.replace(/\D/g,""),10) || (i+1);
     var nameSuffix = sanitizeIdent(stationNamesMap[k]);
-    STMAP[k] = { prg:"Prg"+pad(10+i,3)+"_"+k+(nameSuffix?("_"+nameSuffix):""), gb:"GB"+pad(10+i,3), n:n };
+    STMAP[k] = { prg:"P"+pad(11+i,3)+"_"+k+(nameSuffix?("_"+nameSuffix):""), gb:"GB"+pad(11+i,3), n:n };
 });
 
 // AL/MF: index 1..AL_MAIN_RESERVED buat alarm MAIN, sisanya blok per station UKURAN DINAMIS
@@ -556,7 +560,7 @@ function buildUnit(stKey, devs){
                     oM :"LB"+pad(340+lbBase+j*2,3), oR :"LB"+pad(341+lbBase+j*2,3) };
             spareList.push(s);
             // Sumber reed switch cadangan. Dideklarasi di sini, di tempat pemakaian - ExternalVars
-            // itu per-program, dan yang sudah ada di P000_Initial tetap tidak dikenal di sini.
+            // itu per-program, dan yang sudah ada di P001_Initial tetap tidak dikenal di sini.
             G("GSB001","BOOL","Equipment design coil, constant OFF");
             G(s.pbM,"BOOL","Spare individual button, "+tag);
             G(s.pbR,"BOOL","Spare individual button, "+tag);
@@ -617,10 +621,13 @@ function buildUnit(stKey, devs){
     // 4. Timers
     var S4=[]; o=1;
     phpx.forEach(function(d,i){
-        var lOn=d.name+"_ON", lOff=d.name+"_OFF";
+        var lOn=d.name+"_ON", lOff=d.name+"_OFF", ad=addrLabel(d.address);
         var tOn="LT"+pad(100+i*2,3), tOff="LT"+pad(101+i*2,3);
         P(tOn,"TON","On delay timer for "+d.komen); P(tOff,"TON","Off delay timer for "+d.komen);
-        G(lOn,"BOOL",d.komen+" confirmed present"); G(lOff,"BOOL",d.komen+" confirmed absent");
+        // Alamat IO fisik disisipkan DI DEPAN komen bit konfirmasi ("CH0.13 ST3 SHUTTER-1 EXIST
+        // confirmed present") - pas debug orang baca komennya langsung tau terminal mana yang dicek,
+        // gak perlu balik ke tabel IO. Berlaku buat PH/PX (di sini) dan LS (LS_Combination di bawah).
+        G(lOn,"BOOL",ad+" "+d.komen+" confirmed present"); G(lOff,"BOOL",ad+" "+d.komen+" confirmed absent");
         S4.push(ton(o++,[d.name,false],T_PHPX,tOn,lOn, i===0?"Photo sensor debounce, on and off delay":null));
         S4.push(ton(o++,[d.name,true],T_PHPX,tOff,lOff,null));
     });
@@ -629,7 +636,8 @@ function buildUnit(stKey, devs){
     var S5=[]; o=1; var homeConds=[];
     asPairs.forEach(function(p,i){
         var lf="LSC_"+stripAS(p[0].name), lb="LSC_"+stripAS(p[1].name);
-        G(lf,"BOOL",p[0].komen+" position confirmed"); G(lb,"BOOL",p[1].komen+" position confirmed");
+        G(lf,"BOOL",addrLabel(p[0].address)+" "+p[0].komen+" position confirmed");
+        G(lb,"BOOL",addrLabel(p[1].address)+" "+p[1].komen+" position confirmed");
         S5.push(ls2(o,p[0].name,p[1].name,lf,lb, i===0?"Limit switch combination, one valid position at a time":null));
         o+=2; homeConds.push([lb,false]);
     });
@@ -740,14 +748,17 @@ function buildUnit(stKey, devs){
         r.rr([r.ton([c1,c2],T_MOTION,tmr,mf)]); S6.push(r.build());
         fltList.push(mf); mfN++;
     });
-    // ===== Alarm dari blok flowchart (AutoRunning) =====
+    // ===== Alarm dari blok flowchart (masuk section Fault, BUKAN AutoRunning) =====
     // Bit-nya WAJIB dialokasi di sini, SEBELUM integ() dipanggil di bawah: integ() yang merangkai
     // "grup alarm bersih" (chunkNot semua bit alarm -> LB13x/LB14x/LB15x). Kalau alarm baru dibikin
     // pas section AutoRunning digenerate (jauh di bawah), dia gak akan pernah kebawa ke grup manapun,
     // jadi coil-nya nyala tapi mesin gak berhenti - persis jenis kegagalan diam yang paling bahaya.
-    // Rung coil-nya sendiri tetap dibikin nanti di AutoRunning, pakai bit hasil alokasi di sini.
+    // Rung coil (self-latch) DITARUH DI SECTION FAULT ini, bukan di AutoRunning - alarm dievaluasi tiap
+    // scan bareng deteksi fault lain, gak nebeng urutan gerak (permintaan pemilik repo). Tapi prevBit-nya
+    // baru ketauan pas traversal AutoRunning di bawah, jadi rungnya DIKUMPULIN dulu ke flowAlarmRungs
+    // lalu di-append ke S6 sesudah traversal, pakai penomoran rung Fault yang dilanjut dari faultO.
     var ALARM_GROUPS = { emergency:[], autostop:[], cyclestop:[], faultstop:[], warning:[] };
-    var alarmBitOf = {};
+    var alarmBitOf = {}, flowAlarmRungs = [], faultO = 1;
     (((flow.get("motionSequences")||{})[stKey])||[]).forEach(function(v,vIdx){
         ((v&&v.nodes)||[]).forEach(function(n){
             if(!n || n.type!=="alarm") return;
@@ -780,6 +791,7 @@ function buildUnit(stKey, devs){
     chunkAux.forEach(function(b){ P(b,"BOOL","Partial alarm group result"); });
     S6.push(series(o++,[["LB134",false],["LB139",false],["LB144",false],["LB149",false]],"LB160","No fault present in this unit"));
     P("LB160","BOOL","No fault present in this unit");
+    faultO = o;   // penomoran rung Fault dilanjut di sini buat coil alarm flowchart yang di-append nanti
 
     // 7. Preparation
     var S7=[]; o=1;
@@ -1173,8 +1185,10 @@ function buildUnit(stKey, devs){
                 var abit=alarmBitOf[vIdx+"/"+node.id];
                 if(!abit){ W("alarm_no_slot",stKey,stKey+': '+nodeTitle(node)+' did not get an AL slot, block skipped.'); return; }
                 // Self-latch, sama persis kayak rung AL dual-sensor fault di section Fault: alarm harus
-                // nyangkut walau penyebabnya cuma sekejap, bukan ikut padam pas step-nya lewat.
-                S10.push(latch(o++,[[prevBit,false]],abit,[], "["+variantLabel+"] Alarm: "+(node.comment||node.id)));
+                // nyangkut walau penyebabnya cuma sekejap, bukan ikut padam pas step-nya lewat. Rungnya
+                // TIDAK dipush ke S10 di sini - dikumpulin ke flowAlarmRungs, lalu di-append ke section
+                // Fault (S6) sesudah traversal ini kelar (lihat catatan di deklarasi flowAlarmRungs).
+                flowAlarmRungs.push({ prev:prevBit, abit:abit, label:"["+variantLabel+"] Alarm: "+(node.comment||node.id) });
                 confirmBitOf[node.id]=prevBit; stepDone[node.id]=true;
 
             } else {
@@ -1204,6 +1218,13 @@ function buildUnit(stKey, devs){
                 "Sequence variant complete: all parallel branches finished"));
             variantDoneBits.push(doneBit);
         }
+    });
+
+    // Coil alarm flowchart yang dikumpulin selama traversal di atas ditempel ke EKOR section Fault (S6),
+    // pakai penomoran rung yang dilanjut dari faultO. Self-latch: (prevBit OR abit) -> abit, jadi alarm
+    // nyangkut walau pemicunya sekejap - reset-nya lewat grup alarm reset yang sama dengan fault lain.
+    flowAlarmRungs.forEach(function(a){
+        S6.push(latch(faultO++,[[a.prev,false]],a.abit,[], a.label));
     });
 
     // ===== Section Memory (SET/RESET) =====
@@ -1356,14 +1377,32 @@ function buildUnit(stKey, devs){
 
     // 14. Station_Output
     var S14=[]; o=1;
+    var stOutUsed={};
     [["LB105","00","unit at home position"],["LB134","01","emergency stop clear"],["LB139","02","auto stop clear"],
      ["LB144","03","cycle stop clear"],["LB149","04","fault stop clear"],["LB154","05","warning clear"],
      ["LB309","06","unit motion condition established"],["LB499","20","automatic operation complete"]].forEach(function(x,i){
+        stOutUsed[x[1]]=true;
         G(GB+"_"+x[1],"BOOL",stLabel+" "+x[2]);
         S14.push(series(o++,[[x[0],false]],GB+"_"+x[1], i===0?"Unit status broadcast to other programs":null));
     });
+    stOutUsed["09"]=true;
     G(GB+"_09","BOOL",stLabel+" unit is stopped");
     S14.push(series(o++,[["LB400",true]],GB+"_09",null));
+    // Station output cadangan sampai 32 bit. Broadcast bit yang belum kepakai tetap dibuat UTUH -
+    // baris global + rung - disetir GSB001 (konstanta OFF), sama polanya dengan slot cadangan lain.
+    // Alasannya sama: nambah handshake antar-station nanti tinggal ganti sumbernya, nomor bit GB gak
+    // geser dan yang menggambar screen NB gak nunjuk bit yang berpindah. GSB001 dideklarasi ulang di
+    // sini (G() idempoten) karena planSpares cuma bikin dia kalau ada slot aktuator cadangan.
+    G("GSB001","BOOL","Equipment design coil, constant OFF");
+    var stFirstSpare=true;
+    for(var gbit=0; gbit<32; gbit++){
+        var bs=pad(gbit,2);
+        if(stOutUsed[bs]) continue;
+        G(GB+"_"+bs,"BOOL",stLabel+" spare output bit "+bs);
+        S14.push(series(o++,[["GSB001",false]],GB+"_"+bs,
+            stFirstSpare?"Station output spare, reserved to bit 31 - repoint to the real handshake when one is wired":null));
+        stFirstSpare=false;
+    }
 
     var secs=[sect("Station_Input",1,S1),sect("Device_Input",2,S2),sect("HMI_Input",3,S3),sect("Timers",4,S4),
       sect("LS_Combination",5,S5),sect("Fault",6,S6),sect("Preparation",7,S7),sect("Condition",8,S8),
@@ -1696,7 +1735,7 @@ function buildMain(devs){
       sect("Fault",5,S5),sect("Master_Preparation",6,S6),sect("Condition",7,S7),sect("Auto_Main_Loop",8,S8),
       sect("Main_Out",9,S9),sect("HMI_Output",10,S10),
       sect("Memory",11,SMEM),sect("Device_Output",12,S11),sect("Station_Output",13,S12)];
-    return { name:"Prg001_MAIN.xml", xml:prog("Prg001_MAIN",ext,priv,secs,glob),
+    return { name:"P010_Main.xml", xml:prog("P010_Main",ext,priv,secs,glob),
              stats:"MAIN: in="+inputs.length+" out="+outputs.length+" unit="+ukeys.length };
 }
 
@@ -1834,7 +1873,7 @@ function buildProbe(){
 }
 
 
-// ============================================================ P000_Initial
+// ============================================================ P001_Initial
 // Bit rangka yang dipakai SELURUH program: GSB000 selalu ON, GSB001 selalu OFF, lalu deretan
 // coil cadangan. Sebelum ini generator memakai GSB000 di puluhan rung sebagai penanda tapi tidak
 // pernah membuatnya - hasil generate di-import ke project kosong, bitnya tidak ada, dan semua
@@ -1888,7 +1927,7 @@ function buildInitial(){
     }
 
     var secs=[sect("Design_Coil",1,S1),sect("Adjust_Coil",2,S2)];
-    return { name:"P000_Initial.xml", xml:prog("P000_Initial",ext,priv,secs,glob),
+    return { name:"P001_Initial.xml", xml:prog("P001_Initial",ext,priv,secs,glob),
              stats:"INITIAL: GSB000/GSB001 + "+(GSB_ADJUST_LAST-1)+" spare coil, "
                   +(ADV_OK?"clock pulses generated":"clock pulses placeholder") };
 }
@@ -1948,6 +1987,30 @@ function buildHmi(){
     hmiClaim("PL_TP_AUTO_COND", atBit(HMI_CFG.btnArea,HMI_CFG.lampBase,tpBit++), "PLC->HMI", "001", "Auto start condition established indication");
     S1.push(series(o++,[[condSummary.PL031,false],[condSummary.PL032,false]],"PL_TP_AUTO_COND","Auto start condition established"));
 
+    // Switch screen NB otomatis pada perubahan mode - pola dari project nyata (TP_Control rung 0021).
+    // Project asli pakai @MOVE (diferensiasi); di sini pakai MOVE POLOS + kontak EDGE, yang HASILNYA
+    // sama (MOVE cuma jalan di scan tempat edge lewat) TAPI bentuk import-nya sudah terbukti bersih -
+    // @-varian belum. Gerbang ADV_OK: nomor screen dan register tujuan itu KHAS NB tiap mesin, jadi
+    // ini template opsional, bukan default. HMI_SCREEN sengaja TANPA AT - integrator yang set AT-nya
+    // ke register "Switch Screen" milik project NB (System Setting -> PLC Control), lalu sesuaikan
+    // nomor screen di bawah ke layout NB-nya. Salah nomor cuma pindah ke screen keliru, bukan bahaya
+    // gerak - tapi tetap wajib dicek sebelum dipakai.
+    if(ADV_OK){
+        G("HMI_SCREEN","INT","Target NB screen number - map AT to the NB 'Switch Screen' control register");
+        // [trigger-edge, negated, edge, screenNo, komen]
+        [["MSTR_RDY",false,"falling", 21,"to master screen when master turned off"],
+         ["AUTO_RUN", false,"rising",  31,"to auto-run screen when auto starts"],
+         ["NO_FAULT", false,"falling", 91,"to alarm screen when a fault appears"]].forEach(function(sw,si){
+            var r=new Rung(o++, si===0?"Switch NB screen on mode change (set HMI_SCREEN AT to the NB screen-control register)":null);
+            var en=r.ct(sw[0], r.rail(), sw[1], sw[2]);
+            var mv=r.blk("MOVE",null,[["EN",en],["In",r.src("INT#"+sw[3])]],["ENO","Out"]);
+            r.sink("HMI_SCREEN", mv.Out);
+            r.rr([mv.ENO]);
+            S1.push(r.build());
+        });
+        W("hmi_screen_switch","","P003_HMI: screen-switch rungs generated. Set HMI_SCREEN's AT to the NB 'Switch Screen' register and adjust the screen numbers (21/31/91) to your NB layout.",{level:"info"});
+    }
+
     // 2. Counters
     // Pola counter Denso butuh pembanding (`<`, `<>`, `>=`) dan Inc() - di luar kontak/coil/TON.
     // Susunan pin-nya sudah pasti (docs/SYSMAC_INSTRUCTIONS.md + `--probe-fb`), yang belum pasti
@@ -1970,12 +2033,12 @@ function buildHmi(){
     numW = hmiClaimWords(CNT_SET,  HMI_CFG.numArea, numW, CNT_N*2, "HMI<->PLC", "0071", "Counter target value");
     numW = hmiClaimWords(CNT_WARN, HMI_CFG.numArea, numW, CNT_N*2, "HMI<->PLC", "0071", "Counter warning threshold");
     numW = hmiClaimWords(CNT_CUR,  HMI_CFG.numArea, numW, CNT_N*2, "PLC->HMI",  "0071", "Counter present value");
-    if(!ADV_OK){
-        P("COUNTER_NOP","BOOL","No operation, reserved for counter circuits");
-        S2.push(series(o++,[["GSB000",false]],"COUNTER_NOP",
-            "Counter circuits need MOVE / compare / Inc - turn on advanced instructions after the probe file imports cleanly"));
-        W("counters_not_generated","","Prg003_HMI: the Counters section is still a placeholder. Import _Probe_Instructions.xml into Studio first; if it comes in clean, turn on 'Advanced instructions' and the counters get generated for real.",{level:"info"});
-    } else {
+    // Counter di-generate DEFAULT, TIDAK lagi di balik advancedInstructions. Buktinya bukan sekadar
+    // cocok tabel: project NYATA yang jalan di line (Ce Insert Track, P003_HMI/Counters) memakai
+    // `Inc`/`<`/`<>`/`>=` persis bentuk ini dan ke-import bersih - lihat docs/CE_INSERT_TRACK_EXTRACT.md.
+    // GCT itu trigger eksternal (bukan Get**Clk), jadi counter mandiri - beda dari Timers yang masih
+    // butuh clock pulse dan tetap di balik ADV_OK.
+    {
         for(var ci2=0; ci2<CNT_N; ci2++){
             var slot=cntLamp(ci2);
             if(!slot){ W("counter_lamp_full","","Counter "+(ci2+1)+" got no lamp slot, skipped."); continue; }
@@ -2027,7 +2090,7 @@ function buildHmi(){
     G(TMR_SET,"ARRAY[0..15] OF UDINT","Timer preset value");
     G(TMR_CUR,"ARRAY[0..15] OF UDINT","Timer present value");
     G(TMR_LAMP,"ARRAY[0..9] OF BOOL","Timer up indication, screen 0081");
-    // Clock pulse dibangun di P000_Initial, tapi program yang MEMAKAI-nya tetap harus
+    // Clock pulse dibangun di P001_Initial, tapi program yang MEMAKAI-nya tetap harus
     // mendeklarasikan sendiri: ExternalVars itu per-program, bukan warisan.
     // Komentarnya diambil dari deklarasi Initial kalau ada, supaya satu simbol tidak punya
     // dua keterangan berbeda di dua berkas.
@@ -2079,15 +2142,91 @@ function buildHmi(){
 
     var secs=[sect("TP_Control",1,S1),sect("Counters",2,S2),sect("Timers",3,S3),
               sect("Setup",4,S4),sect("Memory",5,S5)];
-    return { name:"Prg003_HMI.xml", xml:prog("Prg003_HMI",ext,priv,secs,glob),
+    return { name:"P003_HMI.xml", xml:prog("P003_HMI",ext,priv,secs,glob),
              stats:"HMI: "+COND_ARRAYS.length+" condition array x"+COND_ARRAYS[0].size
-                  +", "+CNT_N+" counters, "+TMR_N+" timers"+(ADV_OK?"":" (placeholder)") };
+                  +", "+CNT_N+" counters, "+TMR_N+" timers"+(ADV_OK?"":" (timers placeholder)") };
+}
+
+// ============================================================ Prg002_Servo
+// TABEL AXIS SERVO TERPADU - satu daftar dipakai untuk axis EtherCAT-motion MAUPUN servo non-motion
+// yang dikawat lewat I/O station biasa. Tiap axis punya jalur input (feedback) dan output (command).
+// Program ini cuma dibuat kalau flow.get("servoAxes") ada isinya (kalau kosong, mesin tanpa servo).
+//   type "io"       : kontak/coil biasa - enable dari master, command -> output fisik, feedback <-
+//                     input fisik, servo-fault kalau command nyala tapi feedback tak balik. Terbukti aman.
+//   type "ethercat" : perlu MC_Power/MC_Reset/MC_Stop ke _MC_AX[n]. MC_* BELUM lolos probe import,
+//                     jadi bit terpadunya tetap dideklarasi + slot axis dipesan, tapi rung motion-nya
+//                     PLACEHOLDER + warning - diisi setelah MC_* terbukti ke-import bersih. Bentuk
+//                     nyatanya ada di docs/CE_INSERT_TRACK_EXTRACT.md (P002_Servo project asli).
+// Nomor program 002 (antara MAIN=001 dan HMI=003) sesuai konvensi "motion/servo selalu program 2".
+function buildServo(){
+    var axes = flow.get("servoAxes") || [];
+    if(!axes.length) return null;
+    var ext=[],priv=[],glob=[],nameCI={};
+    function G(n,t,d){ var k=n.toUpperCase(); if(nameCI[k]) return; nameCI[k]=n; var v=vr(n,t,d); glob.push("      "+v); ext.push("      "+v); GLOBALS[n]={t:t||"BOOL",d:d||""}; }
+    function P(n,t,d){ var k=n.toUpperCase(); if(nameCI[k]) return; nameCI[k]=n; priv.push("      "+vr(n,t,d)); }
+    G("GSB000","BOOL","Equipment design coil, constant ON");
+    G("GSB001","BOOL","Equipment design coil, constant OFF");
+    MAIN_EXPORTS.forEach(function(n){ G(n,"BOOL","Machine status broadcast to all units"); });
+    var S_IN=[], S_RDY=[], S_FLT=[], S_OUT=[], S_HMI=[], oi=1, orr=1, of=1, oo=1, oh=1;
+    var nEC=0, nIO=0;
+    axes.forEach(function(a,i){
+        var n=i+1, nm="SV"+pad(n,2), lbl=(a.label||a.name||nm), st=a.station||"";
+        var isEC = String(a.type||"io").toLowerCase()==="ethercat";
+        var rdy=nm+"_READY", cmd=nm+"_CMD", fb=nm+"_FB", flt=nm+"_FLT", gbOn="GB002_"+pad(n,3);
+        var tag=(st?st+" ":"")+lbl;
+        G(rdy,"BOOL",tag+" servo ready / locked");
+        P(cmd,"BOOL",tag+" run command - drive from auto sequence or HMI");
+        G(fb,"BOOL",tag+" position / ready feedback");
+        G(flt,"BOOL",tag+" servo fault");
+        G(gbOn,"BOOL",tag+" servo on, broadcast to other programs");
+        var lamp="PL_"+nm+"_RDY"; G(lamp,"BOOL",tag+" servo ready indication");
+        if(isEC){
+            nEC++;
+            // Bit terpadu sudah ada; rung motion-nya nunggu MC_* terbukti. Placeholder pakai GSB001
+            // (OFF) supaya READY tak pernah nyala palsu sebelum axis-nya betul-betul di-power.
+            S_RDY.push(series(orr++,[["GSB001",false]],rdy,
+                i===0?"EtherCAT axis "+(a.axis!=null?"_MC_AX["+a.axis+"]":"")+": needs MC_Power/MC_Reset/MC_Stop - reserved, fill after the MC_* probe imports cleanly":
+                      (tag+" EtherCAT axis: MC_* reserved")));
+            S_IN.push(series(oi++,[["GSB001",false]],fb, null));
+            S_FLT.push(series(of++,[["GSB001",false]],flt, null));
+            S_OUT.push(series(oo++,[[rdy,false]],gbOn, null));
+            W("servo_ethercat_placeholder","",'P002_Servo: EtherCAT axis "'+tag+'" reserved but not generated - MC_Power/MC_Reset/MC_Stop are not proven to import yet. Fill the motion rungs by hand after the probe.',{level:"info",device:nm});
+        } else {
+            nIO++;
+            var inPort = a.inAddr ? portName(a.inAddr) : null;
+            var outPort= a.outAddr? portName(a.outAddr): null;
+            // feedback input fisik -> simbol
+            if(inPort){ G(inPort,"BOOL",tag+" feedback input"); S_IN.push(series(oi++,[[inPort,false]],fb, i===0?"Physical feedback input to symbol":null)); }
+            else S_IN.push(series(oi++,[["GSB001",false]],fb, i===0?"No feedback input wired yet - point this at the real station input":null));
+            // enable dari master ready (MSTR_RDY itu MAIN export, terdeklarasi lintas program)
+            S_RDY.push(series(orr++,[["MSTR_RDY",false]],rdy, i===0?"Servo enable from master ready":null));
+            // servo fault: command nyala tapi feedback tak balik
+            S_FLT.push(series(of++,[[cmd,false],[fb,true]],flt, i===0?"Servo fault: command on but no position/ready feedback":null));
+            // command -> output fisik (enable AND cmd)
+            if(outPort){ G(outPort,"BOOL",tag+" command output"); S_OUT.push(series(oo++,[[rdy,false],[cmd,false]],outPort, i===0?"Servo command to physical output":null)); }
+            else { P(nm+"_OUT_NC","BOOL",tag+" command, no output wired yet"); S_OUT.push(series(oo++,[[rdy,false],[cmd,false]],nm+"_OUT_NC", i===0?"No output wired yet - point this coil at the real station output":null)); }
+            S_OUT.push(series(oo++,[[rdy,false]],gbOn,null));
+        }
+        S_HMI.push(series(oh++,[[rdy,false]],lamp, i===0?"Servo status to HMI":null));
+    });
+    // Section kosong (mis. semua axis EtherCAT jadi S_FLT/S_OUT ada isinya, tapi jaga-jaga) diberi NOP.
+    function nz(arr,o,nopName,cmt){ if(!arr.length){ P(nopName,"BOOL",cmt); arr.push(series(1,[["GSB000",false]],nopName,cmt)); } }
+    nz(S_IN,oi,"SVIN_NOP","No servo feedback inputs");
+    nz(S_RDY,orr,"SVRDY_NOP","No servo ready logic");
+    nz(S_FLT,of,"SVFLT_NOP","No servo fault logic");
+    nz(S_OUT,oo,"SVOUT_NOP","No servo outputs");
+    nz(S_HMI,oh,"SVHMI_NOP","No servo HMI status");
+    var secs=[sect("Servo_Input",1,S_IN),sect("SV_Ready",2,S_RDY),sect("Fault",3,S_FLT),
+              sect("MD_Out",4,S_OUT),sect("HMI_Out",5,S_HMI)];
+    return { name:"P002_Servo.xml", xml:prog("P002_Servo",ext,priv,secs,glob),
+             stats:"SERVO: "+axes.length+" axis ("+nIO+" I/O, "+nEC+" EtherCAT reserved)" };
 }
 
 if(!groups.MAIN||!groups.MAIN.length) W("no_main_devices","","No MAIN devices found, every comment contains a station tag.");
 files.push(buildInitial());
 if(!ADV_OK) files.push(buildProbe());
 files.push(buildMain(groups.MAIN||[]));
+var servoFile=buildServo(); if(servoFile) files.push(servoFile);
 files.push(buildHmi());
 ukeys.forEach(function(k){ files.push(buildUnit(k,groups[k])); });
 

@@ -24,7 +24,7 @@ const flow={get:k=>ctx[k], set:(k,v)=>ctx[k]=v};
 let m=run('s_parse',{payload:IO},flow); m=run('s_name',m,flow);
 const v=run('s_val',m,flow); if(v[1]){ console.log('VALIDATE ERR:',v[1].payload); process.exit(1); }
 const r=run('s_all',run('s_split',v[0],flow),flow);
-const xml=r.payload.files.find(f=>/Prg010_ST1/.test(f.name)).xml;
+const xml=r.payload.files.find(f=>/P011_ST1/.test(f.name)).xml;
 // Potong per SECTION beneran. Dulu `split('AutoRunning')[1]` dipakai buat "isi AutoRunning",
 // padahal itu seluruh sisa file - termasuk section sesudahnya. Begitu rung memory pindah ke
 // section Memory, tesnya tetap hijau padahal yang diuji sudah bukan AutoRunning lagi.
@@ -77,13 +77,17 @@ chk('LB801 di-set dari cabang N, di-reset dari cabang Y',
     m801.includes('set by '+nBit) && m801.includes('reset by '+yBit),
     (m801.match(/set by [^<]*/)||[''])[0]);
 
-// --- alarm: AL[] dialokasi, latching, dan MASUK grup fault stop ---
-const alBit=(auto.match(/operand="(AL\[\d+\])"/)||[])[1];
+// --- alarm: AL[] dialokasi, latching, MASUK grup fault stop, dan coil-nya di section FAULT ---
+// Coil alarm flowchart dipindah dari AutoRunning ke section Fault: alarm dievaluasi tiap scan bareng
+// deteksi fault lain, gak nebeng urutan gerak. alBit diambil dari rung alarm-nya sendiri, karena
+// section Fault juga memuat AL[] dual-sensor reed lain (IO test punya AS pair).
+const fault=sectionOf('Fault');
+const aR=rungWith(fault,'Alarm: Press judgement NG');
+chk('rung alarm ada di section Fault', !!aR);
+chk('alarm TIDAK lagi di AutoRunning', !auto.includes('Alarm: Press judgement NG'));
+const alBit=(aR.match(/operand="(AL\[\d+\])"/)||[])[1];
 chk('alarm dapat slot AL[]', !!alBit, String(alBit));
-const aR=rungWith(auto,'Alarm: Press judgement NG');
-chk('rung alarm ada', !!aR);
 chk('alarm self-latch', !!aR && CT(alBit).test(aR));
-const fault=xml.split('AutoRunning')[0];
 chk('AL alarm nyambung ke grup Fault stop (LB145)',
     new RegExp('operand="'+alBit.replace(/[[\]]/g,'\\$&')+'"').test(rungWith(fault,'Fault stop group')) ||
     fault.includes(alBit), 'alBit='+alBit);

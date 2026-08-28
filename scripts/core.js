@@ -45,6 +45,7 @@ function generate(project, opts) {
     actuatorOverrides: project.actuatorOverrides || {},
     motionSequences:   project.motionSequences || {},
     conditionDefs:     project.conditionDefs || {},
+    servoAxes:         project.servoAxes || [],
     // Dua ini sempat tidak diteruskan, jadi CLI diam-diam menghasilkan program yang BEDA
     // dari yang keluar di browser dengan project JSON yang sama: peta HMI balik ke default
     // dan instruksi lanjutan selalu mati. Setiap kunci baru yang dibaca gen_all lewat

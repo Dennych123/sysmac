@@ -185,7 +185,7 @@ console.log(noMfFull ? 'MF BLOCK OK: semua actuator ST1 kebagian slot (block din
 //   LB400_B: seal LB400_B dari RAIL paralel (LB499 AND LB400), LB400_A jadi GATE di ujung ->
 //            LB400_B ikut drop pas LB400_A drop. Kalau seal-nya nyambung setelah LB499 dan
 //            LB400_A ikut ke-bypass seal, LB400_B nyangkut nyala.
-const stubSt1 = stub.files.find(f=>f.name==='Prg010_ST1.xml');
+const stubSt1 = stub.files.find(f=>f.name==='P011_ST1.xml');
 const objA = rungObjs(stubSt1.xml, 'Start motion process: ST1, auto motion start');
 const fA = op => objA.filter(o=>o.op===op);
 const aSeal=fA('LB400_A')[0], aCoil=objA.find(o=>o.type==='Coil'&&o.op==='LB400_A');
@@ -232,8 +232,8 @@ const okSeeded = validate('seeded', seeded.files);
 // LB400 gerbang bareng di depan, lalu (LB300 OR seal LB401) nge-OR ke coil LB401 sendiri (varian
 // ber-condition PERTAMA = LB401, terlepas dari posisi mentahnya di array variants) - bukan rung
 // sample terpisah, bukan placeholder stub lama.
-const st1 = seeded.files.find(f=>f.name==='Prg010_ST1_Conveyor_Feed.xml');
-const properName = st1 && /<Program name="Prg010_ST1_Conveyor_Feed">/.test(st1.xml) && /ST1 Conveyor Feed/.test(st1.xml);
+const st1 = seeded.files.find(f=>f.name==='P011_ST1_Conveyor_Feed.xml');
+const properName = st1 && /<Program name="P011_ST1_Conveyor_Feed">/.test(st1.xml) && /ST1 Conveyor Feed/.test(st1.xml);
 console.log('station name in file name + Program attr + broadcast comments:', properName);
 const hasAllMotions = st1 && [1,2,3,4,5,6,7].every(n => new RegExp('Motion '+n+'\\b').test(st1.xml));
 const hasJoins = st1 && /Join \(AND\)/.test(st1.xml) && /Join \(OR\)/.test(st1.xml);
@@ -279,7 +279,7 @@ const seededCond = runPipeline({ conditionDefs: { ST1: [
     ] },
 ] } });
 const okSeededCond = validate('conditionDefs', seededCond.files);
-const st1c = seededCond.files.find(f=>f.name==='Prg010_ST1.xml');
+const st1c = seededCond.files.find(f=>f.name==='P011_ST1.xml');
 const hasNamedConds = st1c && /<Variable name="LB300">.*?P&amp;P Take Out Lowering Auto Start Condition/.test(st1c.xml.replace(/\n/g,''));
 const hasOrOfAnd = st1c && /P&amp;P Take Out Lowering Auto Start Condition/.test(st1c.xml) && /Lowering Insert Auto Start Condition/.test(st1c.xml);
 const noOldSpareStub = st1c && !/Unit motion conditions, spare slots to be defined per product type/.test(st1c.xml);
@@ -303,7 +303,7 @@ const seededTypo = runPipeline({ motionSequences: { ST1: [
     { condition: 'LB402', nodes: [ { id:'b1', sol:'CR_ST1_LFT_DIV_BWD', after:[], join:'AND' } ] },
 ] } });
 const okSeededTypo = validate('condition-typo', seededTypo.files);
-const st1t = seededTypo.files.find(f=>f.name==='Prg010_ST1.xml');
+const st1t = seededTypo.files.find(f=>f.name==='P011_ST1.xml');
 const mxObjs = rungObjs(st1t.xml, 'Unit motion condition running \\(mutual exclusion\\)');
 const mxGate = mxObjs.find(o=>o.op==='LB400');
 // Kontak yang nyambung langsung ke output gate LB400 = trigger + seal tiap baris. Harus persis
@@ -351,7 +351,7 @@ const sr=run('s_all',ssp,srvFlow);
 console.log(sr.payload.stats);
 if(sr.payload.warnings) console.log('WARN:\n'+sr.payload.warnings);
 const okSrv = validate('servo', sr.payload.files);
-const st2s = sr.payload.files.find(f=>f.name==='Prg011_ST2.xml');
+const st2s = sr.payload.files.find(f=>f.name==='P012_ST2.xml');
 const noOddWarn = !/solenoid count is odd/.test(sr.payload.warnings||'');
 const noOpenloopWarn = !/DANDORI.*motion fault skipped/.test(sr.payload.warnings||'') && !/FEEDER.*motion fault skipped/.test(sr.payload.warnings||'');
 const allThreeServoIndividual = (st2s.xml.match(/Individual command, ST2 SERVO/g)||[]).length === 3;

@@ -45,7 +45,7 @@ function extract(name) {
 // Panel dan generator distub - yang diuji riwayatnya, bukan gambarnya. Stub-nya menghitung
 // panggilan supaya bisa dipastikan undo BENAR-BENAR menggambar ulang; state yang pulih tapi
 // layar yang tidak ikut adalah bug yang kelihatan persis seperti undo yang tidak jalan.
-const src = 'var motionState={},conditionState={},stationNames={},actuatorOverrides={},motionCounters={};'
+const src = 'var motionState={},conditionState={},stationNames={},actuatorOverrides={},motionCounters={},servoState=[];'
   + 'var selected=null,renders=0;'
   + 'function renderMotionPanel(){renders++;}function renderConditionPanel(){}'
   + 'function renderStationNamesPanel(){}function regenerate(){checkpoint();}'

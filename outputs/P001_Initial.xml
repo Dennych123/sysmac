@@ -5,10 +5,10 @@
          schemaVersion="1"
          xmlns="www.iec.ch/public/TC65SC65BWG7TF10">
   <FileHeader companyName="PT. Ndeso Indonesia" productName="Susmax Studio" productVersion="1.30.0.0" />
-  <ContentHeader name="P000_Initial" creationDateTime="2026-07-30T00:00:00">
+  <ContentHeader name="P001_Initial" creationDateTime="2026-07-30T00:00:00">
     <AddData><Data name="https://www.ia.omron.com/Smc IEC61131_10_Ed1_0_SmcExt1_0_Spc1_0.xsd" handleUnknown="discard"><smcext:DeviceInfo modelName="NX1P2" version="1.40" /></Data></AddData>
   </ContentHeader>
-  <Types><GlobalNamespace><Program name="P000_Initial">
+  <Types><GlobalNamespace><Program name="P001_Initial">
     <ExternalVars>
       <Variable name="GSB000"><Documentation xsi:type="SimpleText">Equipment design coil, constant ON</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
       <Variable name="GSB001"><Documentation xsi:type="SimpleText">Equipment design coil, constant OFF</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
