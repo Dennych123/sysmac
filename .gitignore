@@ -11,3 +11,8 @@ mdf ats new.smc2
 tools/opcua/node_modules/
 tools/opcua/package-lock.json
 tools/opcua/pki/
+
+# blurobot/ punya repo SENDIRI (rb4axis) dan kebetulan ter-clone di dalam sini.
+# Di-add tanpa submodule, yang tercatat cuma gitlink: klon repo ini dapat folder KOSONG
+# tanpa satu pun tanda bahwa isinya hilang.
+blurobot/
