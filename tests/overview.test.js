@@ -78,7 +78,7 @@ chk('jumlah section cocok dengan XML', ovSect === sectTotal, ovSect + ' vs ' + s
 
 chk('nama program terbaca utuh', ov.every(p => p.name && !/[<>"]/.test(p.name)),
     ov.map(p => p.name).join(' ').slice(0, 90));
-chk('program MAIN ketemu dan berisi', ov.some(p => /MAIN/.test(p.name) && p.rungs > 10),
+chk('program MAIN ketemu dan berisi', ov.some(p => /Main/i.test(p.name) && p.rungs > 10),
     ov.map(p => p.name + ':' + p.rungs).join(' '));
 chk('section punya nama, bukan kosong', ov[0].sections.every(s => s.name.length > 1),
     JSON.stringify(ov[0].sections.slice(0, 3)));

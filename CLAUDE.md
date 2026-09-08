@@ -491,7 +491,7 @@ Empat hal yang masing-masing sempat memakan waktu, semuanya sudah dibuktikan di 
 
 | | |
 |---|---|
-| **Global variable ter-publish OTOMATIS** | Tidak perlu menyetel Network Publish satu-satu, dan generator TIDAK perlu menulis `networkPublish`. Path-nya `GlobalVars.<nama>` — `GlobalVars.GSB000`, `GlobalVars.PB411_1M` |
+| **Network Publish: JANGAN dianggap otomatis** | Catatan lama di sini bilang global ter-publish sendiri. Yang bisa dipastikan cuma ini: project mesin yang dipakai waktu itu MENYETEL `NTP=PublicationOnly` di 2188 variabelnya, jadi pengalaman di situ tidak membuktikan apa pun untuk project kosong. Di project sim Blurobot yang dibuat dari nol, 47 tag tidak terbaca satu pun sampai `networkPublish="PublishOnly"` ditulis ke XML import. Path-nya tetap `GlobalVars.<nama>` |
 | **Jalankan simulasinya DULU** | Menu "Use the OPC UA Server for the simulator" abu-abu selama simulator belum jalan. Run (F5) dulu, baru pilihannya hidup |
 | **NX1P2 BISA** | Sempat kucatat di sini bahwa OPC UA cuma ada di NX102 ke atas — **salah**, dan penyebab menu abu-abunya bukan model melainkan simulasi yang belum jalan. Tidak perlu mengganti device |
 | **Centang `None` di Security policy, lalu Transfer to simulator** | Tanpa `None`, sambungan wajib Sign + sertifikat klien dipercaya lewat Certificate management. Yang ditolak karena sertifikat memberi pesan yang **terlihat seperti salah password** — itu yang bikin UaExpert kelihatan rusak |
@@ -671,6 +671,98 @@ cd reader && node cli.js "Prepare CE insert3.smc2" --probe-fb
 `rungExpr()` di `src/ladder.js` itu hal LAIN: dia menebak bentuk rangkaian dari
 koordinat saja dan menandai hasilnya `~`. Cukup untuk dibaca manusia, TIDAK boleh
 dipakai untuk menulis program.
+
+## `blurobot/` - kinematik robot dari project mesin ke simulator + viz 3D
+
+Mengangkat DUA function block ST (`FORWARD_KINEMATIC`, `INVERSE_KINEMATIC`) dari
+project robot 4 sumbu `BLUEROBOT ECU 28032020.smc2`, menjalankannya di simulator
+NX102, dan menggambarnya 3D di browser lewat OPC UA. Selengkapnya di
+[blurobot/README.md](blurobot/README.md); yang di bawah ini yang gampang salah.
+
+**Cara kerja jalur itu — dan jebakannya — sudah diangkat jadi resep umum:
+[docs/SIMULASI_3D_OPCUA.md](docs/SIMULASI_3D_OPCUA.md).** Baca itu DULU sebelum
+menyimulasikan mesin lain. Isinya yang berlaku untuk mesin apa pun: pembagian
+tanggung jawab (PLC pemilik kebenaran, halaman cuma menggambar), berkas mana yang
+disalin apa adanya dan mana yang ditulis ulang, urutan M1-M5 berikut BUKTI tiap
+langkah, dan seluruh daftar kegagalan-tanpa-keluhan — Studio, OPC UA, ST, viz,
+kehalusan. Yang mahal ditemukan ulang bukan kodenya, tapi daftar itu.
+
+```bash
+node blurobot/tools/extract.js   # .smc2 -> extract/    (HANYA BACA project mesin)
+node blurobot/tools/gen_sim.js   # config -> ST init + tabel variabel + tags.json
+node blurobot/tools/gen_xml.js   # sim/ -> BlurobotSim.xml, satu berkas import Studio
+node blurobot/tests/run.js       # 5 suite - TERPISAH dari node tests/run.js
+```
+
+**`gen_xml.js` menulis POU ber-badan ST, dan bentuknya DITIRU dari `Sample.xml` Omron**
+(`<BodyContent xsi:type="ST"><ST>...</ST></BodyContent>`), bukan dikarang. Dua hal yang
+gampang salah di jalur ini:
+
+* **ARRAY tidak boleh jadi `<TypeName>`.** `<TypeName>ARRAY[0..3] OF LREAL</TypeName>`
+  LOLOS XSD (TypeName itu xsd:string apa saja) dan baru ditolak Studio. Yang benar
+  `<InstantlyDefinedType xsi:type="ArrayTypeSpec">`.
+* **Akhiran baris di dalam `<ST>` LF, BUKAN CRLF.** Pembaca XML menormalkan CRLF jadi
+  LF sebelum teksnya sampai ke Studio (XML 1.0 2.11), jadi memaksa CRLF tidak ada
+  gunanya. Aturan "ST wajib CRLF" itu milik jalur `.smc2` (`scripts/smc2_section.js`)
+  yang menulis ke dalam ZIP tanpa lewat parser XML. Dua jalur, dua aturan.
+
+Penugasan task TIDAK bisa lewat XML - XSD-nya tidak punya elemennya. Itu tetap langkah
+tangan di Studio, dan program yang tidak ditugaskan **tidak dieksekusi tanpa keluhan**.
+
+**Dua aturan Studio yang baru terbukti waktu Build, bukan waktu import** (dua-duanya
+sudah kena sekali di project ini):
+
+| | |
+|---|---|
+| array milik instance FB **tidak boleh diindeks** | `IK2.ROBOT_POS_OUTPUT[i]` ditolak: *"Cannot use an element of array or a member of structure for the reference of function block instance variables"*. Anggota skalar (`IK2.DONE`) tidak kena. Salin arraynya UTUH ke variabel lokal dulu |
+| nama POU **tidak boleh diawali `P_`** | itu awalan variabel sistem (`P_On`, `P_First_Run`). Studio menamai ulang sendiri jadi `PR_...` **tanpa satu pun pesan**, dan sesudah itu penugasan task, dokumen, dan tiap rujukan menunjuk POU yang tidak ada. Aturan yang sama dengan nama section |
+
+**Suitenya sengaja terpisah** dari `node tests/run.js`: empat gerbang XML tidak ada
+urusannya dengan kinematik, dan suite ini harus boleh SKIP waktu project mesinnya
+tidak ada di mesin ini (berkas pelanggan, tidak ikut repo).
+
+**DUA versi algoritma, berdampingan.** `blurobot/extract/*.st` verbatim dari mesin
+(cacatnya utuh, itu catatannya); `blurobot/sim/*_V2.st` yang sudah dibetulkan dan itu
+yang dijalankan simulator. Tiap cacat punya DUA tes - satu menuntut perilaku V1, satu
+menuntut V2 - plus satu yang membuktikan keduanya memang beda di pose yang sama. Jangan
+"membetulkan" yang di `extract/`: begitu dibetulkan, tidak ada lagi yang bisa diadu ke
+project mesin.
+
+`ATAN2` TIDAK dipakai di V2 - tidak ada di daftar 353 instruksi W560, jadi belum
+terbukti ter-import. Kuadran dibetulkan lewat `ATAN` + koreksi eksplisit, dan port JS-nya
+melakukan hal yang sama supaya hasil PLC dan hasil JS tetap bisa diadu.
+
+Cacat V1 yang ditiru dan diuji:
+
+| cacat | akibatnya |
+|---|---|
+| `DONE` ditulis TRUE di SEMUA cabang `IF/ELSIF/ELSE` | pemeriksaan soft limit dihitung lalu dibuang. Di ladder aslinya `DONE` menempati slot **ENO**, jadi seluruh cabang pencari langkah jog (`JOG_WORLD_STEP + 1`) tidak pernah jalan - langkah jog tetap 10 selamanya |
+| `ALFA := ATAN(Z3/Y3)`, bukan ATAN2 | pose dengan `Y3 < 0` meleset TEPAT 180 derajat |
+| `ACOS` tanpa penjaga jangkauan | titik di luar `L2+L3` = error runtime di PLC, bukan angka salah |
+| FK tidak menyentuh `EXECUTE` maupun `DONE` | FK menghitung tiap dipanggil, dan yang menunggu `DONE`-nya menunggu selamanya |
+
+Penjaganya ditaruh di **pemanggil** (`PRG_SIM_ROBOT.st`, `reachable()`), bukan di dalam
+FB - supaya FB tetap identik dengan yang jalan di mesin.
+
+**Robotnya 1 prismatik + 3 revolute, bukan 4R.** Sumbu 0 tidak pernah masuk fungsi
+trigonometri mana pun dan langsung jadi X; sumbu 1-3 rantai planar di bidang Y-Z.
+Salah di sini bikin viz menggambar robot yang lain sambil tetap tampak wajar -
+`blurobot/tests/viz.test.js` mengadu titik ujung gambar ke keluaran FK.
+
+**Panjang gripper dijumlahkan ke `ROBOT_TOOL_Y_LREAL` TEPAT SEKALI**, waktu `gen_sim.js`
+menulis blok init - itu yang menaruh TCP di ujung jari. Dijumlahkan lagi di viz atau di
+rung, lengannya panjang dua kali gripper, dan di layar itu cuma tampak seperti lengan
+yang sedikit lebih panjang.
+
+**Round-trip kinematik tidak bisa lebih rapat dari ~5e-6 derajat.** `DEGREE_TO_RAD` dan
+`RAD_TO_DEGREE` di project dipotong 9 angka, jadi perkaliannya `1 - 2.98e-8`. Itu
+lantainya, berapa pun benarnya rumusnya - dan konstanta itu yang dipakai PLC. Tes yang
+menuntut lebih rapat sebenarnya menuntut konstanta yang lain.
+
+**Dimensi `ROBOT_L1..L4` dan `ROBOT_TOOL_*` TIDAK ada di project** (retain, diisi dari
+HMI Pro-face `.prx` yang tidak ada pembacanya di repo ini). Angkanya placeholder di
+`blurobot/sim/robot.config.json`, dan itu SATU-SATUNYA tempat angka: literal ST
+dibangkitkan `gen_sim.js`, `gen_sim.js --check` menolak kalau sudah basi.
 
 ## Pindah laptop - yang perlu dan yang TIDAK perlu
 
@@ -1067,6 +1159,7 @@ menghasilkan berkas yang sama persis.**
 | `scripts/test.js` | uji pipeline end-to-end |
 | `tests/*.test.js` | harness per-area, jalan tanpa browser |
 | `docs/SYSMAC_INSTRUCTIONS.md` | 353 instruksi + FUN/FB + pin, dari manual W560 |
+| `docs/SIMULASI_3D_OPCUA.md` | resep simulasi mesin: NX simulator + OPC UA + viz 3D, berikut jebakannya |
 | `scripts/nb_sync.js` | komen alarm `.smc2` -> `.nbp`, Alarm + Event Setting |
 | `scripts/nb_apply.js` `nb_common.js` | menyiapkan AlarmLib.csv, pencari project NB |
 | `scripts/smc2_comment.js` `smc2_write.js` | menulis balik komen elemen ke `.smc2` |
@@ -1078,6 +1171,10 @@ menghasilkan berkas yang sama persis.**
 | `scripts/ws.js` `api.js` | folder kerja + API bersama halaman dan MCP |
 | `scripts/edit_page.js` | halaman `/edit`: catat, lihat riwayat, kembalikan |
 | `scripts/app.js` + `Susmax.cmd` | aplikasi lokal 127.0.0.1, membungkus skrip di atas |
+| `blurobot/tools/extract.js` | FB kinematik `.smc2` -> ST verbatim + tabel variabel |
+| `blurobot/sim/` | project simulasi NX102: ST, dua TSV tempel, langkah Studio |
+| `blurobot/bridge/bridge.js` | OPC UA simulator <-> halaman viz (SSE + POST) |
+| `blurobot/web/kin.js` | port JS FK/IK + titik rantai buat viz; dipakai tes juga |
 
 ## Cara harness UI bekerja
 

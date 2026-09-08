@@ -1,7 +1,7 @@
 // Tiap operand yang dipakai sebuah program harus dideklarasi DI PROGRAM ITU.
 //
 // ExternalVars itu per-program, bukan warisan: simbol yang sudah ada di GlobalVariables.tsv
-// dan sudah dideklarasi di P000_Initial TETAP tidak dikenal di Prg003_HMI kalau tidak
+// dan sudah dideklarasi di P001_Initial TETAP tidak dikenal di P003_HMI kalau tidak
 // didaftarkan lagi di sana. Kegagalannya senyap - XML-nya sah menurut XSD, importnya jalan,
 // yang muncul cuma variabel merah di Studio setelah semuanya masuk. Persis yang kejadian
 // dengan aP_0_1s / aP_1s di section Timers.
@@ -75,10 +75,10 @@ varian.forEach(([label, seed]) => {
 
 // Kasus yang bikin tes ini ada. Diperiksa langsung supaya kalau harness di atas lumpuh
 // (regex meleset, files kosong) kegagalannya tetap kelihatan.
-const hp = gen({ advancedInstructions: true }).files.find(f => f.name === 'Prg003_HMI.xml').xml;
+const hp = gen({ advancedInstructions: true }).files.find(f => f.name === 'P003_HMI.xml').xml;
 const ext = /<ExternalVars>([\s\S]*?)<\/ExternalVars>/.exec(hp)[1];
-chk('Prg003_HMI mendeklarasi aP_0_1s', /name="aP_0_1s"/.test(ext));
-chk('Prg003_HMI mendeklarasi aP_1s', /name="aP_1s"/.test(ext));
+chk('P003_HMI mendeklarasi aP_0_1s', /name="aP_0_1s"/.test(ext));
+chk('P003_HMI mendeklarasi aP_1s', /name="aP_1s"/.test(ext));
 chk('clock dipakai sebagai kontak di Timers', /operand="aP_0_1s"/.test(hp) && /operand="aP_1s"/.test(hp));
 
 // Harness-nya sendiri harus bisa gagal. Kalau deklarasi aP_1s dihapus dari teks, undeclared()

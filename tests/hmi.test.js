@@ -201,7 +201,7 @@ chk('komen elemen tetap ada di ArrayComments.tsv',
       p.files.find(f=>f.name==='ArrayComments.tsv').xml));
 // Berkas per-program tetap bentuk lama: tabelnya baru LENGKAP di AllPrograms, dan dua berkas
 // yang membawa versi setengah jadi bakal saling menimpa waktu di-import.
-const one=p.files.find(f=>/^Prg0\d\d_ST/.test(f.name)).xml;
+const one=p.files.find(f=>/^P0\d\d_ST/.test(f.name)).xml;
 chk('berkas per-program tetap satu kontainer polos',
     (one.match(/<GlobalVars[^>]*>/g)||[]).join('')==='<GlobalVars>',
     (one.match(/<GlobalVars[^>]*>/g)||[]).join(' '));
@@ -304,11 +304,14 @@ chk('arrayRows ikut di payload buat panel UI',
 // antara HMI_Output dan Device_Output.
 const secList=(x)=>(x.match(/name="([A-Za-z_]+)" evaluationOrder="\d+"/g)||[])
   .map(m=>/name="([A-Za-z_]+)"/.exec(m)[1]);
-p.files.filter(f=>/^Prg\d+_/.test(f.name)).forEach(f=>{
+// Initial (P001) dan Servo (P002) bukan program mesin - tidak punya section Memory. Dulu terkecuali
+// sendiri karena Initial ber-prefix P000 sementara sisanya "Prg"; sekarang semua "P0..", jadi
+// dikecualikan eksplisit.
+p.files.filter(f=>/^P0\d+_/.test(f.name) && !/^P001_Initial|^P002_Servo/.test(f.name)).forEach(f=>{
   const secs=secList(f.xml);
   const i=secs.indexOf('Memory');
   chk(f.name+': punya section Memory', i>=0, secs.join(' '));
-  // Posisi baku itu cuma berlaku buat program yang PUNYA dua section itu. Prg003_HMI tidak
+  // Posisi baku itu cuma berlaku buat program yang PUNYA dua section itu. P003_HMI tidak
   // punya Device_Output sama sekali - dia bukan program mesin, jadi Memory di akhir.
   if(i>=0 && secs.indexOf('Device_Output')>=0)
     chk(f.name+': Memory antara HMI_Output dan Device_Output',
@@ -319,11 +322,11 @@ p.files.filter(f=>/^Prg\d+_/.test(f.name)).forEach(f=>{
 });
 
 
-// Prg003_HMI: program antarmuka operator. Yang diuji sifat strukturalnya - kalau array kondisi
+// P003_HMI: program antarmuka operator. Yang diuji sifat strukturalnya - kalau array kondisi
 // tidak ada elemennya atau rangkumannya tidak menyentuh semua elemen, screen 0021/0031 nyala
 // padahal syaratnya belum tentu terpenuhi, dan itu tidak kelihatan dari layar.
-const hmiPrg=p.files.find(f=>f.name==='Prg003_HMI.xml');
-chk('Prg003_HMI digenerate', !!hmiPrg);
+const hmiPrg=p.files.find(f=>f.name==='P003_HMI.xml');
+chk('P003_HMI digenerate', !!hmiPrg);
 if(hmiPrg){
   const hx=hmiPrg.xml;
   chk('section: TP_Control, Counters, Timers, Setup, Memory',
@@ -340,9 +343,10 @@ if(hmiPrg){
       /operand="PL_TP_MSTR_COND"/.test(hx) && /operand="PL_TP_AUTO_COND"/.test(hx));
   chk('lampu PL_TP_* dapat AT di word lampu MAIN',
       /^%W480\.\d\d$/.test(atOf(tsv,'PL_TP_MSTR_RDY')), atOf(tsv,'PL_TP_MSTR_RDY'));
-  // Counters sengaja belum digenerate - harus JELAS placeholder, bukan diam-diam kosong
-  chk('Counters masih placeholder + warning',
-      /COUNTER_NOP/.test(hx) && /counters_not_generated/.test(JSON.stringify(p.warnList)));
+  // Counters kini digenerate DEFAULT (terbukti di project nyata Ce Insert Track), bukan placeholder.
+  chk('Counters digenerate default, bukan placeholder',
+      !/COUNTER_NOP/.test(hx) && !/counters_not_generated/.test(JSON.stringify(p.warnList))
+      && /typeName="Inc"/.test(hx) && /operand="GCT\[\d+\]"/.test(hx));
 }
 
 // --- Nilai angka (target counter, preset timer) ikut dipublish ---
@@ -425,14 +429,14 @@ chk('spare 0% tidak menyisakan slot sama sekali', spares(sp0,'PB4').length===0,
 // Simbol saja belum cukup - slot cadangan harus punya RUNG-nya juga di Individual dan
 // HMI_Output. Tanpa itu tombolnya ada di tabel tapi tidak menggerakkan apa pun dan lampunya
 // tidak pernah menyala, jadi yang menambah aktuator nanti tetap harus menulis slot dari nol.
-const stXml=sp100.files.filter(f=>/^Prg0\d\d_ST/.test(f.name)).map(f=>f.xml).join('');
+const stXml=sp100.files.filter(f=>/^P0\d\d_ST/.test(f.name)).map(f=>f.xml).join('');
 function sectionOf(xml,name){
   const i=xml.indexOf('name="'+name+'"'); if(i<0) return '';
   const j=xml.indexOf('<BodyContent', i+10);
   return xml.slice(i, j<0?xml.length:j);
 }
-const indAll=sp100.files.filter(f=>/^Prg0\d\d_ST/.test(f.name)).map(f=>sectionOf(f.xml,'Individual')).join('');
-const outAll=sp100.files.filter(f=>/^Prg0\d\d_ST/.test(f.name)).map(f=>sectionOf(f.xml,'HMI_Output')).join('');
+const indAll=sp100.files.filter(f=>/^P0\d\d_ST/.test(f.name)).map(f=>sectionOf(f.xml,'Individual')).join('');
+const outAll=sp100.files.filter(f=>/^P0\d\d_ST/.test(f.name)).map(f=>sectionOf(f.xml,'HMI_Output')).join('');
 chk('tiap tombol cadangan dipakai di rung Individual',
     spBtn.every(b=>indAll.indexOf('operand="'+b.n+'"')>=0),
     spBtn.filter(b=>indAll.indexOf('operand="'+b.n+'"')<0).map(b=>b.n).join(' ') || 'semua ada');
@@ -477,7 +481,7 @@ chk('spareCount 0 tidak menyisakan slot',
 // ---- slot cadangan itu slot UTUH, bukan cuma tombol -------------------------------------
 // Reed switch, kombinasi LS, alarm dual sensor, sampai baris output. Menambah aktuator nanti
 // berarti mengganti sumber sinyalnya, bukan menulis slotnya dari nol.
-const stN=spN.files.filter(f=>/^Prg0\d\d_ST/.test(f.name));
+const stN=spN.files.filter(f=>/^P0\d\d_ST/.test(f.name));
 const devIn=stN.map(f=>sectionOf(f.xml,'Device_Input')).join('');
 const lsAll=stN.map(f=>sectionOf(f.xml,'LS_Combination')).join('');
 const fltAll=stN.map(f=>sectionOf(f.xml,'Fault')).join('');

@@ -19,7 +19,7 @@ let fail = 0;
 const chk = (l, c, x) => { if (!c) fail++; console.log((c ? '  OK  ' : '>>BAD ') + l + (x ? '   ' + x : '')); };
 
 const r = core.generate({ io: IO });
-const main = r.files.find(f => /Prg001_MAIN/.test(f.name)).xml;
+const main = r.files.find(f => /P010_Main/.test(f.name)).xml;
 
 const i = main.indexOf('Master on and off confirmation');
 chk('rung "Master on and off confirmation" ada', i >= 0);
@@ -144,7 +144,7 @@ if (psI >= 0) {
 // berubah jadi "NOT MSTR_RDY" telanjang - alarm tiap kali master mati. Lebih baik tidak dibuat.
 const IO_NO_AIR = IO.split('\n').filter(l => !/AIR SOURCE/.test(l)).join('\n');
 const rNoAir = core.generate({ io: IO_NO_AIR });
-const mNoAir = rNoAir.files.find(f => /Prg001_MAIN/.test(f.name)).xml;
+const mNoAir = rNoAir.files.find(f => /P010_Main/.test(f.name)).xml;
 chk('tanpa AIR_SC_CONF, rung PS fault tidak dibuat', mNoAir.indexOf('pressure switch fault') < 0);
 chk('dan tidak dibuang diam-diam - ada warningnya',
     rNoAir.warnList.some(w => w.code === 'air_ps_fault_skipped'),

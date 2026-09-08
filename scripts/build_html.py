@@ -172,6 +172,11 @@ HTML = '''<!doctype html>
   .hmi-tbl tr.hmi-in td:nth-child(3){color:#1d7a4c}
   .hmi-tbl tr.hmi-out td:nth-child(3){color:#8a5a00}
   .stname-panel{display:none;flex-wrap:wrap;gap:10px;margin:10px 0}
+  .servo-panel{margin:10px 0}
+  .servo-tbl{border-collapse:collapse;margin-bottom:8px;font-size:12px}
+  .servo-tbl th{text-align:left;padding:2px 6px;color:#555;font-weight:600;border-bottom:1px solid var(--line)}
+  .servo-tbl td{padding:2px 6px;vertical-align:middle}
+  .servo-tbl input,.servo-tbl select{font-size:12px;padding:2px 4px}
   .stname-lbl{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--muted);background:var(--card);
               border:1px solid var(--line);border-radius:7px;padding:7px 10px;box-shadow:var(--shadow)}
   .stname-lbl b{color:var(--fg);font-family:Consolas,monospace;font-size:12.5px}
@@ -232,20 +237,31 @@ HTML = '''<!doctype html>
   .graph-toolbar select{font-family:Consolas,monospace;font-size:11px;padding:4px 6px;border:1px solid var(--line);border-radius:4px;background:#fff;max-width:230px}
   .graph-toolbar .add-cond{background:#7c3aed;padding:4px 10px;margin:0;font-size:11px}
   .graph-toolbar .add-cond:hover{background:#6527c9}
-  svg.graph-canvas{border:1px solid var(--line);border-radius:6px;background:#fbfbfc;display:block;max-width:100%}
-  .gnode-rect{fill:var(--accent);stroke:var(--accent-dk);stroke-width:1;cursor:move}
-  .gnode-rect.condition{fill:#7c3aed;stroke:#5b21b6;stroke-dasharray:4,2}
-  .gnode-rect.decision{fill:#0f766e;stroke:#0b544e}
-  .gnode-rect.setmem{fill:#b45309;stroke:#8a4008}
-  .gnode-rect.resetmem{fill:#7c2d12;stroke:#5c210d}
-  .gnode-rect.alarm{fill:#b91c1c;stroke:#8f1717}
+  /* Gaya kanvas flowchart ditata mirip FLOW PROCESS DIAGRAM Denso: kotak PUTIH border tipis hitam,
+     teks gelap, grid halus di latar - bukan blok warna solid lagi. Tipe blok non-motion tetap
+     dibedain lewat warna isi PUCAT + border-nya sendiri, jadi masih kebaca sekilas tapi konsisten
+     dengan tampilan gambar teknik. */
+  svg.graph-canvas{border:1px solid var(--line);border-radius:6px;background:#fff;
+    background-image:linear-gradient(#eef1f4 1px,transparent 1px),linear-gradient(90deg,#eef1f4 1px,transparent 1px);
+    background-size:20px 20px;display:block;max-width:100%}
+  .gnode-rect{fill:#fff;stroke:#222;stroke-width:1.3;cursor:move}
+  .gnode-rect.condition{fill:#f5f3ff;stroke:#5b21b6;stroke-dasharray:4,2}
+  .gnode-rect.decision{fill:#e6fffb;stroke:#0b544e}
+  .gnode-rect.setmem{fill:#fff7ed;stroke:#8a4008}
+  .gnode-rect.resetmem{fill:#fef2f2;stroke:#7c2d12}
+  .gnode-rect.alarm{fill:#fee2e2;stroke:#8f1717}
   .gnode-handle.port-n{fill:#e5e7eb}
   .gport-text{font-size:8px;fill:#111;font-family:Consolas,monospace;pointer-events:none;text-anchor:middle}
   .graph-hint{font-size:11px;color:#8a4008;background:#fff7ed;border:1px solid #fed7aa;border-radius:4px;padding:5px 8px;margin-top:4px}
   .gnode-rect.selected{stroke:#f1c40f;stroke-width:3}
   .gnode-rect.anchor{fill:#37424f;stroke:#232a33;cursor:move;rx:14}
   .gedge-line.anchor{stroke:#9aa3ad;stroke-dasharray:3,2}
-  .gnode-text{fill:#fff;font-size:10.5px;font-family:Consolas,monospace}
+  .gnode-text{fill:#111;font-size:10.5px;font-family:Consolas,monospace}
+  /* Baris kedua kotak motion: simbol SOL/output-nya ("SOL_ST1_STP1 on"), gaya sub-caption gambar
+     Denso yang naruh nama solenoid di bawah nama gerakan. Abu-abu, lebih kecil. */
+  .gnode-sub{fill:#5b6572;font-size:8px;font-family:Consolas,monospace;pointer-events:none}
+  /* START/END bulatan gelap - teksnya tetap putih walau teks kotak sekarang gelap. */
+  .gnode-text.anchor-t{fill:#fff}
   .gnode-del{fill:#b91c1c;cursor:pointer}
   .gnode-del-text{fill:#fff;font-size:9px;text-anchor:middle;font-family:Consolas,monospace;pointer-events:none}
   .gnode-handle{fill:#f1c40f;stroke:#333;stroke-width:1;cursor:crosshair}
@@ -431,6 +447,7 @@ HTML = '''<!doctype html>
   <a href="#sec-settings">Settings</a>
   <a href="#hmiBox">HMI address map</a>
   <a href="#confirmModeBox">Confirm mode</a>
+  <a href="#sec-servo">Servo axes</a>
   <a href="#sec-cond">Conditions</a>
   <a href="#sec-motion">Motion sequence</a>
   <a href="#results">Results <span class="n" id="navFileCount"></span></a>
@@ -545,6 +562,12 @@ HTML = '''<!doctype html>
   <span class="fold-sub" id="confirmModeSummary">optional</span></summary>
 <div id="confirmModePanel" class="stname-panel"></div>
 </details>
+
+<div class="sec-head" id="sec-servo">
+  <h2>Servo axes</h2>
+  <span class="help" data-tip="One unified axis table for BOTH EtherCAT-motion servos and non-motion servos wired through plain station I/O. Each axis gets its own program (P002_Servo, 'servo is always program 2'). Type 'I/O' generates real contact/coil rungs - enable from master, command to the output address, feedback from the input address, and a servo-fault when commanded without feedback. Type 'EtherCAT' reserves the unified bits + GB002 handshake but leaves the MC_Power/Reset/Stop motion rungs as a placeholder, because those instructions are not proven to import yet - fill them by hand after the probe. Station is a label; Input/Output are physical addresses like CH3_00.">?</span>
+</div>
+<div id="servoPanel"></div>
 
 <div class="sec-head" id="sec-cond">
   <h2>Conditions</h2>
@@ -886,7 +909,7 @@ function sortStations(keys) {
   });
 }
 
-var errEl, resEl, statsEl, warnEl, warnBoxEl, motionPanelEl, conditionPanelEl, stationNamesPanelEl, timerPhpxEl, timerMotionEl, confirmModePanelEl, alSizeEl, mfSizeEl, stationBlockEl, arraySizeHintEl, navFileCountEl;
+var errEl, resEl, statsEl, warnEl, warnBoxEl, motionPanelEl, conditionPanelEl, servoPanelEl, stationNamesPanelEl, timerPhpxEl, timerMotionEl, confirmModePanelEl, alSizeEl, mfSizeEl, stationBlockEl, arraySizeHintEl, navFileCountEl;
 var advInstrEl;
 var hmiModeEl, hmiBtnAreaEl, hmiAlAreaEl, hmiPbBaseEl, hmiRdOffsetEl, hmiAlBaseEl, hmiMfBaseEl, hmiPerPageEl, hmiStrideEl, hmiEnabledEl, hmiMapPanelEl, hmiSummaryEl, hmiNumAreaEl, hmiNumBaseEl, hmiSpareEl, hmiSpareModeEl, hmiSpareCountEl;
 // Dua kotak angka spare, cuma satu yang berlaku. Yang tidak berlaku disembunyikan, bukan
@@ -1273,6 +1296,7 @@ var perProgramOpen = false;
 //   string as a literal external operand. Condition nodes are stripped before sending to gen_all.js.
 var motionState = {};
 var conditionState = {}; // key station -> [{name,bit,groups:[[{bit,neg},...],...]},...]
+var servoState = []; // [{name,label,type:'io'|'ethercat',station,inAddr,outAddr,axis},...] -> P002_Servo
 var motionCounters = {}; // key "station#variantIdx" -> next motion node number
 var svgRefs = {};        // key "station#variantIdx" -> current svg element
 var dragState = null;
@@ -1560,7 +1584,14 @@ function nodeLabel(n) {
 // Font .gnode-text 10.5px Consolas = ~6.1px/char (advance monospace ~0.55em, dilebihin dikit biar
 // aman); +18 buat padding kiri-kanan. Minimal tetap NODE_W biar node berlabel pendek gak jadi kotak
 // kecil. ANGKA INI TERIKAT ke font-size .gnode-text - ubah salah satu, ubah dua-duanya.
-function nodeW(n) { return Math.max(NODE_W, Math.ceil(nodeLabel(n).length * 6.1) + 18); }
+// Motion sekarang punya baris kedua (simbol SOL "…​ on"), yang bisa lebih panjang dari labelnya -
+// jadi lebar ikut yang TERPANJANG, biar sub-caption gak nyembul keluar kotak. Inline di sini
+// (bukan helper terpisah) supaya harness editor.test.js gak perlu dependensi fungsi baru.
+function nodeW(n) {
+  var chars = nodeLabel(n).length;
+  if ((n.type || 'motion') === 'motion') chars = Math.max(chars, ((n.sol || '') + ' on').length);
+  return Math.max(NODE_W, Math.ceil(chars * 6.1) + 18);
+}
 
 // Titik sambung kabel dipilih dinamis: SISI node yang paling searah ke lawan bicaranya (atas, bawah,
 // kiri, atau kanan), bukan selalu kanan->kiri kayak dulu. Bandingin kemiringan garis pusat-ke-pusat
@@ -2089,7 +2120,7 @@ var HIST_MAX = 60;   // ~60 langkah; snapshot-nya JSON kecil, tapi tidak perlu t
 
 function histSnap() {
   return JSON.stringify({ m: motionState, c: conditionState, n: stationNames,
-                          o: actuatorOverrides, k: motionCounters });
+                          o: actuatorOverrides, k: motionCounters, s: servoState });
 }
 
 function histApply(snap) {
@@ -2104,12 +2135,14 @@ function histApply(snap) {
   stationNames = s.n || {};
   actuatorOverrides = s.o || {};
   motionCounters = s.k || {};
+  servoState = Array.isArray(s.s) ? s.s : [];
   // Yang diseleksi bisa saja sudah tidak ada di state yang dipulihkan - dibiarkan, panel
   // menggambar sorotan ke node yang tidak ada lagi dan tombol Delete berikutnya menghapus
   // sesuatu yang lain.
   selected = null;
   renderMotionPanel();
   renderConditionPanel();
+  if (typeof renderServoPanel === 'function') renderServoPanel();
   if (typeof renderStationNamesPanel === 'function') renderStationNamesPanel();
   regenerate();
   histRestoring = false;
@@ -2190,6 +2223,7 @@ function regenerate() {
   flowStore.hmiMap = hmiSettings();
   flowStore.advancedInstructions = advInstrEl ? advInstrEl.checked : false;
   flowStore.actuatorOverrides = actuatorOverrides;
+  flowStore.servoAxes = servoAxesClean();
   try {
     // Salinan wrapper baru tiap panggil - gen_all.js nge-reassign msg.payload di baris terakhirnya,
     // kalau lastSplitMsg dipakai langsung, groups di dalamnya keganti hasil generate pas dipanggil lagi.
@@ -2294,7 +2328,7 @@ function renderVariantGraph(stKey, vIdx) {
     var g = svgEl('g');
     var circle = svgEl('circle', { class: 'gnode-rect anchor', cx: cx, cy: cy, r: ANCHOR_R });
     g.appendChild(circle);
-    var t = svgEl('text', { class: 'gnode-text', x: cx, y: cy + 3, 'text-anchor': 'middle' });
+    var t = svgEl('text', { class: 'gnode-text anchor-t', x: cx, y: cy + 3, 'text-anchor': 'middle' });
     t.textContent = label;
     g.appendChild(t);
     var tip = svgEl('title');
@@ -2360,6 +2394,12 @@ function renderVariantGraph(stKey, vIdx) {
     // selama node-nya keselect, jadi habis diklik gak perlu cari-cari bulatannya lagi.
     var g = svgEl('g', { class: 'gnode' + (isSelNode ? ' sel' : ''), transform: 'translate(' + n.x + ',' + n.y + ')' });
 
+    // ntype/w dihitung DI ATAS: blok tooltip di bawah sudah baca ntype, dan dulu var-nya baru
+    // dideklarasi sesudah itu - jadi (hoisting) ntype selalu undefined pas tooltip dibaca dan
+    // tooltip motion/condition gak pernah kebentuk. Sekarang diangkat ke sini sekalian.
+    var ntype = n.type || 'motion';
+    var w = nodeW(n);
+
     // Tooltip buat SEMUA blok berkomen, bukan cuma condition - berguna kalau komennya panjang dan
     // label di kanvas jadi lebar; hover tetap nampilin teks utuhnya. Node syarat SELALU dapat tooltip
     // walau gak berkomen, isinya arah sambungan - itu yang paling sering bikin bingung: dia cuma bisa
@@ -2382,21 +2422,45 @@ function renderVariantGraph(stKey, vIdx) {
       var titleEl = svgEl('title'); titleEl.textContent = tipTxt; g.appendChild(titleEl);
     }
 
-    var w = nodeW(n);
-    var ntype = n.type || 'motion';
-    var rect = svgEl('rect', { class: 'gnode-rect' + (ntype === 'motion' ? '' : ' ' + ntype) + (isSelNode ? ' selected' : ''), width: w, height: NODE_H, rx: 6 });
-    rect.addEventListener('mousedown', function (ev) {
+    // Bentuk kotak: decision digambar DIAMOND (belah ketupat) kayak simbol judgement di gambar
+    // Denso; sisanya kotak. Vertex kanan-tengah & bawah-tengah diamond persis di titik port Y/N,
+    // jadi handle-nya tetap nempel. Bounding box (w x NODE_H) TIDAK berubah - sideAnchor, hit-test,
+    // dan posisi handle semua tetap pakai kotak itu, jadi geometri (yang diuji harness) gak geser.
+    var shape;
+    if (ntype === 'decision') {
+      shape = svgEl('polygon', { class: 'gnode-rect decision' + (isSelNode ? ' selected' : ''),
+        points: '0,' + (NODE_H / 2) + ' ' + (w / 2) + ',0 ' + w + ',' + (NODE_H / 2) + ' ' + (w / 2) + ',' + NODE_H });
+    } else {
+      shape = svgEl('rect', { class: 'gnode-rect' + (ntype === 'motion' ? '' : ' ' + ntype) + (isSelNode ? ' selected' : ''),
+        width: w, height: NODE_H, rx: ntype === 'motion' ? 2 : 6 });
+    }
+    shape.addEventListener('mousedown', function (ev) {
       ev.stopPropagation();
       selected = { stKey: stKey, vIdx: vIdx, kind: 'node', id: n.id };
       var bb = svg.getBoundingClientRect();
       dragState = { mode: 'move', stKey: stKey, vIdx: vIdx, id: n.id, moved: false, offX: ev.clientX - bb.left - n.x, offY: ev.clientY - bb.top - n.y };
       renderMotionPanel();
     });
-    g.appendChild(rect);
+    g.appendChild(shape);
 
-    var text = svgEl('text', { class: 'gnode-text', x: 6, y: NODE_H / 2 + 3 });
-    text.textContent = nodeLabel(n);
-    g.appendChild(text);
+    // Motion: DUA baris (nama gerakan di atas, simbol SOL "… on" di bawah) - gaya kotak Denso.
+    // Decision: teks di TENGAH diamond. Sisanya satu baris rata kiri seperti dulu.
+    if (ntype === 'motion') {
+      var text = svgEl('text', { class: 'gnode-text', x: 6, y: 13 });
+      text.textContent = nodeLabel(n);
+      g.appendChild(text);
+      var sub = svgEl('text', { class: 'gnode-sub', x: 6, y: 25 });
+      sub.textContent = (n.sol || '') + ' on';
+      g.appendChild(sub);
+    } else if (ntype === 'decision') {
+      var dtext = svgEl('text', { class: 'gnode-text', x: w / 2, y: NODE_H / 2 + 3, 'text-anchor': 'middle' });
+      dtext.textContent = nodeLabel(n);
+      g.appendChild(dtext);
+    } else {
+      var text2 = svgEl('text', { class: 'gnode-text', x: 6, y: NODE_H / 2 + 3 });
+      text2.textContent = nodeLabel(n);
+      g.appendChild(text2);
+    }
 
     var delC = svgEl('circle', { class: 'gnode-del', cx: w, cy: 0, r: 7 });
     delC.addEventListener('mousedown', function (ev) { ev.stopPropagation(); });
@@ -2730,6 +2794,66 @@ function renderMotionPanel() {
   motionPanelEl.style.display = any ? 'block' : 'none';
 }
 
+// Tabel axis servo terpadu. Baris I/O punya kolom Input/Output addr; baris EtherCAT gantinya satu
+// kolom indeks _MC_AX. Perubahan field pakai event 'change' (blur) biar regenerate() tidak merebut
+// fokus di tengah ngetik; cuma add/hapus/ganti-tipe yang menggambar ulang tabelnya.
+function renderServoPanel() {
+  if (!servoPanelEl) return;
+  servoPanelEl.innerHTML = '';
+  var wrap = document.createElement('div'); wrap.className = 'servo-panel';
+  if (!servoState.length) {
+    var hint = document.createElement('div'); hint.className = 'fold-sub';
+    hint.textContent = 'No servo axes. Add one to generate P002_Servo (servo is always program 2).';
+    wrap.appendChild(hint);
+  } else {
+    var tbl = document.createElement('table'); tbl.className = 'servo-tbl';
+    var head = document.createElement('tr');
+    ['#', 'Name', 'Label', 'Type', 'Station', 'Input addr', 'Output addr', ''].forEach(function (h) {
+      var th = document.createElement('th'); th.textContent = h; head.appendChild(th);
+    });
+    tbl.appendChild(head);
+    servoState.forEach(function (a, i) {
+      var tr = document.createElement('tr');
+      function cell(child, span) { var td = document.createElement('td'); if (span) td.colSpan = span; td.appendChild(child); tr.appendChild(td); return td; }
+      var num = document.createElement('span'); num.textContent = 'SV' + ('0' + (i + 1)).slice(-2); cell(num);
+      function txt(field, ph, w) {
+        var inp = document.createElement('input'); inp.value = a[field] || ''; inp.placeholder = ph || ''; if (w) inp.style.width = w;
+        inp.addEventListener('change', function () { a[field] = inp.value; regenerate(); });
+        return inp;
+      }
+      cell(txt('name', 'FEED', '64px'));
+      cell(txt('label', 'CE FEEDER SERVO', '150px'));
+      var sel = document.createElement('select');
+      [['io', 'I/O'], ['ethercat', 'EtherCAT']].forEach(function (o) { var op = document.createElement('option'); op.value = o[0]; op.textContent = o[1]; sel.appendChild(op); });
+      sel.value = a.type === 'ethercat' ? 'ethercat' : 'io';
+      sel.addEventListener('change', function () { a.type = sel.value; renderServoPanel(); regenerate(); });
+      cell(sel);
+      cell(txt('station', 'ST1', '54px'));
+      if (a.type === 'ethercat') {
+        var ax = document.createElement('input'); ax.value = (a.axis != null ? a.axis : ''); ax.placeholder = '_MC_AX idx'; ax.style.width = '150px';
+        ax.addEventListener('change', function () { var v = parseInt(ax.value, 10); a.axis = isNaN(v) ? undefined : v; regenerate(); });
+        cell(ax, 2);
+      } else {
+        cell(txt('inAddr', 'CH3_00', '78px'));
+        cell(txt('outAddr', 'CH12_00', '78px'));
+      }
+      var del = document.createElement('button'); del.className = 'undo-btn'; del.textContent = '\\u00d7';
+      del.title = 'Remove this axis';
+      del.addEventListener('click', function () { servoState.splice(i, 1); renderServoPanel(); regenerate(); });
+      cell(del);
+      tbl.appendChild(tr);
+    });
+    wrap.appendChild(tbl);
+  }
+  var add = document.createElement('button'); add.className = 'add-cond'; add.textContent = '+ Add servo axis';
+  add.addEventListener('click', function () {
+    servoState.push({ name: '', label: '', type: 'io', station: '', inAddr: '', outAddr: '' });
+    renderServoPanel(); regenerate();
+  });
+  wrap.appendChild(add);
+  servoPanelEl.appendChild(wrap);
+}
+
 function renderConditionPanel() {
   conditionPanelEl.innerHTML = '';
   if (!lastSplitMsg) { conditionPanelEl.style.display = 'none'; return; }
@@ -3016,8 +3140,21 @@ function exportProjectJSON() {
     advancedInstructions: advInstrEl ? advInstrEl.checked : false,
     actuatorOverrides: actuatorOverrides,
     motionSequences: motionSequences,
-    conditionDefs: conditionDefs
+    conditionDefs: conditionDefs,
+    servoAxes: servoAxesClean()
   }, null, 2);
+}
+
+// Buang baris axis yang tak bernama, dan rapikan tipe. Yang keluar = persis bentuk yang dibaca
+// gen_all buildServo() lewat flow.get("servoAxes").
+function servoAxesClean() {
+  return servoState.filter(function (a) { return a && (a.name || a.label); }).map(function (a) {
+    return { name: (a.name || '').trim(), label: (a.label || '').trim(),
+             type: a.type === 'ethercat' ? 'ethercat' : 'io',
+             station: (a.station || '').trim(),
+             inAddr: (a.inAddr || '').trim(), outAddr: (a.outAddr || '').trim(),
+             axis: a.axis };
+  });
 }
 
 function importProjectJSON(jsonText) {
@@ -3062,6 +3199,10 @@ function importProjectJSON(jsonText) {
   if (hmiEnabledEl) hmiEnabledEl.checked = hm.enabled === undefined ? true : !!hm.enabled;
   actuatorOverrides = {};
   Object.keys(parsed.actuatorOverrides || {}).forEach(function (k) { actuatorOverrides[k] = parsed.actuatorOverrides[k]; });
+  servoState = Array.isArray(parsed.servoAxes) ? parsed.servoAxes.map(function (a) {
+    return { name: a.name || '', label: a.label || '', type: a.type === 'ethercat' ? 'ethercat' : 'io',
+             station: a.station || '', inAddr: a.inAddr || '', outAddr: a.outAddr || '', axis: a.axis };
+  }) : [];
 
   var errs = [];
   Object.keys(parsed.motionSequences || {}).forEach(function (st) {
@@ -3073,7 +3214,7 @@ function importProjectJSON(jsonText) {
     if (err) errs.push('conditionDefs.' + st + ': ' + err);
   });
 
-  renderMotionPanel(); renderConditionPanel(); renderStationNamesPanel(); renderConfirmModePanel();
+  renderMotionPanel(); renderConditionPanel(); renderStationNamesPanel(); renderConfirmModePanel(); renderServoPanel();
   regenerate();
   return errs.length ? errs.join('\\n') : null;
 }
@@ -3109,6 +3250,7 @@ function runFullPipeline() {
 
   renderMotionPanel();
   renderConditionPanel();
+  renderServoPanel();
   renderStationNamesPanel();
   renderConfirmModePanel();
   regenerate();
@@ -3122,6 +3264,7 @@ warnEl = document.getElementById('warn');
 warnBoxEl = document.getElementById('warnBox');
 motionPanelEl = document.getElementById('motionPanel');
 conditionPanelEl = document.getElementById('conditionPanel');
+servoPanelEl = document.getElementById('servoPanel');
 stationNamesPanelEl = document.getElementById('stationNamesPanel');
 confirmModePanelEl = document.getElementById('confirmModePanel');
 (function () {
@@ -3400,6 +3543,7 @@ TOOLS_CARDS = """<p class="tool-note" id="toolMode"></p>
   <a href="CLAUDE.md">Working notes</a>
   <a href="TODO.md">TODO</a>
   <a href="docs/SYSMAC_INSTRUCTIONS.md">353 instructions (FUN/FB + pins)</a>
+  <a href="docs/SIMULASI_3D_OPCUA.md">Simulasi mesin: NX simulator + OPC UA + viz 3D</a>
   <a href="reader/README.md">.smc2 format notes</a>
 </div>
 <script>
@@ -3548,6 +3692,7 @@ versi, sinkron alarm ke NB-Designer, dan jembatan OPC UA ke simulator.</p>
   <a href="CLAUDE.md">Working notes</a>
   <a href="TODO.md">TODO</a>
   <a href="docs/SYSMAC_INSTRUCTIONS.md">353 instructions (FUN/FB + pins)</a>
+  <a href="docs/SIMULASI_3D_OPCUA.md">Simulasi mesin: NX simulator + OPC UA + viz 3D</a>
   <a href="reader/README.md">.smc2 format notes</a>
 </div>
 

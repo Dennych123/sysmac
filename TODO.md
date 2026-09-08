@@ -179,6 +179,14 @@ program NX yang sedang disimulasikan, TANPA menyentuh internal Studio sama sekal
 **Sudah terbukti jalan di NX1P2.** Menunya abu-abu selama simulasi belum di-Run - itu sebabnya,
 bukan modelnya. Dugaan awal soal NX102 salah dan sudah dicoret di CLAUDE.md.
 
+**Jalur ini SUDAH dijalani sampai ujung, sekali** - sel robot 4 sumbu di `blurobot/`
+(repo sendiri: rb4axis): program NX di simulator, bridge OPC UA satu sesi, viz 3D browser,
+sekuens sel + panel selector/E-STOP/Autorun + penjaga tabrakan. Yang dipelajari sudah
+diangkat jadi resep umum di **[docs/SIMULASI_3D_OPCUA.md](docs/SIMULASI_3D_OPCUA.md)**:
+berkas mana yang disalin apa adanya, urutan pengerjaan berikut bukti tiap langkah, dan
+daftar kegagalan-tanpa-keluhan (Studio, OPC UA, ST, viz). Butir 3f di sini tinggal
+menerapkannya ke mesin silinder - bukan lagi menjawab "apakah bisa".
+
 ### Kolom Network Publish - TERNYATA TIDAK PERLU
 
 Dugaan awal: OPC UA cuma menampilkan variabel yang dipublikasi, jadi generator harus menulis

@@ -1,4 +1,4 @@
-// P000_Initial, Counters, dan gerbang "instruksi lanjutan".
+// P001_Initial, Counters, dan gerbang "instruksi lanjutan".
 //
 // Kenapa gerbangnya penting: kontak/coil/TON sudah terbukti ter-import Susmax Studio, MOVE /
 // pembanding / Inc / Get*Clk BELUM. Satu elemen yang ditolak bisa bikin SELURUH file gagal
@@ -40,8 +40,8 @@ const dangling = (x) => (x.match(/<Rung [\s\S]*?<\/Rung>/g) || []).filter(rg => 
 
 // ---------------------------------------------------------------- default: aman
 let p = gen(null);
-const ini = file(p, 'P000_Initial.xml');
-chk('P000_Initial digenerate', !!ini);
+const ini = file(p, 'P001_Initial.xml');
+chk('P001_Initial digenerate', !!ini);
 chk('section Design_Coil + Adjust_Coil',
     ini && secList(ini.xml).join(' ') === 'Design_Coil Adjust_Coil',
     ini ? secList(ini.xml).join(' ') : '');
@@ -55,20 +55,22 @@ chk('coil cadangan sampai GSB025', /^GSB025\t/m.test(tsv));
 // AllPrograms.xml sengaja ditaruh paling depan sebagai file gabungan, jadi yang diperiksa urutan
 // program TERPISAHNYA: P000 harus di depan MAIN, karena dia yang mendefinisikan GSB000.
 const prgOrder = p.files.map(f => f.name).filter(n => /^(P0|Prg)/.test(n));
-chk('P000_Initial di depan program lain', prgOrder[0] === 'P000_Initial.xml', prgOrder.join(' '));
+chk('P001_Initial di depan program lain', prgOrder[0] === 'P001_Initial.xml', prgOrder.join(' '));
 
 chk('probe ikut keluar waktu instruksi lanjutan mati', !!file(p, '_Probe_Instructions.xml'));
 chk('probe TIDAK ikut ke AllPrograms.xml',
     file(p, 'AllPrograms.xml').xml.indexOf('P999_Probe') < 0);
-chk('Counters masih penanda',
-    /COUNTER_NOP/.test(file(p, 'Prg003_HMI.xml').xml)
-    && p.warnList.some(w => w.code === 'counters_not_generated'));
-chk('default: nol blok fungsi selain TON di program mesin',
-    !/typeName="(MOVE|Inc|Get\w*Clk|&lt;|&gt;=|&lt;&gt;)"/.test(file(p, 'AllPrograms.xml').xml));
+chk('Counters digenerate default (terbukti project nyata), bukan penanda',
+    !/COUNTER_NOP/.test(file(p, 'P003_HMI.xml').xml)
+    && !p.warnList.some(w => w.code === 'counters_not_generated'));
+// Counter kini boleh default (Inc/pembanding terbukti). Yang MASIH ditahan sampai probe: MOVE dan
+// clock pulse Get**Clk - dua ini tetap tidak boleh muncul di output default.
+chk('default: nol MOVE / clock pulse di program mesin (counter boleh)',
+    !/typeName="(MOVE|Get\w*Clk)"/.test(file(p, 'AllPrograms.xml').xml));
 
 // ---------------------------------------------------------------- instruksi lanjutan menyala
 let a = gen({ advancedInstructions: true });
-const hx = file(a, 'Prg003_HMI.xml').xml;
+const hx = file(a, 'P003_HMI.xml').xml;
 // Batas section-nya ke "Timers", BUKAN "Setup" - kalau kelebihan, rung timer ikut terhitung
 // sebagai rung counter dan jumlahnya tetap "masuk akal" walau salah.
 const cnt = hx.slice(hx.indexOf('name="Counters"'), hx.indexOf('name="Timers"'));
@@ -113,7 +115,7 @@ chk('counter dibatasi konstanta, bukan targetnya',
 chk('Inc tidak menulis pin yang tidak dipakai',
     incBoxes.every(b => (b.match(/<OutputVariable /g) || []).length === 1));
 chk('probe gak ikut keluar lagi', !file(a, '_Probe_Instructions.xml'));
-chk('clock pulse digenerate', /typeName="Get1sClk"/.test(file(a, 'P000_Initial.xml').xml));
+chk('clock pulse digenerate', /typeName="Get1sClk"/.test(file(a, 'P001_Initial.xml').xml));
 
 // --- Timers: bentuknya sama dengan counter, yang mencacah pulsa clock ---
 chk('timer digenerate: 6 timer x 2 rung',
