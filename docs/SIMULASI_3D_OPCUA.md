@@ -118,6 +118,24 @@ Kena sekali di Home: `SIM_HOMED` menyala tanpa lengan bergerak satu milimeter, j
 "wajib home dulu" hilang tanpa satu pun tanda. Sekuenser tidak kena karena perintah dan
 penungguannya di langkah — dan scan — yang berbeda; pertahankan pola itu.
 
+**Perintah yang DITOLAK tidak menggerakkan apa pun — dan bit "sudah sampai" tetap TRUE.**
+Sekuenser yang menunggu "sumbu berhenti" saja akan melangkah maju seolah sampai, dan
+waypoint yang terlewat biasanya justru yang menjaga keselamatan (approach). Tiap penantian
+sesudah permintaan gerak harus menuntut DUA hal: sumbu berhenti DAN perintahnya diterima.
+
+**Gerbang syarat ditunggu SEBELUM perintahnya diminta, bukan sesudahnya.** Menunggu
+sesudah berarti perintah dikirim ke keadaan yang belum siap, ditolak dengan benar, dan
+penolakan itu tidak kelihatan sebagai apa pun — kombinasi dengan jebakan di atas
+menghasilkan langkah yang dilewati tanpa satu pun keluhan.
+
+**Benda yang bergerak (penutup, pintu, klem) butuh DUA arah penjagaan.** Satu: dia jadi
+badan tabrakan — tapi biasanya hanya di sebagian keadaannya (penutup yang terbuka penuh
+tidak menghalangi apa pun; menganggapnya selalu menghalangi bikin robot tidak pernah bisa
+masuk). Dua: interlock supaya dia tidak bergerak selama ada bagian robot di ruang
+sapuannya, dan berbalik kalau ada yang masuk di tengah jalan. Ruang itu dihitung dari
+posisi robot SEKARANG, bukan ditebak dari nomor langkah — jog dan gerakan tangan tidak
+punya nomor langkah.
+
 **Berhenti karena sentuhan/tabrakan cuma di TEPI-nya.** Menahan selama masih menempel bikin
 perintah ditimpa posisi tiap scan: benda terkunci di dalam yang ditabraknya, tanpa arah
 keluar.
@@ -198,6 +216,7 @@ Yang terbukti layak ditampilkan, dan kenapa:
 | **di mana GAGALNYA** | pose yang ditolak sebelum ACOS tetap mengembalikan `R` — panel bisa menunjukkan sebabnya, bukan cuma bahwa gagal |
 | **round-trip FK(IK(x)) − x** | memperlihatkan lantai galat konstanta (~5e-6 derajat). Angka yang jujur lebih meyakinkan daripada nol yang dikarang |
 | **geometrinya di 3D** | segitiga L2–L3–R digambar di tempatnya. Rumus cosinus jadi masuk akal begitu segitiganya kelihatan |
+| **kalimatnya sependek mungkin** | sasarannya orang yang baru kenal trigonometri, bukan yang sudah tahu. "cos itu bagian menyamping, sin bagian ke atas" mengajarkan lebih banyak daripada satu paragraf yang benar tapi padat. Paragraf panjang di panel = tidak dibaca sama sekali |
 
 Dan aturan panel yang lain tetap berlaku: bentuknya dibangun sekali, teksnya saja yang
 diganti, throttle ~8 Hz.
