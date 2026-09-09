@@ -173,6 +173,35 @@ sisanya tulis tangan. Plus `--check` yang menolak kalau yang ter-commit sudah ba
 | **label digambar ulang cuma kalau teksnya berubah** | tiap frame = tekstur baru tiap frame |
 | **benda dibuat SEKALI lalu diskalakan** | membangun ulang mesh tiap kali pose berubah bikin pengumpul sampah bekerja terus |
 
+## 7b. Panel yang MENJELASKAN — kalau simulasinya buat ditunjukkan ke orang
+
+Kalau viz-nya dipakai menjelaskan (demo, wawancara, melatih operator), panel penjelas
+jauh lebih berharga daripada gambar yang bagus. Satu aturan yang menentukan panel itu
+berguna atau berbahaya:
+
+**Panel penjelas TIDAK BOLEH menghitung apa pun sendiri.** Fungsi kinematiknya dipecah
+supaya nilai antaranya ikut keluar (`fkSteps`, `ikSteps` di blurobot), dan fungsi yang
+dipakai menggambar MEMANGGIL fungsi yang sama. Panel yang menghitung sendiri adalah cara
+paling halus untuk berbohong: gambarnya benar, angkanya benar, penjelasannya salah — dan
+yang membacanya justru orang yang belum bisa menilai mana yang benar. Dijaga dua tes:
+hasil kedua jalur diadu bit per bit, dan halaman ditolak kalau memuat `acos/atan/asin`
+sama sekali.
+
+Yang terbukti layak ditampilkan, dan kenapa:
+
+| | |
+|---|---|
+| **koordinat NOL tiap kerangka** | world, tiap sumbu, tool. "Zero" berhenti jadi kata dan jadi titik yang kelihatan di 3D (triad merah/hijau/biru) |
+| **tiap suku rumus, terpisah** | `L2·cos a1`, `L3·cos a2`, `L4·cos a3` masing-masing — itu yang bikin rumus berhenti terlihat seperti mantra |
+| **langkah IK apa adanya, dengan NAMA YANG SAMA dengan di ST** | `Y3`, `Z3`, `R`, `BETA`, `GAMMA`, `ALFA` — panel dan berkas ST bisa dibaca berdampingan tanpa menerjemahkan |
+| **vonis, bukan cuma angka** | "di luar jangkauan", "lolos tapi menembus soft limit", "elbow down, di dalam batas" |
+| **di mana GAGALNYA** | pose yang ditolak sebelum ACOS tetap mengembalikan `R` — panel bisa menunjukkan sebabnya, bukan cuma bahwa gagal |
+| **round-trip FK(IK(x)) − x** | memperlihatkan lantai galat konstanta (~5e-6 derajat). Angka yang jujur lebih meyakinkan daripada nol yang dikarang |
+| **geometrinya di 3D** | segitiga L2–L3–R digambar di tempatnya. Rumus cosinus jadi masuk akal begitu segitiganya kelihatan |
+
+Dan aturan panel yang lain tetap berlaku: bentuknya dibangun sekali, teksnya saja yang
+diganti, throttle ~8 Hz.
+
 ## 8. Jebakan kehalusan dan panel
 
 **Ramalkan dari KECEPATAN yang dipublikasikan PLC, jangan mengejar posisi.** Kabar datang
@@ -255,6 +284,13 @@ Transfer to simulator.
 * **Mode offline bukan bukti.** Yang diuji cuma port JS-nya, bukan program di PLC.
 * **Motion model bukan dinamika.** Trapesium kecepatan/akselerasi; tanpa massa, inersia,
   jerk, atau kepatuhan mekanis.
+* **Benda yang bergerak tapi tidak ada di penjaga tabrakan** (penutup mesin, pintu,
+  konveyor) dijaga oleh URUTAN LANGKAH, bukan geometri: robot cuma turun sesudah
+  penutupnya terbuka penuh. Itu keputusan sadar — menambahkannya ke penjaga berarti
+  penjaga harus tahu bentuk yang berubah tiap scan.
+* **Proses baru boleh menghitung waktu setelah kondisi fisiknya tercapai** (penutup
+  rapat, klem menekan). Menghitung lebih awal berarti mesin mengaku menguji barang yang
+  belum tersentuh probe — dan tetap melaporkan lulus.
 * **Tabrakan yang diperiksa cuma titik yang dipilih** (di blurobot: TCP + pangkal gripper vs
   kotak mesin dan lantai). Siku, ruas lengan, dan benda yang dipegang tidak ikut. Ini penjaga
   terhadap perintah yang salah, bukan mesin fisika.
