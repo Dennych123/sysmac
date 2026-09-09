@@ -3544,6 +3544,7 @@ TOOLS_CARDS = """<p class="tool-note" id="toolMode"></p>
   <a href="TODO.md">TODO</a>
   <a href="docs/SYSMAC_INSTRUCTIONS.md">353 instructions (FUN/FB + pins)</a>
   <a href="docs/SIMULASI_3D_OPCUA.md">Simulasi mesin: NX simulator + OPC UA + viz 3D</a>
+  <a href="docs/RENCANA_PLANT_TWIN.md">Rencana: digital twin SPM (cycle time, bottleneck)</a>
   <a href="reader/README.md">.smc2 format notes</a>
 </div>
 <script>
@@ -3693,6 +3694,7 @@ versi, sinkron alarm ke NB-Designer, dan jembatan OPC UA ke simulator.</p>
   <a href="TODO.md">TODO</a>
   <a href="docs/SYSMAC_INSTRUCTIONS.md">353 instructions (FUN/FB + pins)</a>
   <a href="docs/SIMULASI_3D_OPCUA.md">Simulasi mesin: NX simulator + OPC UA + viz 3D</a>
+  <a href="docs/RENCANA_PLANT_TWIN.md">Rencana: digital twin SPM (cycle time, bottleneck)</a>
   <a href="reader/README.md">.smc2 format notes</a>
 </div>
 

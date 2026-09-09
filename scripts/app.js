@@ -78,6 +78,7 @@ const HALAMAN_STATIS = {
   '/TODO.md': { berkas: 'TODO.md', tipe: 'text/plain; charset=utf-8' },
   '/docs/SYSMAC_INSTRUCTIONS.md': { berkas: 'docs/SYSMAC_INSTRUCTIONS.md', tipe: 'text/plain; charset=utf-8' },
   '/docs/SIMULASI_3D_OPCUA.md': { berkas: 'docs/SIMULASI_3D_OPCUA.md', tipe: 'text/plain; charset=utf-8' },
+  '/docs/RENCANA_PLANT_TWIN.md': { berkas: 'docs/RENCANA_PLANT_TWIN.md', tipe: 'text/plain; charset=utf-8' },
   '/reader/README.md': { berkas: 'reader/README.md', tipe: 'text/plain; charset=utf-8' },
 };
 
