@@ -77,6 +77,7 @@ atau dijalankan sendiri dari terminal.
 | **`scripts/validate_xml.ps1`** | validasi ke XSD resmi yang dipasang Sysmac Studio |
 | **`scripts/app.js`** + `Susmax.cmd` | aplikasi lokal 127.0.0.1: semua di atas lewat halaman, tanpa mengetik path |
 | **[docs/SYSMAC_INSTRUCTIONS.md](docs/SYSMAC_INSTRUCTIONS.md)** | 353 instruksi, kolom FUN/FB, susunan pin - dari manual W560, dicocokkan ke project nyata |
+| **[docs/RENCANA_PLANT_TWIN.md](docs/RENCANA_PLANT_TWIN.md)** | rencana digital twin SPM: analisa cycle time, cari aktuator yang meleset dari rencana, cari proses yang menunggu - berikut alasan tiap keputusannya |
 | **[docs/SIMULASI_3D_OPCUA.md](docs/SIMULASI_3D_OPCUA.md)** | resep menyimulasikan mesin: program di simulator NX, disambung viz 3D browser lewat OPC UA - alurnya, urutan pengerjaannya, dan daftar jebakan yang gagalnya tanpa keluhan |
 
 Editornya punya **undo/redo** (Ctrl+Z / Ctrl+Shift+Z) - snapshot seluruh state, jadi tidak ada

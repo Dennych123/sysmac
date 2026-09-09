@@ -210,6 +210,32 @@ simulator HMI, jauh lebih tertutup. Baru di situ reverse engineering masuk akal.
 
 ---
 
+## 3g. Digital twin SPM: analisa cycle time dan cari bottleneck
+
+Ide, belum dikerjakan. Ditulis lengkap di **[docs/RENCANA_PLANT_TWIN.md](docs/RENCANA_PLANT_TWIN.md)**.
+
+Ringkasnya: balik arah 3f. Bukan sim fisika yang didorong PLC, tapi PLANT yang disimulasikan
+di ST, didorong program mesin yang asli. Nilainya: program yang di-generate bisa diuji
+sebelum mesinnya ada.
+
+Yang dijawab twin-nya cuma tiga hal, dan ketiganya soal waktu:
+
+1. cycle time berapa, habis di mana
+2. aktuator mana yang lebih lambat dari rencana (teori jarak/kecepatan vs waktu nyata)
+3. siapa menunggu siapa (robot nganggur, atau mesinnya)
+
+Empat keputusan yang sudah diambil, dengan alasannya di dokumen itu:
+
+- **bukan physics engine.** Yang dibutuhkan SPM cuma orde satu, dan solver kontak hasilnya
+  tidak bisa diulang
+- **plant di ST, bukan di browser.** Bridge OPC UA sampling 50 ms; reed switch hidup di
+  milidetik
+- **sumbernya IO list yang SAMA** dengan generator: satu daftar, dua keluaran
+- **jangan bikin frameworknya dulu.** Mesin #2 disalin dulu, baru difaktorkan
+
+Langkah pertama tetap sama dengan 3f: SATU silinder, plus satu mode gagal (macet di tengah).
+Kalau motion fault muncul di program aslinya, lingkarannya tertutup.
+
 ## 4. Undo / redo di editor flowchart - SUDAH
 
 Ctrl+Z / Ctrl+Shift+Z (dan Ctrl+Y), plus tombol Undo/Redo di kepala panel Motion sequence.
