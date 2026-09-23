@@ -15,10 +15,10 @@ AL[13]	BOOL			False	False	Do not publish	AL013_ ST1 RIGHT DIVIDER ALL REED SWITC
 AL[14]	BOOL			False	False	Do not publish	AL014_ ST1 STOPPER-2 ALL REED SWITCH ON
 AL[15]	BOOL			False	False	Do not publish	AL015_ ST1 STOPPER-3 ALL REED SWITCH ON
 AL[16]	BOOL			False	False	Do not publish	AL016_ ST1 STOPPER-4 ALL REED SWITCH ON
-AL[17]	BOOL			False	False	Do not publish	AL017_ Spare
-AL[18]	BOOL			False	False	Do not publish	AL018_ Spare
-AL[19]	BOOL			False	False	Do not publish	AL019_ Spare
-AL[20]	BOOL			False	False	Do not publish	AL020_ Spare
+AL[17]	BOOL			False	False	Do not publish	AL017_ ST1 SUPPLY_FEEDER SPARE 1 ALL REED SWITCH ON
+AL[18]	BOOL			False	False	Do not publish	AL018_ ST1 SUPPLY_FEEDER SPARE 2 ALL REED SWITCH ON
+AL[19]	BOOL			False	False	Do not publish	AL019_ ST1 SUPPLY_FEEDER SPARE 3 ALL REED SWITCH ON
+AL[20]	BOOL			False	False	Do not publish	AL020_ ST1 SUPPLY_FEEDER CYCLE TIME OVER
 AL[21]	BOOL			False	False	Do not publish	AL021_ Spare
 AL[22]	BOOL			False	False	Do not publish	AL022_ Spare
 AL[23]	BOOL			False	False	Do not publish	AL023_ Spare
@@ -40,10 +40,10 @@ AL[38]	BOOL			False	False	Do not publish	AL038_ Spare
 AL[39]	BOOL			False	False	Do not publish	AL039_ Spare
 AL[40]	BOOL			False	False	Do not publish	AL040_ Spare
 AL[41]	BOOL			False	False	Do not publish	AL041_ ST2 STOPPER-1 ALL REED SWITCH ON
-AL[42]	BOOL			False	False	Do not publish	AL042_ ST2 SPARE 1 ALL REED SWITCH ON
-AL[43]	BOOL			False	False	Do not publish	AL043_ Spare
-AL[44]	BOOL			False	False	Do not publish	AL044_ Spare
-AL[45]	BOOL			False	False	Do not publish	AL045_ Spare
+AL[42]	BOOL			False	False	Do not publish	AL042_ ST2 BUFFER SPARE 1 ALL REED SWITCH ON
+AL[43]	BOOL			False	False	Do not publish	AL043_ ST2 BUFFER SPARE 2 ALL REED SWITCH ON
+AL[44]	BOOL			False	False	Do not publish	AL044_ Flowchart alarm (cyclestop): alarm warning lupa ngangkat
+AL[45]	BOOL			False	False	Do not publish	AL045_ ST2 BUFFER CYCLE TIME OVER
 AL[46]	BOOL			False	False	Do not publish	AL046_ Spare
 AL[47]	BOOL			False	False	Do not publish	AL047_ Spare
 AL[48]	BOOL			False	False	Do not publish	AL048_ Spare
@@ -71,8 +71,8 @@ AL[69]	BOOL			False	False	Do not publish	AL069_ Spare
 AL[70]	BOOL			False	False	Do not publish	AL070_ Spare
 AL[71]	BOOL			False	False	Do not publish	AL071_ ST3 EJECTOR ALL REED SWITCH ON
 AL[72]	BOOL			False	False	Do not publish	AL072_ ST3 PUSHER ALL REED SWITCH ON
-AL[73]	BOOL			False	False	Do not publish	AL073_ ST3 SPARE 1 ALL REED SWITCH ON
-AL[74]	BOOL			False	False	Do not publish	AL074_ Spare
+AL[73]	BOOL			False	False	Do not publish	AL073_ ST3 CE_EJECT SPARE 1 ALL REED SWITCH ON
+AL[74]	BOOL			False	False	Do not publish	AL074_ ST3 CE_EJECT CYCLE TIME OVER
 AL[75]	BOOL			False	False	Do not publish	AL075_ Spare
 AL[76]	BOOL			False	False	Do not publish	AL076_ Spare
 AL[77]	BOOL			False	False	Do not publish	AL077_ Spare
@@ -105,9 +105,9 @@ MF[3]	BOOL			False	False	Do not publish	MF003_ ST1 STOPPER-2 Motion Fault
 MF[4]	BOOL			False	False	Do not publish	MF004_ ST1 STOPPER-3 Motion Fault
 MF[5]	BOOL			False	False	Do not publish	MF005_ ST1 STOPPER-4 Motion Fault
 MF[6]	BOOL			False	False	Do not publish	MF006_ ST1 STOPPER-5 Motion Fault
-MF[7]	BOOL			False	False	Do not publish	MF007_ Spare
-MF[8]	BOOL			False	False	Do not publish	MF008_ Spare
-MF[9]	BOOL			False	False	Do not publish	MF009_ Spare
+MF[7]	BOOL			False	False	Do not publish	MF007_ ST1 SUPPLY_FEEDER SPARE 1 MOTION FAULT
+MF[8]	BOOL			False	False	Do not publish	MF008_ ST1 SUPPLY_FEEDER SPARE 2 MOTION FAULT
+MF[9]	BOOL			False	False	Do not publish	MF009_ ST1 SUPPLY_FEEDER SPARE 3 MOTION FAULT
 MF[10]	BOOL			False	False	Do not publish	MF010_ Spare
 MF[11]	BOOL			False	False	Do not publish	MF011_ Spare
 MF[12]	BOOL			False	False	Do not publish	MF012_ Spare
@@ -130,11 +130,11 @@ MF[28]	BOOL			False	False	Do not publish	MF028_ Spare
 MF[29]	BOOL			False	False	Do not publish	MF029_ Spare
 MF[30]	BOOL			False	False	Do not publish	MF030_ Spare
 MF[31]	BOOL			False	False	Do not publish	MF031_ ST2 STOPPER-1 Motion Fault
-MF[32]	BOOL			False	False	Do not publish	MF032_ ST2 SPARE 1 MOTION FAULT
-MF[33]	BOOL			False	False	Do not publish	MF033_ Spare
-MF[34]	BOOL			False	False	Do not publish	MF034_ Spare
-MF[35]	BOOL			False	False	Do not publish	MF035_ Spare
-MF[36]	BOOL			False	False	Do not publish	MF036_ Spare
+MF[32]	BOOL			False	False	Do not publish	MF032_ ST2 SERVO CENTER POS1 Motion Fault
+MF[33]	BOOL			False	False	Do not publish	MF033_ ST2 SERVO LEFT POS2 Motion Fault
+MF[34]	BOOL			False	False	Do not publish	MF034_ ST2 SERVO RIGHT POS3 Motion Fault
+MF[35]	BOOL			False	False	Do not publish	MF035_ ST2 BUFFER SPARE 1 MOTION FAULT
+MF[36]	BOOL			False	False	Do not publish	MF036_ ST2 BUFFER SPARE 2 MOTION FAULT
 MF[37]	BOOL			False	False	Do not publish	MF037_ Spare
 MF[38]	BOOL			False	False	Do not publish	MF038_ Spare
 MF[39]	BOOL			False	False	Do not publish	MF039_ Spare
@@ -161,7 +161,7 @@ MF[59]	BOOL			False	False	Do not publish	MF059_ Spare
 MF[60]	BOOL			False	False	Do not publish	MF060_ Spare
 MF[61]	BOOL			False	False	Do not publish	MF061_ ST3 EJECTOR Motion Fault
 MF[62]	BOOL			False	False	Do not publish	MF062_ ST3 PUSHER Motion Fault
-MF[63]	BOOL			False	False	Do not publish	MF063_ ST3 SPARE 1 MOTION FAULT
+MF[63]	BOOL			False	False	Do not publish	MF063_ ST3 CE_EJECT SPARE 1 MOTION FAULT
 MF[64]	BOOL			False	False	Do not publish	MF064_ Spare
 MF[65]	BOOL			False	False	Do not publish	MF065_ Spare
 MF[66]	BOOL			False	False	Do not publish	MF066_ Spare

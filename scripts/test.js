@@ -1,4 +1,5 @@
 const fs=require('fs');
+const os=require('os');
 const path=require('path');
 // Pipeline diambil LANGSUNG dari js/*.js lewat core.js - gak lagi lewat flow Node-RED. Efeknya:
 // ganti js/ langsung kebaca test tanpa rebuild apa-apa dulu.
@@ -170,7 +171,12 @@ function runPipeline(seed) {
 // bikin "MF motion-fault block full" (block lama cuma 4 slot tetap per station).
 console.log('=== Skenario stub (belum diatur motion sequence) ===');
 const stub = runPipeline({});
-const outdir=path.join(__dirname,'..','outputs'); fs.mkdirSync(outdir,{recursive:true});
+// Berkas skenario ini ditulis ke folder SEMENTARA, bukan ke outputs/. outputs/ isinya hasil
+// generate outputs/sample-project.json (project contoh yang juga dipasang tombol "Load example"),
+// jadi kalau tes ikut menimpanya, folder itu berisi campuran dua project: nama program tanpa
+// nama station dari skenario stub berdampingan dengan yang bernama dari project contoh, dan yang
+// dibaca orang sebagai "keluaran contoh" sebenarnya keluaran tes yang lain.
+const outdir=fs.mkdtempSync(path.join(os.tmpdir(),'susmax-test-'));
 stub.files.forEach(f=>fs.writeFileSync(path.join(outdir,f.name),f.xml));
 const okStub = validate('stub', stub.files);
 const noMfFull = !/MF motion-fault block full/.test(stub.warnings||'');

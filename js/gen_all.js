@@ -35,6 +35,10 @@ var T_MOTION = validTimer(timerDefaults.motion, "T#5S", "motion fault");
 // Selisih waktu yang WAJAR antara master di-ON dan pressure switch angin ikut naik. Di bawah
 // ini bukan kerusakan, cuma tangki lagi mengisi; di atasnya switch-nya yang bermasalah.
 var T_AIRPS  = validTimer(timerDefaults.airPs, "T#3S", "air pressure switch fault");
+// Batas wajar SATU siklus otomatis satu unit (LB400 nyala terus). Di atas ini siklusnya nyangkut -
+// nunggu sensor part, nunggu interlock station lain, atau aktuator yang gak punya LSC jadi gak
+// pernah kena motion fault. Default 35 detik, bisa disetel lewat web UI.
+var T_CYCLE  = validTimer(timerDefaults.cycle, "T#35S", "cycle time over");
 var ARRAY_ELEMENTS = {}; // "AL[61]" -> comment, buat baris per elemen di GlobalVariables.tsv
 
 // Nama status global mengikuti standar Ndeso (MSTR_RDY, bukan MSTR_READY)
@@ -774,6 +778,33 @@ function buildUnit(stKey, devs){
             ALARM_GROUPS[cat].push(bit);
         });
     });
+
+    // ===== CYCLE TIME OVER: LB400 nyala lebih lama dari T_CYCLE =====
+    // LB400 nyala dari start motion sampai LB400_B (cycle complete), jadi dia stopwatch siklus yang
+    // sudah ada - gak perlu bit baru. Yang ketangkap di sini justru yang LOLOS dari motion fault:
+    // siklus yang berhenti nunggu part, nunggu interlock station lain, atau aktuator tanpa LSC yang
+    // memang gak punya deteksi motion fault. Tanpa alarm ini unit berhenti diam-diam dan yang
+    // kelihatan cuma "mesin gak jalan", tanpa satu pun nomor alarm buat dicari.
+    //
+    // Alarmnya DI-LATCH, bukan level. Dia masuk fault stop group -> LB149 -> AUTO_RUN drop ->
+    // LB400 drop -> timer reset. Tanpa latch alarmnya mati sendiri sepersekian detik setelah nyala:
+    // di layar NB cuma kedip, dan mesin boleh jalan lagi ke kondisi nyangkut yang sama.
+    //
+    // Slot AL-nya diambil PALING BELAKANG di blok station (sesudah alarm flowchart) - ditaruh di
+    // depan, semua nomor alarm station yang sudah tercetak di lembar troubleshooting bergeser.
+    if(alN>alCap){ W("al_block_full",stKey,stKey+": AL alarm block full, cycle time over alarm skipped."); }
+    else {
+        var ctCmt = stLabel.toUpperCase()+" CYCLE TIME OVER";
+        var ctAl  = AL(alN, ctCmt); alN++;
+        var ctTmr = "LT"+pad(200+faultTimerIdx,3); faultTimerIdx++;
+        P(ctTmr,"TON","Cycle time monitor for "+stLabel);
+        P("LB199","BOOL","Cycle time over detected");
+        S6.push(ton(o++,["LB400",false],T_CYCLE,ctTmr,"LB199",ctCmt));
+        var rCt=new Rung(o++, ctCmt), ctRail=rCt.rail();
+        rCt.rr([rCt.clm(ctAl,[rCt.ct("LB199",ctRail), rCt.ct(ctAl,ctRail)])]);
+        S6.push(rCt.build());
+        fltList.push(ctAl);
+    }
 
     var chunkAux=[];
     function integ(list,a1,a2,out,label){

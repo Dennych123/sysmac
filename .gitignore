@@ -12,7 +12,7 @@ tools/opcua/node_modules/
 tools/opcua/package-lock.json
 tools/opcua/pki/
 
-# blurobot/ punya repo SENDIRI (rb4axis) dan kebetulan ter-clone di dalam sini.
-# Di-add tanpa submodule, yang tercatat cuma gitlink: klon repo ini dapat folder KOSONG
-# tanpa satu pun tanda bahwa isinya hilang.
+# blurobot/ punya repo SENDIRI (rb4axis) dan sekarang ditaruh SEJAJAR repo ini, bukan di
+# dalamnya. Barisnya ditahan: kalau nanti ada yang meng-klon-nya ke sini lagi, yang tercatat
+# cuma gitlink - klon repo ini dapat folder KOSONG tanpa satu pun tanda bahwa isinya hilang.
 blurobot/

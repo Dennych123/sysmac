@@ -1,9 +1,17 @@
 AIR_SC_CONF	BOOL			False	False	Do not publish	AIR SOURCE CONF
 AL	ARRAY[1..100] OF BOOL		%H300.00	True	False	Do not publish	
-AS421_2M	BOOL			False	False	Do not publish	Spare reed switch, ST2 spare 1, motion side
-AS421_2R	BOOL			False	False	Do not publish	Spare reed switch, ST2 spare 1, return side
-AS431_3M	BOOL			False	False	Do not publish	Spare reed switch, ST3 spare 1, motion side
-AS431_3R	BOOL			False	False	Do not publish	Spare reed switch, ST3 spare 1, return side
+AS413_2M	BOOL			False	False	Do not publish	Spare reed switch, ST1 Supply_Feeder spare 1, motion side
+AS413_2R	BOOL			False	False	Do not publish	Spare reed switch, ST1 Supply_Feeder spare 1, return side
+AS413_3M	BOOL			False	False	Do not publish	Spare reed switch, ST1 Supply_Feeder spare 2, motion side
+AS413_3R	BOOL			False	False	Do not publish	Spare reed switch, ST1 Supply_Feeder spare 2, return side
+AS413_4M	BOOL			False	False	Do not publish	Spare reed switch, ST1 Supply_Feeder spare 3, motion side
+AS413_4R	BOOL			False	False	Do not publish	Spare reed switch, ST1 Supply_Feeder spare 3, return side
+AS422_1M	BOOL			False	False	Do not publish	Spare reed switch, ST2 Buffer spare 1, motion side
+AS422_1R	BOOL			False	False	Do not publish	Spare reed switch, ST2 Buffer spare 1, return side
+AS422_2M	BOOL			False	False	Do not publish	Spare reed switch, ST2 Buffer spare 2, motion side
+AS422_2R	BOOL			False	False	Do not publish	Spare reed switch, ST2 Buffer spare 2, return side
+AS431_3M	BOOL			False	False	Do not publish	Spare reed switch, ST3 CE_Eject spare 1, motion side
+AS431_3R	BOOL			False	False	Do not publish	Spare reed switch, ST3 CE_Eject spare 1, return side
 AS_ST1_LFT_DIV_BWD	BOOL			False	False	Do not publish	ST1 LEFT DIVIDER BACKWARD
 AS_ST1_LFT_DIV_FWD	BOOL			False	False	Do not publish	ST1 LEFT DIVIDER FORWARD
 AS_ST1_RGT_DIV_BWD	BOOL			False	False	Do not publish	ST1 RIGHT DIVIDER BACKWARD
@@ -17,7 +25,7 @@ AS_ST1_STP4_UCHK	BOOL			False	False	Do not publish	ST1 STOPPER-4 UNCHUCK
 AS_ST1_STP5_CHK	BOOL			False	False	Do not publish	ST1 STOPPER-5 CHUCK
 AS_ST1_STP5_UCHK	BOOL			False	False	Do not publish	ST1 STOPPER-5 UNCHUCK
 AS_ST2_STP1_DN	BOOL			False	False	Do not publish	ST2 STOPPER-1 DOWN
-AS_ST2_STP1_UP	BOOL			False	False	Do not publish	ST2 STOPPER-1 UP
+AS_ST2_STP1_UP_POS	BOOL			False	False	Do not publish	ST2 STOPPER-1 UP POS
 AS_ST3_EJC_BWD	BOOL			False	False	Do not publish	ST3 EJECTOR BACKWARD
 AS_ST3_EJC_FWD	BOOL			False	False	Do not publish	ST3 EJECTOR FORWARD
 AS_ST3_PSH_BWD	BOOL			False	False	Do not publish	ST3 PUSHER BACKWARD
@@ -75,7 +83,7 @@ CH3_00	BOOL			False	False	Do not publish	ST3 EJECTOR FORWARD
 CH3_01	BOOL			False	False	Do not publish	ST3 EJECTOR BACKWARD
 CH3_02	BOOL			False	False	Do not publish	ST3 PUSHER FORWARD
 CH3_03	BOOL			False	False	Do not publish	ST3 PUSHER BACKWARD
-CH3_04	BOOL			False	False	Do not publish	ST2 STOPPER-1 UP
+CH3_04	BOOL			False	False	Do not publish	ST2 STOPPER-1 UP POS
 CH3_05	BOOL			False	False	Do not publish	ST2 STOPPER-1 DOWN
 CH3_06	BOOL			False	False	Do not publish	ST1 LEFT DIVIDER BACKWARD
 CH3_07	BOOL			False	False	Do not publish	ST1 LEFT DIVIDER FORWARD
@@ -91,7 +99,7 @@ CH5_00	BOOL			False	False	Do not publish	ST3  EJECTOR FORWARD
 CH5_01	BOOL			False	False	Do not publish	ST3  EJECTOR BACKWARD
 CH5_02	BOOL			False	False	Do not publish	ST3  PUSHER FORWARD
 CH5_03	BOOL			False	False	Do not publish	ST3  PUSHER BACKWARD
-CH5_04	BOOL			False	False	Do not publish	ST2  STOPPER-1 UP
+CH5_04	BOOL			False	False	Do not publish	ST2  STOPPER-1 UP pos
 CH5_05	BOOL			False	False	Do not publish	ST2  STOPPER-1 DOWN
 CH5_06	BOOL			False	False	Do not publish	ST1 LEFT DIVIDER BACKWARD
 CH5_07	BOOL			False	False	Do not publish	ST1 LEFT DIVIDER FORWARD
@@ -118,7 +126,7 @@ CR_ST1_PART_FDR2_STR	BOOL			False	False	Do not publish	ST1 PART FEEDER-2 START
 CR_ST1_RGT_DIV_BWD	BOOL			False	False	Do not publish	ST1 RIGHT DIVIDER BACKWARD
 CR_ST1_RGT_DIV_FWD	BOOL			False	False	Do not publish	ST1 RIGHT DIVIDER FORWARD
 CR_ST2_STP1_DN	BOOL			False	False	Do not publish	ST2  STOPPER-1 DOWN
-CR_ST2_STP1_UP	BOOL			False	False	Do not publish	ST2  STOPPER-1 UP
+CR_ST2_STP1_UP_POS	BOOL			False	False	Do not publish	ST2  STOPPER-1 UP pos
 CR_ST3_EJC_BWD	BOOL			False	False	Do not publish	ST3  EJECTOR BACKWARD
 CR_ST3_EJC_FWD	BOOL			False	False	Do not publish	ST3  EJECTOR FORWARD
 CR_ST3_PSH_BWD	BOOL			False	False	Do not publish	ST3  PUSHER BACKWARD
@@ -126,102 +134,102 @@ CR_ST3_PSH_FWD	BOOL			False	False	Do not publish	ST3  PUSHER FORWARD
 CYCLE_STOP	BOOL			False	False	Do not publish	Machine status from main program
 EMER_INTLK	BOOL			False	False	Do not publish	EMERGENCY STOP INTERLOCK
 FUSE_GOOD	BOOL			False	False	Do not publish	FUSE GOOD CONF
-GB011_00	BOOL			False	False	Do not publish	ST1 unit at home position
-GB011_01	BOOL			False	False	Do not publish	ST1 emergency stop clear
-GB011_02	BOOL			False	False	Do not publish	ST1 auto stop clear
-GB011_03	BOOL			False	False	Do not publish	ST1 cycle stop clear
-GB011_04	BOOL			False	False	Do not publish	ST1 fault stop clear
-GB011_05	BOOL			False	False	Do not publish	ST1 warning clear
-GB011_06	BOOL			False	False	Do not publish	ST1 unit motion condition established
-GB011_07	BOOL			False	False	Do not publish	ST1 spare output bit 07
-GB011_08	BOOL			False	False	Do not publish	ST1 spare output bit 08
-GB011_09	BOOL			False	False	Do not publish	ST1 unit is stopped
-GB011_10	BOOL			False	False	Do not publish	ST1 spare output bit 10
-GB011_11	BOOL			False	False	Do not publish	ST1 spare output bit 11
-GB011_12	BOOL			False	False	Do not publish	ST1 spare output bit 12
-GB011_13	BOOL			False	False	Do not publish	ST1 spare output bit 13
-GB011_14	BOOL			False	False	Do not publish	ST1 spare output bit 14
-GB011_15	BOOL			False	False	Do not publish	ST1 spare output bit 15
-GB011_16	BOOL			False	False	Do not publish	ST1 spare output bit 16
-GB011_17	BOOL			False	False	Do not publish	ST1 spare output bit 17
-GB011_18	BOOL			False	False	Do not publish	ST1 spare output bit 18
-GB011_19	BOOL			False	False	Do not publish	ST1 spare output bit 19
-GB011_20	BOOL			False	False	Do not publish	ST1 automatic operation complete
-GB011_21	BOOL			False	False	Do not publish	ST1 spare output bit 21
-GB011_22	BOOL			False	False	Do not publish	ST1 spare output bit 22
-GB011_23	BOOL			False	False	Do not publish	ST1 spare output bit 23
-GB011_24	BOOL			False	False	Do not publish	ST1 spare output bit 24
-GB011_25	BOOL			False	False	Do not publish	ST1 spare output bit 25
-GB011_26	BOOL			False	False	Do not publish	ST1 spare output bit 26
-GB011_27	BOOL			False	False	Do not publish	ST1 spare output bit 27
-GB011_28	BOOL			False	False	Do not publish	ST1 spare output bit 28
-GB011_29	BOOL			False	False	Do not publish	ST1 spare output bit 29
-GB011_30	BOOL			False	False	Do not publish	ST1 spare output bit 30
-GB011_31	BOOL			False	False	Do not publish	ST1 spare output bit 31
-GB012_00	BOOL			False	False	Do not publish	ST2 unit at home position
-GB012_01	BOOL			False	False	Do not publish	ST2 emergency stop clear
-GB012_02	BOOL			False	False	Do not publish	ST2 auto stop clear
-GB012_03	BOOL			False	False	Do not publish	ST2 cycle stop clear
-GB012_04	BOOL			False	False	Do not publish	ST2 fault stop clear
-GB012_05	BOOL			False	False	Do not publish	ST2 warning clear
-GB012_06	BOOL			False	False	Do not publish	ST2 unit motion condition established
-GB012_07	BOOL			False	False	Do not publish	ST2 spare output bit 07
-GB012_08	BOOL			False	False	Do not publish	ST2 spare output bit 08
-GB012_09	BOOL			False	False	Do not publish	ST2 unit is stopped
-GB012_10	BOOL			False	False	Do not publish	ST2 spare output bit 10
-GB012_11	BOOL			False	False	Do not publish	ST2 spare output bit 11
-GB012_12	BOOL			False	False	Do not publish	ST2 spare output bit 12
-GB012_13	BOOL			False	False	Do not publish	ST2 spare output bit 13
-GB012_14	BOOL			False	False	Do not publish	ST2 spare output bit 14
-GB012_15	BOOL			False	False	Do not publish	ST2 spare output bit 15
-GB012_16	BOOL			False	False	Do not publish	ST2 spare output bit 16
-GB012_17	BOOL			False	False	Do not publish	ST2 spare output bit 17
-GB012_18	BOOL			False	False	Do not publish	ST2 spare output bit 18
-GB012_19	BOOL			False	False	Do not publish	ST2 spare output bit 19
-GB012_20	BOOL			False	False	Do not publish	ST2 automatic operation complete
-GB012_21	BOOL			False	False	Do not publish	ST2 spare output bit 21
-GB012_22	BOOL			False	False	Do not publish	ST2 spare output bit 22
-GB012_23	BOOL			False	False	Do not publish	ST2 spare output bit 23
-GB012_24	BOOL			False	False	Do not publish	ST2 spare output bit 24
-GB012_25	BOOL			False	False	Do not publish	ST2 spare output bit 25
-GB012_26	BOOL			False	False	Do not publish	ST2 spare output bit 26
-GB012_27	BOOL			False	False	Do not publish	ST2 spare output bit 27
-GB012_28	BOOL			False	False	Do not publish	ST2 spare output bit 28
-GB012_29	BOOL			False	False	Do not publish	ST2 spare output bit 29
-GB012_30	BOOL			False	False	Do not publish	ST2 spare output bit 30
-GB012_31	BOOL			False	False	Do not publish	ST2 spare output bit 31
-GB013_00	BOOL			False	False	Do not publish	ST3 unit at home position
-GB013_01	BOOL			False	False	Do not publish	ST3 emergency stop clear
-GB013_02	BOOL			False	False	Do not publish	ST3 auto stop clear
-GB013_03	BOOL			False	False	Do not publish	ST3 cycle stop clear
-GB013_04	BOOL			False	False	Do not publish	ST3 fault stop clear
-GB013_05	BOOL			False	False	Do not publish	ST3 warning clear
-GB013_06	BOOL			False	False	Do not publish	ST3 unit motion condition established
-GB013_07	BOOL			False	False	Do not publish	ST3 spare output bit 07
-GB013_08	BOOL			False	False	Do not publish	ST3 spare output bit 08
-GB013_09	BOOL			False	False	Do not publish	ST3 unit is stopped
-GB013_10	BOOL			False	False	Do not publish	ST3 spare output bit 10
-GB013_11	BOOL			False	False	Do not publish	ST3 spare output bit 11
-GB013_12	BOOL			False	False	Do not publish	ST3 spare output bit 12
-GB013_13	BOOL			False	False	Do not publish	ST3 spare output bit 13
-GB013_14	BOOL			False	False	Do not publish	ST3 spare output bit 14
-GB013_15	BOOL			False	False	Do not publish	ST3 spare output bit 15
-GB013_16	BOOL			False	False	Do not publish	ST3 spare output bit 16
-GB013_17	BOOL			False	False	Do not publish	ST3 spare output bit 17
-GB013_18	BOOL			False	False	Do not publish	ST3 spare output bit 18
-GB013_19	BOOL			False	False	Do not publish	ST3 spare output bit 19
-GB013_20	BOOL			False	False	Do not publish	ST3 automatic operation complete
-GB013_21	BOOL			False	False	Do not publish	ST3 spare output bit 21
-GB013_22	BOOL			False	False	Do not publish	ST3 spare output bit 22
-GB013_23	BOOL			False	False	Do not publish	ST3 spare output bit 23
-GB013_24	BOOL			False	False	Do not publish	ST3 spare output bit 24
-GB013_25	BOOL			False	False	Do not publish	ST3 spare output bit 25
-GB013_26	BOOL			False	False	Do not publish	ST3 spare output bit 26
-GB013_27	BOOL			False	False	Do not publish	ST3 spare output bit 27
-GB013_28	BOOL			False	False	Do not publish	ST3 spare output bit 28
-GB013_29	BOOL			False	False	Do not publish	ST3 spare output bit 29
-GB013_30	BOOL			False	False	Do not publish	ST3 spare output bit 30
-GB013_31	BOOL			False	False	Do not publish	ST3 spare output bit 31
+GB011_00	BOOL			False	False	Do not publish	ST1 Supply_Feeder unit at home position
+GB011_01	BOOL			False	False	Do not publish	ST1 Supply_Feeder emergency stop clear
+GB011_02	BOOL			False	False	Do not publish	ST1 Supply_Feeder auto stop clear
+GB011_03	BOOL			False	False	Do not publish	ST1 Supply_Feeder cycle stop clear
+GB011_04	BOOL			False	False	Do not publish	ST1 Supply_Feeder fault stop clear
+GB011_05	BOOL			False	False	Do not publish	ST1 Supply_Feeder warning clear
+GB011_06	BOOL			False	False	Do not publish	ST1 Supply_Feeder unit motion condition established
+GB011_07	BOOL			False	False	Do not publish	ST1 Supply_Feeder spare output bit 07
+GB011_08	BOOL			False	False	Do not publish	ST1 Supply_Feeder spare output bit 08
+GB011_09	BOOL			False	False	Do not publish	ST1 Supply_Feeder unit is stopped
+GB011_10	BOOL			False	False	Do not publish	ST1 Supply_Feeder spare output bit 10
+GB011_11	BOOL			False	False	Do not publish	ST1 Supply_Feeder spare output bit 11
+GB011_12	BOOL			False	False	Do not publish	ST1 Supply_Feeder spare output bit 12
+GB011_13	BOOL			False	False	Do not publish	ST1 Supply_Feeder spare output bit 13
+GB011_14	BOOL			False	False	Do not publish	ST1 Supply_Feeder spare output bit 14
+GB011_15	BOOL			False	False	Do not publish	ST1 Supply_Feeder spare output bit 15
+GB011_16	BOOL			False	False	Do not publish	ST1 Supply_Feeder spare output bit 16
+GB011_17	BOOL			False	False	Do not publish	ST1 Supply_Feeder spare output bit 17
+GB011_18	BOOL			False	False	Do not publish	ST1 Supply_Feeder spare output bit 18
+GB011_19	BOOL			False	False	Do not publish	ST1 Supply_Feeder spare output bit 19
+GB011_20	BOOL			False	False	Do not publish	ST1 Supply_Feeder automatic operation complete
+GB011_21	BOOL			False	False	Do not publish	ST1 Supply_Feeder spare output bit 21
+GB011_22	BOOL			False	False	Do not publish	ST1 Supply_Feeder spare output bit 22
+GB011_23	BOOL			False	False	Do not publish	ST1 Supply_Feeder spare output bit 23
+GB011_24	BOOL			False	False	Do not publish	ST1 Supply_Feeder spare output bit 24
+GB011_25	BOOL			False	False	Do not publish	ST1 Supply_Feeder spare output bit 25
+GB011_26	BOOL			False	False	Do not publish	ST1 Supply_Feeder spare output bit 26
+GB011_27	BOOL			False	False	Do not publish	ST1 Supply_Feeder spare output bit 27
+GB011_28	BOOL			False	False	Do not publish	ST1 Supply_Feeder spare output bit 28
+GB011_29	BOOL			False	False	Do not publish	ST1 Supply_Feeder spare output bit 29
+GB011_30	BOOL			False	False	Do not publish	ST1 Supply_Feeder spare output bit 30
+GB011_31	BOOL			False	False	Do not publish	ST1 Supply_Feeder spare output bit 31
+GB012_00	BOOL			False	False	Do not publish	ST2 Buffer unit at home position
+GB012_01	BOOL			False	False	Do not publish	ST2 Buffer emergency stop clear
+GB012_02	BOOL			False	False	Do not publish	ST2 Buffer auto stop clear
+GB012_03	BOOL			False	False	Do not publish	ST2 Buffer cycle stop clear
+GB012_04	BOOL			False	False	Do not publish	ST2 Buffer fault stop clear
+GB012_05	BOOL			False	False	Do not publish	ST2 Buffer warning clear
+GB012_06	BOOL			False	False	Do not publish	ST2 Buffer unit motion condition established
+GB012_07	BOOL			False	False	Do not publish	ST2 Buffer spare output bit 07
+GB012_08	BOOL			False	False	Do not publish	ST2 Buffer spare output bit 08
+GB012_09	BOOL			False	False	Do not publish	ST2 Buffer unit is stopped
+GB012_10	BOOL			False	False	Do not publish	ST2 Buffer spare output bit 10
+GB012_11	BOOL			False	False	Do not publish	ST2 Buffer spare output bit 11
+GB012_12	BOOL			False	False	Do not publish	ST2 Buffer spare output bit 12
+GB012_13	BOOL			False	False	Do not publish	ST2 Buffer spare output bit 13
+GB012_14	BOOL			False	False	Do not publish	ST2 Buffer spare output bit 14
+GB012_15	BOOL			False	False	Do not publish	ST2 Buffer spare output bit 15
+GB012_16	BOOL			False	False	Do not publish	ST2 Buffer spare output bit 16
+GB012_17	BOOL			False	False	Do not publish	ST2 Buffer spare output bit 17
+GB012_18	BOOL			False	False	Do not publish	ST2 Buffer spare output bit 18
+GB012_19	BOOL			False	False	Do not publish	ST2 Buffer spare output bit 19
+GB012_20	BOOL			False	False	Do not publish	ST2 Buffer automatic operation complete
+GB012_21	BOOL			False	False	Do not publish	ST2 Buffer spare output bit 21
+GB012_22	BOOL			False	False	Do not publish	ST2 Buffer spare output bit 22
+GB012_23	BOOL			False	False	Do not publish	ST2 Buffer spare output bit 23
+GB012_24	BOOL			False	False	Do not publish	ST2 Buffer spare output bit 24
+GB012_25	BOOL			False	False	Do not publish	ST2 Buffer spare output bit 25
+GB012_26	BOOL			False	False	Do not publish	ST2 Buffer spare output bit 26
+GB012_27	BOOL			False	False	Do not publish	ST2 Buffer spare output bit 27
+GB012_28	BOOL			False	False	Do not publish	ST2 Buffer spare output bit 28
+GB012_29	BOOL			False	False	Do not publish	ST2 Buffer spare output bit 29
+GB012_30	BOOL			False	False	Do not publish	ST2 Buffer spare output bit 30
+GB012_31	BOOL			False	False	Do not publish	ST2 Buffer spare output bit 31
+GB013_00	BOOL			False	False	Do not publish	ST3 CE_Eject unit at home position
+GB013_01	BOOL			False	False	Do not publish	ST3 CE_Eject emergency stop clear
+GB013_02	BOOL			False	False	Do not publish	ST3 CE_Eject auto stop clear
+GB013_03	BOOL			False	False	Do not publish	ST3 CE_Eject cycle stop clear
+GB013_04	BOOL			False	False	Do not publish	ST3 CE_Eject fault stop clear
+GB013_05	BOOL			False	False	Do not publish	ST3 CE_Eject warning clear
+GB013_06	BOOL			False	False	Do not publish	ST3 CE_Eject unit motion condition established
+GB013_07	BOOL			False	False	Do not publish	ST3 CE_Eject spare output bit 07
+GB013_08	BOOL			False	False	Do not publish	ST3 CE_Eject spare output bit 08
+GB013_09	BOOL			False	False	Do not publish	ST3 CE_Eject unit is stopped
+GB013_10	BOOL			False	False	Do not publish	ST3 CE_Eject spare output bit 10
+GB013_11	BOOL			False	False	Do not publish	ST3 CE_Eject spare output bit 11
+GB013_12	BOOL			False	False	Do not publish	ST3 CE_Eject spare output bit 12
+GB013_13	BOOL			False	False	Do not publish	ST3 CE_Eject spare output bit 13
+GB013_14	BOOL			False	False	Do not publish	ST3 CE_Eject spare output bit 14
+GB013_15	BOOL			False	False	Do not publish	ST3 CE_Eject spare output bit 15
+GB013_16	BOOL			False	False	Do not publish	ST3 CE_Eject spare output bit 16
+GB013_17	BOOL			False	False	Do not publish	ST3 CE_Eject spare output bit 17
+GB013_18	BOOL			False	False	Do not publish	ST3 CE_Eject spare output bit 18
+GB013_19	BOOL			False	False	Do not publish	ST3 CE_Eject spare output bit 19
+GB013_20	BOOL			False	False	Do not publish	ST3 CE_Eject automatic operation complete
+GB013_21	BOOL			False	False	Do not publish	ST3 CE_Eject spare output bit 21
+GB013_22	BOOL			False	False	Do not publish	ST3 CE_Eject spare output bit 22
+GB013_23	BOOL			False	False	Do not publish	ST3 CE_Eject spare output bit 23
+GB013_24	BOOL			False	False	Do not publish	ST3 CE_Eject spare output bit 24
+GB013_25	BOOL			False	False	Do not publish	ST3 CE_Eject spare output bit 25
+GB013_26	BOOL			False	False	Do not publish	ST3 CE_Eject spare output bit 26
+GB013_27	BOOL			False	False	Do not publish	ST3 CE_Eject spare output bit 27
+GB013_28	BOOL			False	False	Do not publish	ST3 CE_Eject spare output bit 28
+GB013_29	BOOL			False	False	Do not publish	ST3 CE_Eject spare output bit 29
+GB013_30	BOOL			False	False	Do not publish	ST3 CE_Eject spare output bit 30
+GB013_31	BOOL			False	False	Do not publish	ST3 CE_Eject spare output bit 31
 GCT	ARRAY[1..10] OF BOOL			False	False	Do not publish	Counter count trigger
 GSB000	BOOL			False	False	Do not publish	Equipment design coil, constant ON
 GSB001	BOOL			False	False	Do not publish	Equipment design coil, constant OFF
@@ -255,12 +263,21 @@ GTM003	BOOL			False	False	Do not publish	Timer 3 count
 GTM004	BOOL			False	False	Do not publish	Timer 4 count
 GTM005	BOOL			False	False	Do not publish	Timer 5 count
 GTM006	BOOL			False	False	Do not publish	Timer 6 count
+HMI_SCREEN	INT			False	False	Do not publish	Target NB screen number - map AT to the NB 'Switch Screen' control register
 HOME_POST	BOOL			False	False	Do not publish	Machine status from main program
 IND_MODE	BOOL			False	False	Do not publish	Machine status from main program
-LSC421_2M	BOOL			False	False	Do not publish	ST2 spare 1 motion position confirmed
-LSC421_2R	BOOL			False	False	Do not publish	ST2 spare 1 return position confirmed
-LSC431_3M	BOOL			False	False	Do not publish	ST3 spare 1 motion position confirmed
-LSC431_3R	BOOL			False	False	Do not publish	ST3 spare 1 return position confirmed
+LSC413_2M	BOOL			False	False	Do not publish	ST1 Supply_Feeder spare 1 motion position confirmed
+LSC413_2R	BOOL			False	False	Do not publish	ST1 Supply_Feeder spare 1 return position confirmed
+LSC413_3M	BOOL			False	False	Do not publish	ST1 Supply_Feeder spare 2 motion position confirmed
+LSC413_3R	BOOL			False	False	Do not publish	ST1 Supply_Feeder spare 2 return position confirmed
+LSC413_4M	BOOL			False	False	Do not publish	ST1 Supply_Feeder spare 3 motion position confirmed
+LSC413_4R	BOOL			False	False	Do not publish	ST1 Supply_Feeder spare 3 return position confirmed
+LSC422_1M	BOOL			False	False	Do not publish	ST2 Buffer spare 1 motion position confirmed
+LSC422_1R	BOOL			False	False	Do not publish	ST2 Buffer spare 1 return position confirmed
+LSC422_2M	BOOL			False	False	Do not publish	ST2 Buffer spare 2 motion position confirmed
+LSC422_2R	BOOL			False	False	Do not publish	ST2 Buffer spare 2 return position confirmed
+LSC431_3M	BOOL			False	False	Do not publish	ST3 CE_Eject spare 1 motion position confirmed
+LSC431_3R	BOOL			False	False	Do not publish	ST3 CE_Eject spare 1 return position confirmed
 LSC_ST1_LFT_DIV_BWD	BOOL			False	False	Do not publish	CH3.06 ST1 LEFT DIVIDER BACKWARD position confirmed
 LSC_ST1_LFT_DIV_FWD	BOOL			False	False	Do not publish	CH3.07 ST1 LEFT DIVIDER FORWARD position confirmed
 LSC_ST1_RGT_DIV_BWD	BOOL			False	False	Do not publish	CH3.08 ST1 RIGHT DIVIDER BACKWARD position confirmed
@@ -274,11 +291,14 @@ LSC_ST1_STP4_UCHK	BOOL			False	False	Do not publish	CH3.15 ST1 STOPPER-4 UNCHUCK
 LSC_ST1_STP5_CHK	BOOL			False	False	Do not publish	CH2.14 ST1 STOPPER-5 CHUCK position confirmed
 LSC_ST1_STP5_UCHK	BOOL			False	False	Do not publish	CH2.15 ST1 STOPPER-5 UNCHUCK position confirmed
 LSC_ST2_STP1_DN	BOOL			False	False	Do not publish	CH3.05 ST2 STOPPER-1 DOWN position confirmed
-LSC_ST2_STP1_UP	BOOL			False	False	Do not publish	CH3.04 ST2 STOPPER-1 UP position confirmed
+LSC_ST2_STP1_UP_POS	BOOL			False	False	Do not publish	CH3.04 ST2 STOPPER-1 UP POS position confirmed
 LSC_ST3_EJC_BWD	BOOL			False	False	Do not publish	CH3.01 ST3 EJECTOR BACKWARD position confirmed
 LSC_ST3_EJC_FWD	BOOL			False	False	Do not publish	CH3.00 ST3 EJECTOR FORWARD position confirmed
 LSC_ST3_PSH_BWD	BOOL			False	False	Do not publish	CH3.03 ST3 PUSHER BACKWARD position confirmed
 LSC_ST3_PSH_FWD	BOOL			False	False	Do not publish	CH3.02 ST3 PUSHER FORWARD position confirmed
+LS_ST2_SRV_CTR_POS1	BOOL			False	False	Do not publish	ST2 SERVO CENTER POS1
+LS_ST2_SRV_LFT_POS2	BOOL			False	False	Do not publish	ST2 SERVO LEFT POS2
+LS_ST2_SRV_RGT_POS3	BOOL			False	False	Do not publish	ST2 SERVO RIGHT POS3
 MF	ARRAY[1..90] OF BOOL		%H320.00	True	False	Do not publish	
 MSTR_RDY	BOOL			False	False	Do not publish	Machine status from main program
 NOT_EMG_STOP	BOOL			False	False	Do not publish	NOT EMERGENCY STOP
@@ -289,34 +309,45 @@ PB004_02M	BOOL		%W460.02	False	False	Do not publish	Individual staging button
 PB004_02R	BOOL		%W460.03	False	False	Do not publish	Process home return button
 PB004_03M	BOOL		%W460.04	False	False	Do not publish	Individual staging button
 PB004_03R	BOOL		%W460.05	False	False	Do not publish	Process home return button
-PB411_1M	BOOL		%W461.00	False	False	Do not publish	Individual button, ST1 LEFT DIVIDER BACKWARD
-PB411_1R	BOOL		%W461.01	False	False	Do not publish	Individual button, ST1 LEFT DIVIDER FORWARD
-PB411_2M	BOOL		%W461.02	False	False	Do not publish	Individual button, ST1 RIGHT DIVIDER BACKWARD
-PB411_2R	BOOL		%W461.03	False	False	Do not publish	Individual button, ST1 RIGHT DIVIDER FORWARD
-PB411_3M	BOOL		%W461.04	False	False	Do not publish	Individual button, ST1 STOPPER-2 CHUCK
-PB411_3R	BOOL		%W461.05	False	False	Do not publish	Individual button, ST1  STOPPER-2 UNCHUCK
-PB411_4M	BOOL		%W461.06	False	False	Do not publish	Individual button, ST1  STOPPER-3 CHUCK
-PB411_4R	BOOL		%W461.07	False	False	Do not publish	Individual button, ST1  STOPPER-3 UNCHUCK
-PB412_1M	BOOL		%W461.08	False	False	Do not publish	Individual button, ST1  STOPPER-4 CHUCK
-PB412_1R	BOOL		%W461.09	False	False	Do not publish	Individual button, ST1  STOPPER-4 UNCHUCK
-PB412_2M	BOOL		%W461.10	False	False	Do not publish	Individual button, ST1  STOPPER-5 CHUCK
-PB412_2R	BOOL		%W461.11	False	False	Do not publish	Individual button, ST1  STOPPER-5 UNCHUCK
-PB412_3M	BOOL		%W461.12	False	False	Do not publish	Individual button, ST1 DANDORI  TYPE-1 LOCK
-PB412_3R	BOOL		%W461.13	False	False	Do not publish	Individual button, ST1 DANDORI  TYPE-1 UNLOCK
-PB412_4M	BOOL		%W461.14	False	False	Do not publish	Individual button, ST1 DANDORI  TYPE-2 LOCK
-PB412_4R	BOOL		%W461.15	False	False	Do not publish	Individual button, ST1 DANDORI  TYPE-2 UNLOCK
-PB413_1M	BOOL			False	False	Do not publish	Individual button, ST1 PART FEEDER-1 START
-PB413_1R	BOOL			False	False	Do not publish	Individual button, ST1 PART FEEDER-2 START
-PB421_1M	BOOL		%W462.00	False	False	Do not publish	Individual button, ST2  STOPPER-1 UP
-PB421_1R	BOOL		%W462.01	False	False	Do not publish	Individual button, ST2  STOPPER-1 DOWN
-PB421_2M	BOOL		%W462.02	False	False	Do not publish	Spare individual button, ST2 spare 1
-PB421_2R	BOOL		%W462.03	False	False	Do not publish	Spare individual button, ST2 spare 1
-PB431_1M	BOOL		%W463.00	False	False	Do not publish	Individual button, ST3  EJECTOR FORWARD
-PB431_1R	BOOL		%W463.01	False	False	Do not publish	Individual button, ST3  EJECTOR BACKWARD
-PB431_2M	BOOL		%W463.02	False	False	Do not publish	Individual button, ST3  PUSHER FORWARD
-PB431_2R	BOOL		%W463.03	False	False	Do not publish	Individual button, ST3  PUSHER BACKWARD
-PB431_3M	BOOL		%W463.04	False	False	Do not publish	Spare individual button, ST3 spare 1
-PB431_3R	BOOL		%W463.05	False	False	Do not publish	Spare individual button, ST3 spare 1
+PB411_1M	BOOL		%W462.00	False	False	Do not publish	Individual button, ST1 LEFT DIVIDER BACKWARD
+PB411_1R	BOOL		%W462.01	False	False	Do not publish	Individual button, ST1 LEFT DIVIDER FORWARD
+PB411_2M	BOOL		%W462.02	False	False	Do not publish	Individual button, ST1 RIGHT DIVIDER BACKWARD
+PB411_2R	BOOL		%W462.03	False	False	Do not publish	Individual button, ST1 RIGHT DIVIDER FORWARD
+PB411_3M	BOOL		%W462.04	False	False	Do not publish	Individual button, ST1 STOPPER-2 CHUCK
+PB411_3R	BOOL		%W462.05	False	False	Do not publish	Individual button, ST1  STOPPER-2 UNCHUCK
+PB411_4M	BOOL		%W462.06	False	False	Do not publish	Individual button, ST1  STOPPER-3 CHUCK
+PB411_4R	BOOL		%W462.07	False	False	Do not publish	Individual button, ST1  STOPPER-3 UNCHUCK
+PB412_1M	BOOL		%W462.08	False	False	Do not publish	Individual button, ST1  STOPPER-4 CHUCK
+PB412_1R	BOOL		%W462.09	False	False	Do not publish	Individual button, ST1  STOPPER-4 UNCHUCK
+PB412_2M	BOOL		%W462.10	False	False	Do not publish	Individual button, ST1  STOPPER-5 CHUCK
+PB412_2R	BOOL		%W462.11	False	False	Do not publish	Individual button, ST1  STOPPER-5 UNCHUCK
+PB412_3M	BOOL		%W462.12	False	False	Do not publish	Individual button, ST1 DANDORI  TYPE-1 LOCK
+PB412_3R	BOOL		%W462.13	False	False	Do not publish	Individual button, ST1 DANDORI  TYPE-1 UNLOCK
+PB412_4M	BOOL		%W462.14	False	False	Do not publish	Individual button, ST1 DANDORI  TYPE-2 LOCK
+PB412_4R	BOOL		%W462.15	False	False	Do not publish	Individual button, ST1 DANDORI  TYPE-2 UNLOCK
+PB413_1M	BOOL		%W463.00	False	False	Do not publish	Individual button, ST1 PART FEEDER-1 START
+PB413_1R	BOOL		%W463.01	False	False	Do not publish	Individual button, ST1 PART FEEDER-2 START
+PB413_2M	BOOL		%W463.02	False	False	Do not publish	Spare individual button, ST1 Supply_Feeder spare 1
+PB413_2R	BOOL		%W463.03	False	False	Do not publish	Spare individual button, ST1 Supply_Feeder spare 1
+PB413_3M	BOOL		%W463.04	False	False	Do not publish	Spare individual button, ST1 Supply_Feeder spare 2
+PB413_3R	BOOL		%W463.05	False	False	Do not publish	Spare individual button, ST1 Supply_Feeder spare 2
+PB413_4M	BOOL		%W463.06	False	False	Do not publish	Spare individual button, ST1 Supply_Feeder spare 3
+PB413_4R	BOOL		%W463.07	False	False	Do not publish	Spare individual button, ST1 Supply_Feeder spare 3
+PB421_1M	BOOL		%W464.00	False	False	Do not publish	Individual button, ST2  STOPPER-1 UP pos
+PB421_1R	BOOL		%W464.01	False	False	Do not publish	Individual button, ST2  STOPPER-1 DOWN
+PB421_2S	BOOL		%W464.02	False	False	Do not publish	Individual button, ST2 SERVO CENTER POS1
+PB421_3S	BOOL		%W464.04	False	False	Do not publish	Individual button, ST2 SERVO LEFT POS2
+PB421_4S	BOOL		%W464.06	False	False	Do not publish	Individual button, ST2 SERVO RIGHT POS3
+PB422_1M	BOOL		%W464.08	False	False	Do not publish	Spare individual button, ST2 Buffer spare 1
+PB422_1R	BOOL		%W464.09	False	False	Do not publish	Spare individual button, ST2 Buffer spare 1
+PB422_2M	BOOL		%W464.10	False	False	Do not publish	Spare individual button, ST2 Buffer spare 2
+PB422_2R	BOOL		%W464.11	False	False	Do not publish	Spare individual button, ST2 Buffer spare 2
+PB431_1M	BOOL		%W466.00	False	False	Do not publish	Individual button, ST3  EJECTOR FORWARD
+PB431_1R	BOOL		%W466.01	False	False	Do not publish	Individual button, ST3  EJECTOR BACKWARD
+PB431_2M	BOOL		%W466.02	False	False	Do not publish	Individual button, ST3  PUSHER FORWARD
+PB431_2R	BOOL		%W466.03	False	False	Do not publish	Individual button, ST3  PUSHER BACKWARD
+PB431_3M	BOOL		%W466.04	False	False	Do not publish	Spare individual button, ST3 CE_Eject spare 1
+PB431_3R	BOOL		%W466.05	False	False	Do not publish	Spare individual button, ST3 CE_Eject spare 1
 PB_ALM_RST	BOOL			False	False	Do not publish	FAULT RESET
 PB_AUTO_RUN	BOOL			False	False	Do not publish	AUTO RUNNING
 PB_CYCL_STOP	BOOL			False	False	Do not publish	CYCLE STOP
@@ -378,34 +409,45 @@ PL031	ARRAY[0..15] OF BOOL		%W482.00	False	False	Do not publish	Auto start condi
 PL032	ARRAY[0..15] OF BOOL		%W483.00	False	False	Do not publish	Auto start condition indication, page 2
 PL081	ARRAY[0..9] OF BOOL		%W496.00	False	False	Do not publish	Timer up indication, screen 0081
 PL21	ARRAY[0..15] OF BOOL		%W481.00	False	False	Do not publish	Master on condition indication
-PL411_1M	BOOL		%W484.00	False	False	Do not publish	Lamp, ST1 LEFT DIVIDER BACKWARD
-PL411_1R	BOOL		%W484.01	False	False	Do not publish	Lamp, ST1 LEFT DIVIDER FORWARD
-PL411_2M	BOOL		%W484.02	False	False	Do not publish	Lamp, ST1 RIGHT DIVIDER BACKWARD
-PL411_2R	BOOL		%W484.03	False	False	Do not publish	Lamp, ST1 RIGHT DIVIDER FORWARD
-PL411_3M	BOOL		%W484.04	False	False	Do not publish	Lamp, ST1 STOPPER-2 CHUCK
-PL411_3R	BOOL		%W484.05	False	False	Do not publish	Lamp, ST1  STOPPER-2 UNCHUCK
-PL411_4M	BOOL		%W484.06	False	False	Do not publish	Lamp, ST1  STOPPER-3 CHUCK
-PL411_4R	BOOL		%W484.07	False	False	Do not publish	Lamp, ST1  STOPPER-3 UNCHUCK
-PL412_1M	BOOL		%W484.08	False	False	Do not publish	Lamp, ST1  STOPPER-4 CHUCK
-PL412_1R	BOOL		%W484.09	False	False	Do not publish	Lamp, ST1  STOPPER-4 UNCHUCK
-PL412_2M	BOOL		%W484.10	False	False	Do not publish	Lamp, ST1  STOPPER-5 CHUCK
-PL412_2R	BOOL		%W484.11	False	False	Do not publish	Lamp, ST1  STOPPER-5 UNCHUCK
-PL412_3M	BOOL		%W484.12	False	False	Do not publish	Lamp, ST1 DANDORI  TYPE-1 LOCK
-PL412_3R	BOOL		%W484.13	False	False	Do not publish	Lamp, ST1 DANDORI  TYPE-1 UNLOCK
-PL412_4M	BOOL		%W484.14	False	False	Do not publish	Lamp, ST1 DANDORI  TYPE-2 LOCK
-PL412_4R	BOOL		%W484.15	False	False	Do not publish	Lamp, ST1 DANDORI  TYPE-2 UNLOCK
-PL413_1M	BOOL			False	False	Do not publish	Lamp, ST1 PART FEEDER-1 START
-PL413_1R	BOOL			False	False	Do not publish	Lamp, ST1 PART FEEDER-2 START
-PL421_1M	BOOL		%W485.00	False	False	Do not publish	Lamp, ST2  STOPPER-1 UP
-PL421_1R	BOOL		%W485.01	False	False	Do not publish	Lamp, ST2  STOPPER-1 DOWN
-PL421_2M	BOOL		%W485.02	False	False	Do not publish	Spare lamp, ST2 spare 1
-PL421_2R	BOOL		%W485.03	False	False	Do not publish	Spare lamp, ST2 spare 1
-PL431_1M	BOOL		%W486.00	False	False	Do not publish	Lamp, ST3  EJECTOR FORWARD
-PL431_1R	BOOL		%W486.01	False	False	Do not publish	Lamp, ST3  EJECTOR BACKWARD
-PL431_2M	BOOL		%W486.02	False	False	Do not publish	Lamp, ST3  PUSHER FORWARD
-PL431_2R	BOOL		%W486.03	False	False	Do not publish	Lamp, ST3  PUSHER BACKWARD
-PL431_3M	BOOL		%W486.04	False	False	Do not publish	Spare lamp, ST3 spare 1
-PL431_3R	BOOL		%W486.05	False	False	Do not publish	Spare lamp, ST3 spare 1
+PL411_1M	BOOL		%W485.00	False	False	Do not publish	Lamp, ST1 LEFT DIVIDER BACKWARD
+PL411_1R	BOOL		%W485.01	False	False	Do not publish	Lamp, ST1 LEFT DIVIDER FORWARD
+PL411_2M	BOOL		%W485.02	False	False	Do not publish	Lamp, ST1 RIGHT DIVIDER BACKWARD
+PL411_2R	BOOL		%W485.03	False	False	Do not publish	Lamp, ST1 RIGHT DIVIDER FORWARD
+PL411_3M	BOOL		%W485.04	False	False	Do not publish	Lamp, ST1 STOPPER-2 CHUCK
+PL411_3R	BOOL		%W485.05	False	False	Do not publish	Lamp, ST1  STOPPER-2 UNCHUCK
+PL411_4M	BOOL		%W485.06	False	False	Do not publish	Lamp, ST1  STOPPER-3 CHUCK
+PL411_4R	BOOL		%W485.07	False	False	Do not publish	Lamp, ST1  STOPPER-3 UNCHUCK
+PL412_1M	BOOL		%W485.08	False	False	Do not publish	Lamp, ST1  STOPPER-4 CHUCK
+PL412_1R	BOOL		%W485.09	False	False	Do not publish	Lamp, ST1  STOPPER-4 UNCHUCK
+PL412_2M	BOOL		%W485.10	False	False	Do not publish	Lamp, ST1  STOPPER-5 CHUCK
+PL412_2R	BOOL		%W485.11	False	False	Do not publish	Lamp, ST1  STOPPER-5 UNCHUCK
+PL412_3M	BOOL		%W485.12	False	False	Do not publish	Lamp, ST1 DANDORI  TYPE-1 LOCK
+PL412_3R	BOOL		%W485.13	False	False	Do not publish	Lamp, ST1 DANDORI  TYPE-1 UNLOCK
+PL412_4M	BOOL		%W485.14	False	False	Do not publish	Lamp, ST1 DANDORI  TYPE-2 LOCK
+PL412_4R	BOOL		%W485.15	False	False	Do not publish	Lamp, ST1 DANDORI  TYPE-2 UNLOCK
+PL413_1M	BOOL		%W486.00	False	False	Do not publish	Lamp, ST1 PART FEEDER-1 START
+PL413_1R	BOOL		%W486.01	False	False	Do not publish	Lamp, ST1 PART FEEDER-2 START
+PL413_2M	BOOL		%W486.02	False	False	Do not publish	Spare lamp, ST1 Supply_Feeder spare 1
+PL413_2R	BOOL		%W486.03	False	False	Do not publish	Spare lamp, ST1 Supply_Feeder spare 1
+PL413_3M	BOOL		%W486.04	False	False	Do not publish	Spare lamp, ST1 Supply_Feeder spare 2
+PL413_3R	BOOL		%W486.05	False	False	Do not publish	Spare lamp, ST1 Supply_Feeder spare 2
+PL413_4M	BOOL		%W486.06	False	False	Do not publish	Spare lamp, ST1 Supply_Feeder spare 3
+PL413_4R	BOOL		%W486.07	False	False	Do not publish	Spare lamp, ST1 Supply_Feeder spare 3
+PL421_1M	BOOL		%W487.00	False	False	Do not publish	Lamp, ST2  STOPPER-1 UP pos
+PL421_1R	BOOL		%W487.01	False	False	Do not publish	Lamp, ST2  STOPPER-1 DOWN
+PL421_2S	BOOL		%W487.02	False	False	Do not publish	Lamp, ST2 SERVO CENTER POS1
+PL421_3S	BOOL		%W487.04	False	False	Do not publish	Lamp, ST2 SERVO LEFT POS2
+PL421_4S	BOOL		%W487.06	False	False	Do not publish	Lamp, ST2 SERVO RIGHT POS3
+PL422_1M	BOOL		%W487.08	False	False	Do not publish	Spare lamp, ST2 Buffer spare 1
+PL422_1R	BOOL		%W487.09	False	False	Do not publish	Spare lamp, ST2 Buffer spare 1
+PL422_2M	BOOL		%W487.10	False	False	Do not publish	Spare lamp, ST2 Buffer spare 2
+PL422_2R	BOOL		%W487.11	False	False	Do not publish	Spare lamp, ST2 Buffer spare 2
+PL431_1M	BOOL		%W489.00	False	False	Do not publish	Lamp, ST3  EJECTOR FORWARD
+PL431_1R	BOOL		%W489.01	False	False	Do not publish	Lamp, ST3  EJECTOR BACKWARD
+PL431_2M	BOOL		%W489.02	False	False	Do not publish	Lamp, ST3  PUSHER FORWARD
+PL431_2R	BOOL		%W489.03	False	False	Do not publish	Lamp, ST3  PUSHER BACKWARD
+PL431_3M	BOOL		%W489.04	False	False	Do not publish	Spare lamp, ST3 CE_Eject spare 1
+PL431_3R	BOOL		%W489.05	False	False	Do not publish	Spare lamp, ST3 CE_Eject spare 1
 PL71	ARRAY[0..15] OF BOOL		%W494.00	False	False	Do not publish	Counter indication, screen 0071
 PL72	ARRAY[0..3] OF BOOL		%W495.00	False	False	Do not publish	Counter indication, screen 0072
 PLC_GOOD	BOOL			False	False	Do not publish	Machine status from main program
@@ -435,16 +477,20 @@ PL_TP_NO_FLT	BOOL		%W480.10	False	False	Do not publish	No fault indication
 PL_TWR_LMP_GRN	BOOL			False	False	Do not publish	TOWER LAMP GREEN
 PL_TWR_LMP_RED	BOOL			False	False	Do not publish	TOWER LAMP RED
 PL_TWR_LMP_YLW	BOOL			False	False	Do not publish	TOWER LAMP YELLOW
-PRB_A	UDINT			False	False	Do not publish	Probe value A
-PRB_B	UDINT			False	False	Do not publish	Probe value B
-PRB_LAMP	BOOL			False	False	Do not publish	Probe result lamp
-PRB_TRIG	BOOL			False	False	Do not publish	Probe trigger
 PWR_ON	BOOL			False	False	Do not publish	Machine status from main program
 SAFE_CONF	BOOL			False	False	Do not publish	SAFETY CONF
-SOL421_2M	BOOL			False	False	Do not publish	Spare output, ST2 spare 1, motion side
-SOL421_2R	BOOL			False	False	Do not publish	Spare output, ST2 spare 1, return side
-SOL431_3M	BOOL			False	False	Do not publish	Spare output, ST3 spare 1, motion side
-SOL431_3R	BOOL			False	False	Do not publish	Spare output, ST3 spare 1, return side
+SOL413_2M	BOOL			False	False	Do not publish	Spare output, ST1 Supply_Feeder spare 1, motion side
+SOL413_2R	BOOL			False	False	Do not publish	Spare output, ST1 Supply_Feeder spare 1, return side
+SOL413_3M	BOOL			False	False	Do not publish	Spare output, ST1 Supply_Feeder spare 2, motion side
+SOL413_3R	BOOL			False	False	Do not publish	Spare output, ST1 Supply_Feeder spare 2, return side
+SOL413_4M	BOOL			False	False	Do not publish	Spare output, ST1 Supply_Feeder spare 3, motion side
+SOL413_4R	BOOL			False	False	Do not publish	Spare output, ST1 Supply_Feeder spare 3, return side
+SOL422_1M	BOOL			False	False	Do not publish	Spare output, ST2 Buffer spare 1, motion side
+SOL422_1R	BOOL			False	False	Do not publish	Spare output, ST2 Buffer spare 1, return side
+SOL422_2M	BOOL			False	False	Do not publish	Spare output, ST2 Buffer spare 2, motion side
+SOL422_2R	BOOL			False	False	Do not publish	Spare output, ST2 Buffer spare 2, return side
+SOL431_3M	BOOL			False	False	Do not publish	Spare output, ST3 CE_Eject spare 1, motion side
+SOL431_3R	BOOL			False	False	Do not publish	Spare output, ST3 CE_Eject spare 1, return side
 SOL_ST1_DDR_TYP1_LCK	BOOL			False	False	Do not publish	ST1 DANDORI  TYPE-1 LOCK
 SOL_ST1_DDR_TYP1_ULCK	BOOL			False	False	Do not publish	ST1 DANDORI  TYPE-1 UNLOCK
 SOL_ST1_DDR_TYP2_LCK	BOOL			False	False	Do not publish	ST1 DANDORI  TYPE-2 LOCK
@@ -457,7 +503,16 @@ SOL_ST1_STP4_CHK	BOOL			False	False	Do not publish	ST1  STOPPER-4 CHUCK
 SOL_ST1_STP4_UCHK	BOOL			False	False	Do not publish	ST1  STOPPER-4 UNCHUCK
 SOL_ST1_STP5_CHK	BOOL			False	False	Do not publish	ST1  STOPPER-5 CHUCK
 SOL_ST1_STP5_UCHK	BOOL			False	False	Do not publish	ST1  STOPPER-5 UNCHUCK
+SRV_ST2_SRV_CTR_POS1	BOOL			False	False	Do not publish	ST2 SERVO CENTER POS1
+SRV_ST2_SRV_LFT_POS2	BOOL			False	False	Do not publish	ST2 SERVO LEFT POS2
+SRV_ST2_SRV_RGT_POS3	BOOL			False	False	Do not publish	ST2 SERVO RIGHT POS3
 SS_AUTO_IND	BOOL			False	False	Do not publish	AUTO IND
+VS0_00	BOOL			False	False	Do not publish	ST2 SERVO LEFT POS2
+VS0_01	BOOL			False	False	Do not publish	ST2 SERVO RIGHT POS3
+VS0_02	BOOL			False	False	Do not publish	ST2 SERVO CENTER POS1
+VS0_03	BOOL			False	False	Do not publish	ST2 SERVO CENTER POS1
+VS0_04	BOOL			False	False	Do not publish	ST2 SERVO LEFT POS2
+VS0_05	BOOL			False	False	Do not publish	ST2 SERVO RIGHT POS3
 aP_0_01s	BOOL			False	False	Do not publish	0.01 second clock pulse
 aP_0_1s	BOOL			False	False	Do not publish	0.1 second clock pulse
 aP_1s	BOOL			False	False	Do not publish	1 second clock pulse
