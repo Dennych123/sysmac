@@ -84,6 +84,31 @@ const TOOLS = [
     },
   },
   {
+    name: 'smc2_tasks',
+    description:
+      'Daftar program di sebuah .smc2 dan task yang menjalankannya, plus program yang TIDAK ' +
+      'ditugaskan ke task manapun. Yang terakhir itu yang dicari: program yatim tidak ' +
+      'dieksekusi dan Studio tidak mengeluh sama sekali.',
+    inputSchema: { type: 'object', properties: { path: { type: 'string' } }, required: ['path'] },
+  },
+  {
+    name: 'smc2_assign_task',
+    description:
+      'Tugaskan satu program ke task di dalam .smc2 - langkah yang TIDAK bisa lewat XML import ' +
+      '(XSD-nya tidak punya elemennya), jadi selama ini dikerjakan tangan di Studio. Tanpa ' +
+      '"write" cuma melaporkan apa yang akan diubah. Dengan "write": container dibongkar ulang ' +
+      'dan dibandingkan dulu, lalu berkas lama disalin ke .bak bertanggal.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        path: { type: 'string' }, program: { type: 'string' },
+        task: { type: 'string', description: 'default PrimaryTask' },
+        write: { type: 'boolean' },
+      },
+      required: ['path', 'program'],
+    },
+  },
+  {
     name: 'track_smc2',
     description:
       'Catat versi .smc2 sekarang ke riwayat git (berikut berkas .smc2-nya sendiri dan teks ' +
@@ -271,6 +296,7 @@ function ringkas(hasil) {
 const KE_API = {
   list_files: 'fs/list', find_files: 'fs/find', read_file: 'fs/read', write_file: 'fs/write',
   read_smc2: 'smc2/read', diff_smc2: 'smc2/diff',
+  smc2_tasks: 'smc2/tasks', smc2_assign_task: 'smc2/assign',
   track_smc2: 'git/track', history: 'git/log', restore_smc2: 'git/restore',
   nb_sync: 'nb/sync', nb_alarm: 'nb/alarm',
   watch_start: 'watch/start', watch_stop: 'watch/stop', watch_status: 'watch/status',

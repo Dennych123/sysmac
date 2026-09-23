@@ -24,6 +24,8 @@ node scripts/nb_apply.js <csv|json> <folderNB> --write  # tempel ke project NB, 
 node scripts/smc2_diff.js LAMA.smc2 BARU.smc2           # apa yang berubah di Studio (hanya baca)
 node scripts/smc2_rename.js x.smc2 LAMA=BARU [--write]   # ganti nama program (task ikut)
 node scripts/smc2_section.js x.smc2 spec.json [--write] # tambah section ladder ke .smc2
+node scripts/smc2_task.js x.smc2                        # program mana ditugaskan ke task mana
+node scripts/smc2_task.js x.smc2 P011_ST1 [--write]     # tugaskan program ke task, tanpa Studio
 node scripts/smc2_extract.js x.smc2 history/ --clean    # .smc2 -> teks yang kebaca `git diff`
 node scripts/app.js --ws C:/kerja                      # aplikasi lokal + API, folder kerja disetel
 node scripts/mcp.js --ws C:/kerja                      # server MCP, folder kerja yang sama
@@ -651,6 +653,54 @@ atas tanpa alasan) sebelum menambah kotak/kolom.
 yang ditulis atas tebakan ter-import mulus lalu salah waktu mesin bergerak — kelas kegagalan
 yang seluruh empat gerbang dibangun untuk menangkalnya. Itu butuh buktinya sendiri.
 
+### PENUGASAN TASK juga ditulis langsung — `scripts/smc2_task.js`
+
+Langkah terakhir yang selama ini wajib dikerjakan tangan di Studio. XML import membawa program,
+tabel variabel, section dan rung — tapi **tidak** penugasan task: XSD-nya tidak punya elemennya.
+Dan program yang tidak ditugaskan **TIDAK DIEKSEKUSI tanpa satu pun keluhan**: tergambar rapi di
+Multiview Explorer, Build bersih, rung benar, mesin diam.
+
+```bash
+node scripts/smc2_task.js x.smc2                      # siapa ditugaskan ke mana + daftar YATIM
+node scripts/smc2_task.js x.smc2 P011_ST1 --write     # tugaskan ke PrimaryTask
+```
+
+**Satu penugasan = EMPAT tempat, dan cuma satu di antaranya yang menentukan program itu jalan.**
+
+| tempat | isi | kalau terlewat |
+|---|---|---|
+| `.oem` | anak `<Entity type="NexAssociatedProgram">` di bawah entity task | Studio tidak menampilkannya sebagai penugasan |
+| `<id anak>.xml` | `<AssociatedProgramModel><PouInstanceName>` | tautan penugasan putus |
+| **`<id task>.xml`** | `<AssociatedProgramData ProgramName= IniFileTrackingId= SequenceNumber=>` | **program tidak dieksekusi — dan tidak ada yang memberi tahu** |
+| OPC UA sim settings | `<Node Name="<program>" IsPublished="false" />` | tag programnya tidak muncul di simulator |
+
+Tiga hal yang gampang salah dan semuanya senyap:
+
+- **`IniFileTrackingId` itu `trackingId` entity Program-nya, TANPA tanda hubung.** Dibaca dari
+  `.oem`, tidak boleh dikarang — yang salah menautkan artefak compile ke POU lain.
+- **`subtype` ikut programnya** (`MultipartLadder` buat ladder, `StructuredText` buat ST).
+- **`ChildEntities` yang disisipi harus milik TASK-nya**, yaitu yang pertama sesudah tag
+  pembukanya. Tiap anak punya `ChildEntities` sendiri, jadi mencari `<ChildEntities />` di mana
+  saja dalam blok task bisa menyarangkan penugasan baru di dalam penugasan lain — bentuknya
+  wajar, dan tidak pernah kebaca sebagai penugasan.
+
+**Buktinya GOLDEN, bukan tiruan.** `tests/smc2task.test.js` mengambil project mesin sungguhan,
+MENCOPOT satu penugasan yang memang ditulis Studio dari keempat tempatnya, lalu memasangnya lagi
+dengan alat ini dan mengadu hasilnya ke aslinya: baris `AssociatedProgramData`-nya sama persis,
+`IniFileTrackingId` dan `SequenceNumber` termasuk. Berkas project-nya tidak ikut repo, jadi
+suite-nya SKIP di mesin yang tidak punya — dan SKIP-nya selalu mencetak alasannya.
+
+Bentuknya dibaca dari `Ce Insert Track.smc2` dan cocok dengan yang dicatat project
+`manufacturing_io` waktu men-diff satu penugasan tangan di Studio 1.66/NJ501 (di situ jalurnya
+sudah dibuka ulang di Studio, tapi buat program **ST**). Untuk ladder, yang sudah dibuktikan =
+bentuknya identik dengan tulisan Studio sendiri; **sekali buka-lalu-Build di Studio masih perlu
+dilakukan** sebelum ini dipakai di project pelanggan.
+
+Yang masih BELUM ada: jalan langsung dari generator ke `.smc2` tanpa XML sama sekali. Generator
+menulis rung sebagai XML IEC 61131-10, sementara `.smc2` menyimpannya sebagai JSON tulisan Studio
+(`smc2_section.js`) — dua bentuk, dan penerjemah XML → JSON-nya belum ada. Jadi urutannya
+sekarang: import XML di Studio (satu langkah), lalu `smc2_task.js` mengerjakan sisanya.
+
 **Yang tidak eksak, ditolak — bukan ditebak.** `reader/src/net.js` menyusun
 netlist dari koordinat + `VLs` (link vertikal), lalu memeriksa tiap simpul ada
 penyetirnya dan cuma coil yang menyentuh rel kanan. Rung yang tidak lolos, dan
@@ -672,12 +722,17 @@ cd reader && node cli.js "Prepare CE insert3.smc2" --probe-fb
 koordinat saja dan menandai hasilnya `~`. Cukup untuk dibaca manusia, TIDAK boleh
 dipakai untuk menulis program.
 
-## `blurobot/` - kinematik robot dari project mesin ke simulator + viz 3D
+## `../blurobot/` - kinematik robot dari project mesin ke simulator + viz 3D
 
 Mengangkat DUA function block ST (`FORWARD_KINEMATIC`, `INVERSE_KINEMATIC`) dari
 project robot 4 sumbu `BLUEROBOT ECU 28032020.smc2`, menjalankannya di simulator
 NX102, dan menggambarnya 3D di browser lewat OPC UA. Selengkapnya di
-[blurobot/README.md](blurobot/README.md); yang di bawah ini yang gampang salah.
+[../blurobot/README.md](../blurobot/README.md); yang di bawah ini yang gampang salah.
+
+**Foldernya sekarang DI LUAR repo ini**, sejajar dengannya (`sysmac-generator-repo/blurobot`).
+Dia memang repo sendiri (`rb4axis`) dan berisi ~470 MB video mesin - di dalam repo alat, tiap
+`grep`, tiap pemindai, dan tiap penonton berkas ikut menyusurinya. Perintah di bawah dijalankan
+dari folder itu, bukan dari sini.
 
 **Cara kerja jalur itu — dan jebakannya — sudah diangkat jadi resep umum:
 [docs/SIMULASI_3D_OPCUA.md](docs/SIMULASI_3D_OPCUA.md).** Baca itu DULU sebelum
@@ -688,10 +743,10 @@ langkah, dan seluruh daftar kegagalan-tanpa-keluhan — Studio, OPC UA, ST, viz,
 kehalusan. Yang mahal ditemukan ulang bukan kodenya, tapi daftar itu.
 
 ```bash
-node blurobot/tools/extract.js   # .smc2 -> extract/    (HANYA BACA project mesin)
-node blurobot/tools/gen_sim.js   # config -> ST init + tabel variabel + tags.json
-node blurobot/tools/gen_xml.js   # sim/ -> BlurobotSim.xml, satu berkas import Studio
-node blurobot/tests/run.js       # 5 suite - TERPISAH dari node tests/run.js
+node ../blurobot/tools/extract.js   # .smc2 -> extract/    (HANYA BACA project mesin)
+node ../blurobot/tools/gen_sim.js   # config -> ST init + tabel variabel + tags.json
+node ../blurobot/tools/gen_xml.js   # sim/ -> BlurobotSim.xml, satu berkas import Studio
+node ../blurobot/tests/run.js       # 5 suite - TERPISAH dari node tests/run.js
 ```
 
 **`gen_xml.js` menulis POU ber-badan ST, dan bentuknya DITIRU dari `Sample.xml` Omron**
@@ -706,8 +761,9 @@ gampang salah di jalur ini:
   gunanya. Aturan "ST wajib CRLF" itu milik jalur `.smc2` (`scripts/smc2_section.js`)
   yang menulis ke dalam ZIP tanpa lewat parser XML. Dua jalur, dua aturan.
 
-Penugasan task TIDAK bisa lewat XML - XSD-nya tidak punya elemennya. Itu tetap langkah
-tangan di Studio, dan program yang tidak ditugaskan **tidak dieksekusi tanpa keluhan**.
+Penugasan task TIDAK bisa lewat XML - XSD-nya tidak punya elemennya, dan program yang tidak
+ditugaskan **tidak dieksekusi tanpa keluhan**. Tapi itu tidak lagi berarti "langkah tangan di
+Studio": `scripts/smc2_task.js` menulisnya langsung ke `.smc2` (lihat bagian di bawah).
 
 **Dua aturan Studio yang baru terbukti waktu Build, bukan waktu import** (dua-duanya
 sudah kena sekali di project ini):
@@ -721,8 +777,8 @@ sudah kena sekali di project ini):
 urusannya dengan kinematik, dan suite ini harus boleh SKIP waktu project mesinnya
 tidak ada di mesin ini (berkas pelanggan, tidak ikut repo).
 
-**DUA versi algoritma, berdampingan.** `blurobot/extract/*.st` verbatim dari mesin
-(cacatnya utuh, itu catatannya); `blurobot/sim/*_V2.st` yang sudah dibetulkan dan itu
+**DUA versi algoritma, berdampingan.** `../blurobot/extract/*.st` verbatim dari mesin
+(cacatnya utuh, itu catatannya); `../blurobot/sim/*_V2.st` yang sudah dibetulkan dan itu
 yang dijalankan simulator. Tiap cacat punya DUA tes - satu menuntut perilaku V1, satu
 menuntut V2 - plus satu yang membuktikan keduanya memang beda di pose yang sama. Jangan
 "membetulkan" yang di `extract/`: begitu dibetulkan, tidak ada lagi yang bisa diadu ke
@@ -747,7 +803,7 @@ FB - supaya FB tetap identik dengan yang jalan di mesin.
 **Robotnya 1 prismatik + 3 revolute, bukan 4R.** Sumbu 0 tidak pernah masuk fungsi
 trigonometri mana pun dan langsung jadi X; sumbu 1-3 rantai planar di bidang Y-Z.
 Salah di sini bikin viz menggambar robot yang lain sambil tetap tampak wajar -
-`blurobot/tests/viz.test.js` mengadu titik ujung gambar ke keluaran FK.
+`../blurobot/tests/viz.test.js` mengadu titik ujung gambar ke keluaran FK.
 
 **Panjang gripper dijumlahkan ke `ROBOT_TOOL_Y_LREAL` TEPAT SEKALI**, waktu `gen_sim.js`
 menulis blok init - itu yang menaruh TCP di ujung jari. Dijumlahkan lagi di viz atau di
@@ -761,7 +817,7 @@ menuntut lebih rapat sebenarnya menuntut konstanta yang lain.
 
 **Dimensi `ROBOT_L1..L4` dan `ROBOT_TOOL_*` TIDAK ada di project** (retain, diisi dari
 HMI Pro-face `.prx` yang tidak ada pembacanya di repo ini). Angkanya placeholder di
-`blurobot/sim/robot.config.json`, dan itu SATU-SATUNYA tempat angka: literal ST
+`../blurobot/sim/robot.config.json`, dan itu SATU-SATUNYA tempat angka: literal ST
 dibangkitkan `gen_sim.js`, `gen_sim.js --check` menolak kalau sudah basi.
 
 ## Pindah laptop - yang perlu dan yang TIDAK perlu
@@ -964,7 +1020,7 @@ semuanya dan punya API yang dipakai halaman MAUPUN MCP:
 | `scripts/watcher.js` | pemantau simpanan Studio (polling + tunggu diam + buka dulu) |
 | `scripts/pick.js` | dialog pilih berkas/folder Windows, dibuka server |
 | `nb/sync`, `nb/alarm` | alat NB-Designer ikut di API dan MCP, bukan cuma tombol di `/tools` |
-| `scripts/mcp.js` | 13 alat MCP; yang berkas/smc2/git disalurkan ke `api.js` yang sama |
+| `scripts/mcp.js` | 15 alat MCP; yang berkas/smc2/git disalurkan ke `api.js` yang sama |
 
 **Aturan lama "AI tidak boleh menyentuh XML" SUDAH DICABUT** atas permintaan pemilik repo. AI
 boleh membaca dan menulis berkas apa pun - XML, `.smc2` - selama di dalam folder kerja.
@@ -1165,16 +1221,17 @@ menghasilkan berkas yang sama persis.**
 | `scripts/smc2_comment.js` `smc2_write.js` | menulis balik komen elemen ke `.smc2` |
 | `scripts/smc2_rename.js` | ganti nama program di `.smc2` - tujuh peran sekaligus, termasuk penugasan task |
 | `scripts/smc2_section.js` | tambah section ladder ke `.smc2` - CRLF wajib, inline ST didukung |
+| `scripts/smc2_task.js` | tugaskan program ke task di `.smc2` - empat tempat sekaligus |
 | `scripts/smc2_diff.js` `reader/diff.js` | bandingkan dua `.smc2`, hanya baca |
 | `scripts/smc2_extract.js` | `.smc2` -> teks deterministik buat di-commit |
-| `scripts/mcp.js` | server MCP: 13 alat (generator + berkas + smc2 + git) |
+| `scripts/mcp.js` | server MCP: 15 alat (generator + berkas + smc2 + git + penugasan task) |
 | `scripts/ws.js` `api.js` | folder kerja + API bersama halaman dan MCP |
 | `scripts/edit_page.js` | halaman `/edit`: catat, lihat riwayat, kembalikan |
 | `scripts/app.js` + `Susmax.cmd` | aplikasi lokal 127.0.0.1, membungkus skrip di atas |
-| `blurobot/tools/extract.js` | FB kinematik `.smc2` -> ST verbatim + tabel variabel |
-| `blurobot/sim/` | project simulasi NX102: ST, dua TSV tempel, langkah Studio |
-| `blurobot/bridge/bridge.js` | OPC UA simulator <-> halaman viz (SSE + POST) |
-| `blurobot/web/kin.js` | port JS FK/IK + titik rantai buat viz; dipakai tes juga |
+| `../blurobot/tools/extract.js` | FB kinematik `.smc2` -> ST verbatim + tabel variabel |
+| `../blurobot/sim/` | project simulasi NX102: ST, dua TSV tempel, langkah Studio |
+| `../blurobot/bridge/bridge.js` | OPC UA simulator <-> halaman viz (SSE + POST) |
+| `../blurobot/web/kin.js` | port JS FK/IK + titik rantai buat viz; dipakai tes juga |
 
 ## Cara harness UI bekerja
 

@@ -312,7 +312,7 @@ async function tambahSection(buf, spec) {
   return { buf: packZip(entries), entries, lapor, varTambah, globTambah };
 }
 
-module.exports = { tambahSection, bangunRung, namaSah };
+module.exports = { tambahSection, bangunRung, namaSah, ent, batasEntity, sisipVars };
 
 // ------------------------------------------------------------------------------------ CLI
 if (require.main === module) {

@@ -4,13 +4,13 @@ Cara kerjanya, urutan pengerjaannya, dan daftar jebakannya — supaya mesin beri
 dimulai dari nol.
 
 Semuanya di sini **sudah dijalankan**, bukan rancangan: sel robot 4 sumbu di
-[`blurobot/`](../blurobot/) (repo sendiri: <https://github.com/Dennych123/rb4axis>) —
+[`blurobot/`](../../blurobot/) (repo sendiri: <https://github.com/Dennych123/rb4axis>) —
 kinematik diangkat dari project mesin nyata, dijalankan di simulator NX102, digambar 3D di
 browser, dengan sekuens pick-and-place enam stasiun, panel selector/E-STOP/Autorun/cycle
 stop, penjaga tabrakan, dan override kecepatan. Tiap baris "jebakan" di bawah ini pernah
 memakan waktu — sebagian satu putaran penuh ke Studio.
 
-Baca [`blurobot/CLAUDE.md`](../blurobot/CLAUDE.md) untuk versi khusus mesin itu; dokumen ini
+Baca [`blurobot/CLAUDE.md`](../../blurobot/CLAUDE.md) untuk versi khusus mesin itu; dokumen ini
 yang **berlaku umum**.
 
 ---

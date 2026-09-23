@@ -12,7 +12,7 @@ const { spawnSync } = require('child_process');
 
 const ws = require('./ws.js');
 const REPO = ws.REPO;
-const { unzip } = require(path.join(REPO, 'reader', 'src', 'zip.js'));
+const { unzip, inflate } = require(path.join(REPO, 'reader', 'src', 'zip.js'));
 const { readProject } = require(path.join(REPO, 'reader', 'src', 'smc2.js'));
 const D = require(path.join(REPO, 'reader', 'diff.js'));
 const watcher = require('./watcher.js');
@@ -70,6 +70,18 @@ async function bacaSmc2(rel) {
   const p = await readProject(isi, unzip);
   p.file = rel;
   return p;
+}
+
+/**
+ * Teks `.oem` saja - indeks project. Dipakai alat penugasan task, yang cuma butuh daftar entity
+ * dan tidak perlu seluruh rung: readProject() menerjemahkan ratusan rung tiap dipanggil, dan buat
+ * pertanyaan "program ini ditugaskan ke task mana" itu ongkos yang tidak menghasilkan apa-apa.
+ */
+async function oemSmc2(file) {
+  for (const [nama, e] of unzip(fs.readFileSync(file))) {
+    if (nama.endsWith('.oem')) return Buffer.from(await inflate(e)).toString('utf8');
+  }
+  throw new Error('.oem tidak ketemu - ini bukan project Sysmac: ' + file);
 }
 
 /** Ringkasan project - dipakai daftar/pohon, jauh lebih kecil daripada dump penuh. */
@@ -191,6 +203,38 @@ const ALAT = {
     const a = await bacaSmc2(q.a), b = await bacaSmc2(q.b);
     const d = D.diffProjects(a, b);
     return { summary: D.diffLine(d), report: D.diffReport(d, q.a, q.b), diff: d };
+  },
+
+  // Penugasan task: satu-satunya langkah yang TIDAK bisa lewat XML import (XSD-nya tidak punya
+  // elemennya), dan program yang terlewat TIDAK dieksekusi tanpa satu pun keluhan. Tanpa "write"
+  // cuma melihat - sama seperti nb/sync, dan alasannya sama: yang ditulis di sini project mesin.
+  'smc2/tasks': async (q) => {
+    const T = require(path.join(REPO, 'scripts', 'smc2_task.js'));
+    return T.daftar(await oemSmc2(ws.amanPath(q.path)));
+  },
+  'smc2/assign': async (b) => {
+    if (!b.path || !b.program) throw new Error('butuh "path" dan "program"');
+    const T = require(path.join(REPO, 'scripts', 'smc2_task.js'));
+    const file = ws.amanPath(b.path);
+    const r = await T.tugaskan(fs.readFileSync(file), { program: b.program, task: b.task });
+    if (r.sudah) return { wrote: false, already: true, program: r.program, task: r.task, places: [] };
+    if (!b.write) return { wrote: false, already: false, program: r.program, task: r.task, seq: r.seq, places: r.lapor };
+    // Dibongkar ulang dan dibandingkan SEBELUM berkas aslinya disentuh - ZIP rusak baru
+    // mengumumkan diri waktu Studio menolak membuka project, dan saat itu sudah tertimpa.
+    let cek = 0;
+    for (const [nama, e] of unzip(r.buf)) {
+      const d = Buffer.from(await inflate(e));
+      const a = r.entries.find(x => x.name === nama);
+      if (!a || !d.equals(a.data)) throw new Error('hasil kemasan beda di ' + nama + ' - tidak ada yang ditulis');
+      cek++;
+    }
+    if (cek !== r.entries.length) throw new Error('entri hilang waktu dikemas - tidak ada yang ditulis');
+    const ts = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 14);
+    let bak = file + '.' + ts + '.bak', n = 1;
+    while (fs.existsSync(bak)) bak = file + '.' + ts + '-' + (++n) + '.bak';
+    fs.copyFileSync(file, bak);
+    fs.writeFileSync(file, r.buf);
+    return { wrote: true, already: false, program: r.program, task: r.task, seq: r.seq, places: r.lapor, backup: bak, checked: cek };
   },
 
   // -------------------------------------------------------------- NB-Designer
