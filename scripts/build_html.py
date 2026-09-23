@@ -6,6 +6,13 @@ _D = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # sebagai 'a-'. Tidak ada error, tidak ada peringatan, cuma karakter yang salah di layar.
 J = lambda f: open(os.path.join(_D, 'js', f), encoding='utf-8').read()
 
+# Project contoh yang dipasang tombol "Load example" - berkas YANG SAMA yang dipakai suite tes
+# (outputs/sample-project.json), bukan salinan yang ditulis di sini. Salinan kedua pasti berbeda
+# dari yang diuji cepat atau lambat, dan bedanya baru ketahuan waktu orang menekan tombolnya dan
+# dapat project yang gak bisa digenerate. Kalau berkasnya gak ada, tombolnya gak dipasang.
+_EX = os.path.join(_D, 'outputs', 'sample-project.json')
+EXAMPLE_PROJECT = open(_EX, encoding='utf-8').read() if os.path.exists(_EX) else ''
+
 PARSE   = J('parse.js')
 GENNAME = J('genname.js')
 VALIDATE = J('validate.js')
@@ -600,6 +607,7 @@ var GENNAME_JS  = __GENNAME_JS__;
 var VALIDATE_JS = __VALIDATE_JS__;
 var SPLIT_JS    = __SPLIT_JS__;
 var GEN_ALL_JS  = __GEN_ALL_JS__;
+var EXAMPLE_PROJECT_JSON = __EXAMPLE_JSON__;
 
 function runNode(code, msg, flowStore) {
   var flow = { get: function(k){ return flowStore[k]; }, set: function(k,v){ flowStore[k]=v; } };
@@ -655,7 +663,7 @@ function pickTextFile() {
 //   getText  : () -> string JSON yang mau diekspor
 //   doImport : (text) -> string error, atau null kalau sukses (sekalian ngurus render ulang)
 //   fileName : nama default file download
-function buildJsonIORow(ta, msg, getText, doImport, fileName) {
+function buildJsonIORow(ta, msg, getText, doImport, fileName, exampleText) {
   var row = document.createElement('div'); row.className = 'row';
   function say(cls, t) { msg.className = 'json-msg' + (cls ? ' ' + cls : ''); msg.textContent = t; }
   function runImport(text, src) {
@@ -669,6 +677,10 @@ function buildJsonIORow(ta, msg, getText, doImport, fileName) {
   }
 
   btn('json-import', 'Load from box', function () { runImport(ta.value, 'the box'); });
+  // Contoh project: satu klik dapat IO list + motion sequence + condition + peta HMI yang lengkap,
+  // jadi tombol Generate bisa ditekan tanpa mengetik apa pun. Halaman kosong bikin orang menebak
+  // bentuk IO list-nya dari dokumen, dan tebakan pertama hampir selalu salah kolom.
+  if (exampleText) btn('json-alt', 'Load example', function () { runImport(exampleText, 'the bundled example'); });
   btn('json-alt', 'Open file', function () {
     pickTextFile().then(function (f) { runImport(f.text, f.name); })
                   .catch(function (e) { say('err', 'Failed:' + ' ' + e.message); });
@@ -3337,7 +3349,7 @@ document.getElementById('genBtn').addEventListener('click', function () {
   var msg = document.getElementById('projectJsonMsg');
   var row = buildJsonIORow(ta, msg, exportProjectJSON, function (text) {
     return importProjectJSON(text);
-  }, 'project-susmax.json');
+  }, 'project-susmax.json', EXAMPLE_PROJECT_JSON);
   document.getElementById('projectJsonRow').appendChild(row);
 })();
 // --- Navigasi samping ---
@@ -3729,7 +3741,8 @@ out = (HTML
        .replace('__GENNAME_JS__', json.dumps(GENNAME))
        .replace('__VALIDATE_JS__', json.dumps(VALIDATE))
        .replace('__SPLIT_JS__', json.dumps(SPLIT))
-       .replace('__GEN_ALL_JS__', json.dumps(GEN_ALL)))
+       .replace('__GEN_ALL_JS__', json.dumps(GEN_ALL))
+       .replace('__EXAMPLE_JSON__', json.dumps(EXAMPLE_PROJECT)))
 
 # HTML di atas itu string Python BIASA, bukan raw. Jadi escape yang dimaksudkan buat JS atau CSS
 # (\n, \t, \25B8) diterjemahkan Python duluan dan hasilnya rusak diam-diam: \n jadi baris baru

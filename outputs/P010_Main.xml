@@ -114,14 +114,26 @@
       <Variable name="CR_ST3_PSH_BWD"><Documentation xsi:type="SimpleText">ST3  PUSHER BACKWARD</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
       <Variable name="CH2_00"><Documentation xsi:type="SimpleText">ST2 INSERT FLOW OUT</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
       <Variable name="PH_ST2_INS_FLW_OUT"><Documentation xsi:type="SimpleText">ST2 INSERT FLOW OUT</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
-      <Variable name="CH3_04"><Documentation xsi:type="SimpleText">ST2 STOPPER-1 UP</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
-      <Variable name="AS_ST2_STP1_UP"><Documentation xsi:type="SimpleText">ST2 STOPPER-1 UP</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
+      <Variable name="CH3_04"><Documentation xsi:type="SimpleText">ST2 STOPPER-1 UP POS</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
+      <Variable name="AS_ST2_STP1_UP_POS"><Documentation xsi:type="SimpleText">ST2 STOPPER-1 UP POS</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
       <Variable name="CH3_05"><Documentation xsi:type="SimpleText">ST2 STOPPER-1 DOWN</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
       <Variable name="AS_ST2_STP1_DN"><Documentation xsi:type="SimpleText">ST2 STOPPER-1 DOWN</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
-      <Variable name="CH5_04"><Documentation xsi:type="SimpleText">ST2  STOPPER-1 UP</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
-      <Variable name="CR_ST2_STP1_UP"><Documentation xsi:type="SimpleText">ST2  STOPPER-1 UP</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
+      <Variable name="CH5_04"><Documentation xsi:type="SimpleText">ST2  STOPPER-1 UP pos</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
+      <Variable name="CR_ST2_STP1_UP_POS"><Documentation xsi:type="SimpleText">ST2  STOPPER-1 UP pos</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
       <Variable name="CH5_05"><Documentation xsi:type="SimpleText">ST2  STOPPER-1 DOWN</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
       <Variable name="CR_ST2_STP1_DN"><Documentation xsi:type="SimpleText">ST2  STOPPER-1 DOWN</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
+      <Variable name="VS0_00"><Documentation xsi:type="SimpleText">ST2 SERVO LEFT POS2</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
+      <Variable name="LS_ST2_SRV_LFT_POS2"><Documentation xsi:type="SimpleText">ST2 SERVO LEFT POS2</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
+      <Variable name="VS0_01"><Documentation xsi:type="SimpleText">ST2 SERVO RIGHT POS3</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
+      <Variable name="LS_ST2_SRV_RGT_POS3"><Documentation xsi:type="SimpleText">ST2 SERVO RIGHT POS3</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
+      <Variable name="VS0_02"><Documentation xsi:type="SimpleText">ST2 SERVO CENTER POS1</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
+      <Variable name="LS_ST2_SRV_CTR_POS1"><Documentation xsi:type="SimpleText">ST2 SERVO CENTER POS1</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
+      <Variable name="VS0_03"><Documentation xsi:type="SimpleText">ST2 SERVO CENTER POS1</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
+      <Variable name="SRV_ST2_SRV_CTR_POS1"><Documentation xsi:type="SimpleText">ST2 SERVO CENTER POS1</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
+      <Variable name="VS0_04"><Documentation xsi:type="SimpleText">ST2 SERVO LEFT POS2</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
+      <Variable name="SRV_ST2_SRV_LFT_POS2"><Documentation xsi:type="SimpleText">ST2 SERVO LEFT POS2</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
+      <Variable name="VS0_05"><Documentation xsi:type="SimpleText">ST2 SERVO RIGHT POS3</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
+      <Variable name="SRV_ST2_SRV_RGT_POS3"><Documentation xsi:type="SimpleText">ST2 SERVO RIGHT POS3</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
       <Variable name="CH2_01"><Documentation xsi:type="SimpleText">ST1 INSERT FLOW OUT</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
       <Variable name="PH_ST1_INS_FLW_OUT"><Documentation xsi:type="SimpleText">ST1 INSERT FLOW OUT</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
       <Variable name="CH2_02"><Documentation xsi:type="SimpleText">ST1  SHUTTER-1 FULL</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
@@ -192,33 +204,33 @@
       <Variable name="CR_ST1_PART_FDR1_STR"><Documentation xsi:type="SimpleText">ST1 PART FEEDER-1 START</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
       <Variable name="CH6_08"><Documentation xsi:type="SimpleText">ST1 PART FEEDER-2 START</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
       <Variable name="CR_ST1_PART_FDR2_STR"><Documentation xsi:type="SimpleText">ST1 PART FEEDER-2 START</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
-      <Variable name="GB011_00"><Documentation xsi:type="SimpleText">ST1 status bit</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
-      <Variable name="GB011_01"><Documentation xsi:type="SimpleText">ST1 status bit</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
-      <Variable name="GB011_02"><Documentation xsi:type="SimpleText">ST1 status bit</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
-      <Variable name="GB011_03"><Documentation xsi:type="SimpleText">ST1 status bit</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
-      <Variable name="GB011_04"><Documentation xsi:type="SimpleText">ST1 status bit</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
-      <Variable name="GB011_05"><Documentation xsi:type="SimpleText">ST1 status bit</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
-      <Variable name="GB011_06"><Documentation xsi:type="SimpleText">ST1 status bit</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
-      <Variable name="GB011_09"><Documentation xsi:type="SimpleText">ST1 status bit</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
-      <Variable name="GB011_20"><Documentation xsi:type="SimpleText">ST1 status bit</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
-      <Variable name="GB012_00"><Documentation xsi:type="SimpleText">ST2 status bit</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
-      <Variable name="GB012_01"><Documentation xsi:type="SimpleText">ST2 status bit</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
-      <Variable name="GB012_02"><Documentation xsi:type="SimpleText">ST2 status bit</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
-      <Variable name="GB012_03"><Documentation xsi:type="SimpleText">ST2 status bit</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
-      <Variable name="GB012_04"><Documentation xsi:type="SimpleText">ST2 status bit</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
-      <Variable name="GB012_05"><Documentation xsi:type="SimpleText">ST2 status bit</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
-      <Variable name="GB012_06"><Documentation xsi:type="SimpleText">ST2 status bit</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
-      <Variable name="GB012_09"><Documentation xsi:type="SimpleText">ST2 status bit</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
-      <Variable name="GB012_20"><Documentation xsi:type="SimpleText">ST2 status bit</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
-      <Variable name="GB013_00"><Documentation xsi:type="SimpleText">ST3 status bit</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
-      <Variable name="GB013_01"><Documentation xsi:type="SimpleText">ST3 status bit</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
-      <Variable name="GB013_02"><Documentation xsi:type="SimpleText">ST3 status bit</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
-      <Variable name="GB013_03"><Documentation xsi:type="SimpleText">ST3 status bit</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
-      <Variable name="GB013_04"><Documentation xsi:type="SimpleText">ST3 status bit</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
-      <Variable name="GB013_05"><Documentation xsi:type="SimpleText">ST3 status bit</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
-      <Variable name="GB013_06"><Documentation xsi:type="SimpleText">ST3 status bit</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
-      <Variable name="GB013_09"><Documentation xsi:type="SimpleText">ST3 status bit</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
-      <Variable name="GB013_20"><Documentation xsi:type="SimpleText">ST3 status bit</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
+      <Variable name="GB011_00"><Documentation xsi:type="SimpleText">ST1 Supply_Feeder status bit</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
+      <Variable name="GB011_01"><Documentation xsi:type="SimpleText">ST1 Supply_Feeder status bit</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
+      <Variable name="GB011_02"><Documentation xsi:type="SimpleText">ST1 Supply_Feeder status bit</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
+      <Variable name="GB011_03"><Documentation xsi:type="SimpleText">ST1 Supply_Feeder status bit</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
+      <Variable name="GB011_04"><Documentation xsi:type="SimpleText">ST1 Supply_Feeder status bit</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
+      <Variable name="GB011_05"><Documentation xsi:type="SimpleText">ST1 Supply_Feeder status bit</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
+      <Variable name="GB011_06"><Documentation xsi:type="SimpleText">ST1 Supply_Feeder status bit</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
+      <Variable name="GB011_09"><Documentation xsi:type="SimpleText">ST1 Supply_Feeder status bit</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
+      <Variable name="GB011_20"><Documentation xsi:type="SimpleText">ST1 Supply_Feeder status bit</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
+      <Variable name="GB012_00"><Documentation xsi:type="SimpleText">ST2 Buffer status bit</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
+      <Variable name="GB012_01"><Documentation xsi:type="SimpleText">ST2 Buffer status bit</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
+      <Variable name="GB012_02"><Documentation xsi:type="SimpleText">ST2 Buffer status bit</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
+      <Variable name="GB012_03"><Documentation xsi:type="SimpleText">ST2 Buffer status bit</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
+      <Variable name="GB012_04"><Documentation xsi:type="SimpleText">ST2 Buffer status bit</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
+      <Variable name="GB012_05"><Documentation xsi:type="SimpleText">ST2 Buffer status bit</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
+      <Variable name="GB012_06"><Documentation xsi:type="SimpleText">ST2 Buffer status bit</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
+      <Variable name="GB012_09"><Documentation xsi:type="SimpleText">ST2 Buffer status bit</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
+      <Variable name="GB012_20"><Documentation xsi:type="SimpleText">ST2 Buffer status bit</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
+      <Variable name="GB013_00"><Documentation xsi:type="SimpleText">ST3 CE_Eject status bit</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
+      <Variable name="GB013_01"><Documentation xsi:type="SimpleText">ST3 CE_Eject status bit</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
+      <Variable name="GB013_02"><Documentation xsi:type="SimpleText">ST3 CE_Eject status bit</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
+      <Variable name="GB013_03"><Documentation xsi:type="SimpleText">ST3 CE_Eject status bit</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
+      <Variable name="GB013_04"><Documentation xsi:type="SimpleText">ST3 CE_Eject status bit</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
+      <Variable name="GB013_05"><Documentation xsi:type="SimpleText">ST3 CE_Eject status bit</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
+      <Variable name="GB013_06"><Documentation xsi:type="SimpleText">ST3 CE_Eject status bit</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
+      <Variable name="GB013_09"><Documentation xsi:type="SimpleText">ST3 CE_Eject status bit</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
+      <Variable name="GB013_20"><Documentation xsi:type="SimpleText">ST3 CE_Eject status bit</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
       <Variable name="PL_CYCLE_STOP"><Documentation xsi:type="SimpleText">Cycle stop lamp on operation panel</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
       <Variable name="PL_HMI_AUTO_RUN"><Documentation xsi:type="SimpleText">Auto running indication</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
       <Variable name="PL_HMI_CYCLE_STOP"><Documentation xsi:type="SimpleText">Cycle stopping indication</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
@@ -231,9 +243,9 @@
       <Variable name="PL032"><Documentation xsi:type="SimpleText">Auto start condition indication, page 2</Documentation><Type><TypeName>ARRAY[0..15] OF BOOL</TypeName></Type></Variable>
     </ExternalVars>
     <Vars accessSpecifier="private">
-      <Variable name="LB070"><Documentation xsi:type="SimpleText">ST1 reported at home position</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
-      <Variable name="LB071"><Documentation xsi:type="SimpleText">ST2 reported at home position</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
-      <Variable name="LB072"><Documentation xsi:type="SimpleText">ST3 reported at home position</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
+      <Variable name="LB070"><Documentation xsi:type="SimpleText">ST1 Supply_Feeder reported at home position</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
+      <Variable name="LB071"><Documentation xsi:type="SimpleText">ST2 Buffer reported at home position</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
+      <Variable name="LB072"><Documentation xsi:type="SimpleText">ST3 CE_Eject reported at home position</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
       <Variable name="HMI_INPUT_NOP"><Documentation xsi:type="SimpleText">No operation, reserved for HMI input</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
       <Variable name="LT000"><Documentation xsi:type="SimpleText">Power on delay</Documentation><Type><TypeName>TON</TypeName></Type></Variable>
       <Variable name="LB001"><Documentation xsi:type="SimpleText">Power on delay elapsed</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
@@ -420,14 +432,26 @@
       <Variable name="CR_ST3_PSH_BWD"><Documentation xsi:type="SimpleText">ST3  PUSHER BACKWARD</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
       <Variable name="CH2_00"><Documentation xsi:type="SimpleText">ST2 INSERT FLOW OUT</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
       <Variable name="PH_ST2_INS_FLW_OUT"><Documentation xsi:type="SimpleText">ST2 INSERT FLOW OUT</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
-      <Variable name="CH3_04"><Documentation xsi:type="SimpleText">ST2 STOPPER-1 UP</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
-      <Variable name="AS_ST2_STP1_UP"><Documentation xsi:type="SimpleText">ST2 STOPPER-1 UP</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
+      <Variable name="CH3_04"><Documentation xsi:type="SimpleText">ST2 STOPPER-1 UP POS</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
+      <Variable name="AS_ST2_STP1_UP_POS"><Documentation xsi:type="SimpleText">ST2 STOPPER-1 UP POS</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
       <Variable name="CH3_05"><Documentation xsi:type="SimpleText">ST2 STOPPER-1 DOWN</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
       <Variable name="AS_ST2_STP1_DN"><Documentation xsi:type="SimpleText">ST2 STOPPER-1 DOWN</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
-      <Variable name="CH5_04"><Documentation xsi:type="SimpleText">ST2  STOPPER-1 UP</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
-      <Variable name="CR_ST2_STP1_UP"><Documentation xsi:type="SimpleText">ST2  STOPPER-1 UP</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
+      <Variable name="CH5_04"><Documentation xsi:type="SimpleText">ST2  STOPPER-1 UP pos</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
+      <Variable name="CR_ST2_STP1_UP_POS"><Documentation xsi:type="SimpleText">ST2  STOPPER-1 UP pos</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
       <Variable name="CH5_05"><Documentation xsi:type="SimpleText">ST2  STOPPER-1 DOWN</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
       <Variable name="CR_ST2_STP1_DN"><Documentation xsi:type="SimpleText">ST2  STOPPER-1 DOWN</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
+      <Variable name="VS0_00"><Documentation xsi:type="SimpleText">ST2 SERVO LEFT POS2</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
+      <Variable name="LS_ST2_SRV_LFT_POS2"><Documentation xsi:type="SimpleText">ST2 SERVO LEFT POS2</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
+      <Variable name="VS0_01"><Documentation xsi:type="SimpleText">ST2 SERVO RIGHT POS3</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
+      <Variable name="LS_ST2_SRV_RGT_POS3"><Documentation xsi:type="SimpleText">ST2 SERVO RIGHT POS3</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
+      <Variable name="VS0_02"><Documentation xsi:type="SimpleText">ST2 SERVO CENTER POS1</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
+      <Variable name="LS_ST2_SRV_CTR_POS1"><Documentation xsi:type="SimpleText">ST2 SERVO CENTER POS1</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
+      <Variable name="VS0_03"><Documentation xsi:type="SimpleText">ST2 SERVO CENTER POS1</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
+      <Variable name="SRV_ST2_SRV_CTR_POS1"><Documentation xsi:type="SimpleText">ST2 SERVO CENTER POS1</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
+      <Variable name="VS0_04"><Documentation xsi:type="SimpleText">ST2 SERVO LEFT POS2</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
+      <Variable name="SRV_ST2_SRV_LFT_POS2"><Documentation xsi:type="SimpleText">ST2 SERVO LEFT POS2</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
+      <Variable name="VS0_05"><Documentation xsi:type="SimpleText">ST2 SERVO RIGHT POS3</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
+      <Variable name="SRV_ST2_SRV_RGT_POS3"><Documentation xsi:type="SimpleText">ST2 SERVO RIGHT POS3</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
       <Variable name="CH2_01"><Documentation xsi:type="SimpleText">ST1 INSERT FLOW OUT</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
       <Variable name="PH_ST1_INS_FLW_OUT"><Documentation xsi:type="SimpleText">ST1 INSERT FLOW OUT</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
       <Variable name="CH2_02"><Documentation xsi:type="SimpleText">ST1  SHUTTER-1 FULL</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
@@ -498,33 +522,33 @@
       <Variable name="CR_ST1_PART_FDR1_STR"><Documentation xsi:type="SimpleText">ST1 PART FEEDER-1 START</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
       <Variable name="CH6_08"><Documentation xsi:type="SimpleText">ST1 PART FEEDER-2 START</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
       <Variable name="CR_ST1_PART_FDR2_STR"><Documentation xsi:type="SimpleText">ST1 PART FEEDER-2 START</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
-      <Variable name="GB011_00"><Documentation xsi:type="SimpleText">ST1 status bit</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
-      <Variable name="GB011_01"><Documentation xsi:type="SimpleText">ST1 status bit</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
-      <Variable name="GB011_02"><Documentation xsi:type="SimpleText">ST1 status bit</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
-      <Variable name="GB011_03"><Documentation xsi:type="SimpleText">ST1 status bit</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
-      <Variable name="GB011_04"><Documentation xsi:type="SimpleText">ST1 status bit</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
-      <Variable name="GB011_05"><Documentation xsi:type="SimpleText">ST1 status bit</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
-      <Variable name="GB011_06"><Documentation xsi:type="SimpleText">ST1 status bit</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
-      <Variable name="GB011_09"><Documentation xsi:type="SimpleText">ST1 status bit</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
-      <Variable name="GB011_20"><Documentation xsi:type="SimpleText">ST1 status bit</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
-      <Variable name="GB012_00"><Documentation xsi:type="SimpleText">ST2 status bit</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
-      <Variable name="GB012_01"><Documentation xsi:type="SimpleText">ST2 status bit</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
-      <Variable name="GB012_02"><Documentation xsi:type="SimpleText">ST2 status bit</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
-      <Variable name="GB012_03"><Documentation xsi:type="SimpleText">ST2 status bit</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
-      <Variable name="GB012_04"><Documentation xsi:type="SimpleText">ST2 status bit</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
-      <Variable name="GB012_05"><Documentation xsi:type="SimpleText">ST2 status bit</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
-      <Variable name="GB012_06"><Documentation xsi:type="SimpleText">ST2 status bit</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
-      <Variable name="GB012_09"><Documentation xsi:type="SimpleText">ST2 status bit</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
-      <Variable name="GB012_20"><Documentation xsi:type="SimpleText">ST2 status bit</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
-      <Variable name="GB013_00"><Documentation xsi:type="SimpleText">ST3 status bit</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
-      <Variable name="GB013_01"><Documentation xsi:type="SimpleText">ST3 status bit</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
-      <Variable name="GB013_02"><Documentation xsi:type="SimpleText">ST3 status bit</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
-      <Variable name="GB013_03"><Documentation xsi:type="SimpleText">ST3 status bit</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
-      <Variable name="GB013_04"><Documentation xsi:type="SimpleText">ST3 status bit</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
-      <Variable name="GB013_05"><Documentation xsi:type="SimpleText">ST3 status bit</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
-      <Variable name="GB013_06"><Documentation xsi:type="SimpleText">ST3 status bit</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
-      <Variable name="GB013_09"><Documentation xsi:type="SimpleText">ST3 status bit</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
-      <Variable name="GB013_20"><Documentation xsi:type="SimpleText">ST3 status bit</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
+      <Variable name="GB011_00"><Documentation xsi:type="SimpleText">ST1 Supply_Feeder status bit</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
+      <Variable name="GB011_01"><Documentation xsi:type="SimpleText">ST1 Supply_Feeder status bit</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
+      <Variable name="GB011_02"><Documentation xsi:type="SimpleText">ST1 Supply_Feeder status bit</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
+      <Variable name="GB011_03"><Documentation xsi:type="SimpleText">ST1 Supply_Feeder status bit</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
+      <Variable name="GB011_04"><Documentation xsi:type="SimpleText">ST1 Supply_Feeder status bit</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
+      <Variable name="GB011_05"><Documentation xsi:type="SimpleText">ST1 Supply_Feeder status bit</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
+      <Variable name="GB011_06"><Documentation xsi:type="SimpleText">ST1 Supply_Feeder status bit</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
+      <Variable name="GB011_09"><Documentation xsi:type="SimpleText">ST1 Supply_Feeder status bit</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
+      <Variable name="GB011_20"><Documentation xsi:type="SimpleText">ST1 Supply_Feeder status bit</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
+      <Variable name="GB012_00"><Documentation xsi:type="SimpleText">ST2 Buffer status bit</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
+      <Variable name="GB012_01"><Documentation xsi:type="SimpleText">ST2 Buffer status bit</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
+      <Variable name="GB012_02"><Documentation xsi:type="SimpleText">ST2 Buffer status bit</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
+      <Variable name="GB012_03"><Documentation xsi:type="SimpleText">ST2 Buffer status bit</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
+      <Variable name="GB012_04"><Documentation xsi:type="SimpleText">ST2 Buffer status bit</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
+      <Variable name="GB012_05"><Documentation xsi:type="SimpleText">ST2 Buffer status bit</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
+      <Variable name="GB012_06"><Documentation xsi:type="SimpleText">ST2 Buffer status bit</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
+      <Variable name="GB012_09"><Documentation xsi:type="SimpleText">ST2 Buffer status bit</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
+      <Variable name="GB012_20"><Documentation xsi:type="SimpleText">ST2 Buffer status bit</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
+      <Variable name="GB013_00"><Documentation xsi:type="SimpleText">ST3 CE_Eject status bit</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
+      <Variable name="GB013_01"><Documentation xsi:type="SimpleText">ST3 CE_Eject status bit</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
+      <Variable name="GB013_02"><Documentation xsi:type="SimpleText">ST3 CE_Eject status bit</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
+      <Variable name="GB013_03"><Documentation xsi:type="SimpleText">ST3 CE_Eject status bit</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
+      <Variable name="GB013_04"><Documentation xsi:type="SimpleText">ST3 CE_Eject status bit</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
+      <Variable name="GB013_05"><Documentation xsi:type="SimpleText">ST3 CE_Eject status bit</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
+      <Variable name="GB013_06"><Documentation xsi:type="SimpleText">ST3 CE_Eject status bit</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
+      <Variable name="GB013_09"><Documentation xsi:type="SimpleText">ST3 CE_Eject status bit</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
+      <Variable name="GB013_20"><Documentation xsi:type="SimpleText">ST3 CE_Eject status bit</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
       <Variable name="PL_CYCLE_STOP"><Documentation xsi:type="SimpleText">Cycle stop lamp on operation panel</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
       <Variable name="PL_HMI_AUTO_RUN"><Documentation xsi:type="SimpleText">Auto running indication</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>
       <Variable name="PL_HMI_CYCLE_STOP"><Documentation xsi:type="SimpleText">Cycle stopping indication</Documentation><Type><TypeName>BOOL</TypeName></Type></Variable>

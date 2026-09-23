@@ -122,7 +122,11 @@ if (!err) {
   // buildJsonIORow mengembalikan satu div berisi tombol-tombolnya, lalu div itu yang ditempel
   const row = host && host.children[0];
   const btns = row ? row.children.filter(c => c.tag === 'button') : [];
-  chk('tombolnya lengkap (5)', btns.length === 5,
+  chk('tombolnya lengkap (6)', btns.length === 6,
+      btns.map(b => b.textContent).join(' | '));
+  // Tombol contoh cuma kepasang kalau outputs/sample-project.json ikut ke-inline waktu build -
+  // tanpa cek ini, berkas contoh yang hilang bikin tombolnya senyap ilang tanpa satu pun tes merah.
+  chk('ada tombol contoh project', btns.some(b => /example/i.test(b.textContent)),
       btns.map(b => b.textContent).join(' | '));
   chk('ada tombol buka file', btns.some(b => /file/i.test(b.textContent)),
       btns.map(b => b.textContent).join(' | '));

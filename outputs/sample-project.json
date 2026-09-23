@@ -1,33 +1,565 @@
 {
-  "io": "CH0_00\tPB\tIN\tNOT EMERGENCY STOP\nCH0_01\tCR\tIN\tFUSE GOOD CONF\nCH0_02\tCR\tIN\tAIR SOURCE CONF\nCH0_03\tLS\tIN\tSAFETY CONF\nCH0_04\tSS\tIN\tAUTO IND\nCH0_05\tPB\tIN\tMASTER ON\nCH0_06\tCR\tIN\tMASTER ON CONF\nCH0_07\tPB\tIN\tAUTO RUNNING\nCH0_08\tPB\tIN\tMACHINE STOP\nCH0_09\tPB\tIN\tCYCLE STOP\nCH0_10\tPB\tIN\tDANDORI LOCK-UNLOCK\nCH0_11\tPB\tIN\tSCAN ENABLE\nCH0_12\tPB\tIN\tFAULT RESET\nCH0_13\tPH\tIN\tST3  SHUTTER-1 EXIST\nCH0_14\tPH\tIN\tST3  SHUTTER-2 EXIST\nCH0_15\tPH\tIN\tST3  SHUTTER-3 EXIST\nCH0_16\tPH\tIN\tST3  SHUTTER-4 EXIST\nCH0_17\tPH\tIN\tST3  SHUTTER-1 FLOW OUT\nCH0_18\tPH\tIN\tST3  SHUTTER-2 FLOW OUT\nCH0_19\tPH\tIN\tST3  SHUTTER-3 FLOW OUT\nCH0_20\tPH\tIN\tST3  SHUTTER-4 FLOW OUT\nCH0_21\tPH\tIN\tST3  SHUTTER FULL\nCH1_00\tCR\tOUT\tEMERGENCY STOP INTERLOCK\nCH1_01\tPL\tOUT\tAUTO RUNNING\nCH1_02\tPL\tOUT\tMASTER ON\nCH1_03\tBZ\tOUT\tBUZZER-1\nCH1_04\tPL\tOUT\tTOWER LAMP RED\nCH1_05\tPL\tOUT\tTOWER LAMP YELLOW\nCH1_06\tPL\tOUT\tTOWER LAMP GREEN\nCH1_08\tPL\tOUT\t2PB DANDORI LOCK-UNLOCK\nCH1_09\tPL\tOUT\t2PB SCAN ENABLE\nCH1_10\tPL\tOUT\t2PB FAULT\nCH1_11\tBZ\tOUT\t2PB BUZZER-2\nCH1_12\tPL\tOUT\t2PB KANBAN  OK\nCH1_13\tPL\tOUT\t2PB KANBAN  NG\nCH1_14\tPL\tOUT\t2PB TRACE  OK\nCH1_15\tPL\tOUT\t2PB TRACE  NG\nCH2_00\tPH\tIN\tST2 INSERT FLOW OUT\nCH2_01\tPH\tIN\tST1 INSERT FLOW OUT\nCH2_02\tPH\tIN\tST1  SHUTTER-1 FULL\nCH2_03\tPH\tIN\tST1  SHUTTER-2 FULL\nCH2_04\tPH\tIN\tST1  SHUTTER-3 FULL\nCH2_05\tPH\tIN\tST1  SHUTTER-4 FULL\nCH2_14\tAS\tIN\tST1 STOPPER-5 CHUCK\nCH2_15\tAS\tIN\tST1 STOPPER-5 UNCHUCK\nCH3_00\tAS\tIN\tST3 EJECTOR FORWARD\nCH3_01\tAS\tIN\tST3 EJECTOR BACKWARD\nCH3_02\tAS\tIN\tST3 PUSHER FORWARD\nCH3_03\tAS\tIN\tST3 PUSHER BACKWARD\nCH3_04\tAS\tIN\tST2 STOPPER-1 UP\nCH3_05\tAS\tIN\tST2 STOPPER-1 DOWN\nCH3_06\tAS\tIN\tST1 LEFT DIVIDER BACKWARD\nCH3_07\tAS\tIN\tST1 LEFT DIVIDER FORWARD\nCH3_08\tAS\tIN\tST1 RIGHT DIVIDER BACKWARD\nCH3_09\tAS\tIN\tST1 RIGHT DIVIDER FORWARD\nCH3_10\tAS\tIN\tST1 STOPPER-2 CHUCK\nCH3_11\tAS\tIN\tST1 STOPPER-2 UNCHUCK\nCH3_12\tAS\tIN\tST1 STOPPER-3 CHUCK\nCH3_13\tAS\tIN\tST1 STOPPER-3 UNCHUCK\nCH3_14\tAS\tIN\tST1 STOPPER-4 CHUCK\nCH3_15\tAS\tIN\tST1 STOPPER-4 UNCHUCK\nCH5_00\tCR\tOUT\tST3  EJECTOR FORWARD\nCH5_01\tCR\tOUT\tST3  EJECTOR BACKWARD\nCH5_02\tCR\tOUT\tST3  PUSHER FORWARD\nCH5_03\tCR\tOUT\tST3  PUSHER BACKWARD\nCH5_04\tCR\tOUT\tST2  STOPPER-1 UP\nCH5_05\tCR\tOUT\tST2  STOPPER-1 DOWN\nCH5_06\tCR\tOUT\tST1 LEFT DIVIDER BACKWARD\nCH5_07\tCR\tOUT\tST1 LEFT DIVIDER FORWARD\nCH5_08\tCR\tOUT\tST1 RIGHT DIVIDER BACKWARD\nCH5_09\tCR\tOUT\tST1 RIGHT DIVIDER FORWARD\nCH5_10\tSOL\tOUT\tST1 STOPPER-2 CHUCK\nCH5_11\tSOL\tOUT\tST1  STOPPER-2 UNCHUCK\nCH5_12\tSOL\tOUT\tST1  STOPPER-3 CHUCK\nCH5_13\tSOL\tOUT\tST1  STOPPER-3 UNCHUCK\nCH5_14\tSOL\tOUT\tST1  STOPPER-4 CHUCK\nCH5_15\tSOL\tOUT\tST1  STOPPER-4 UNCHUCK\nCH6_00\tSOL\tOUT\tST1  STOPPER-5 CHUCK\nCH6_01\tSOL\tOUT\tST1  STOPPER-5 UNCHUCK\nCH6_02\tSOL\tOUT\tST1 DANDORI  TYPE-1 LOCK\nCH6_03\tSOL\tOUT\tST1 DANDORI  TYPE-1 UNLOCK\nCH6_04\tSOL\tOUT\tST1 DANDORI  TYPE-2 LOCK\nCH6_05\tSOL\tOUT\tST1 DANDORI  TYPE-2 UNLOCK\nCH6_07\tCR\tOUT\tST1 PART FEEDER-1 START\nCH6_08\tCR\tOUT\tST1 PART FEEDER-2 START",
+  "io": "CH0_00\tPB\tIN\tNOT EMERGENCY STOP\nCH0_01\tCR\tIN\tFUSE GOOD CONF\nCH0_02\tCR\tIN\tAIR SOURCE CONF\nCH0_03\tLS\tIN\tSAFETY CONF\nCH0_04\tSS\tIN\tAUTO IND\nCH0_05\tPB\tIN\tMASTER ON\nCH0_06\tCR\tIN\tMASTER ON CONF\nCH0_07\tPB\tIN\tAUTO RUNNING\nCH0_08\tPB\tIN\tMACHINE STOP\nCH0_09\tPB\tIN\tCYCLE STOP\nCH0_10\tPB\tIN\tDANDORI LOCK-UNLOCK\nCH0_11\tPB\tIN\tSCAN ENABLE\nCH0_12\tPB\tIN\tFAULT RESET\nCH0_13\tPH\tIN\tST3  SHUTTER-1 EXIST \nCH0_14\tPH\tIN\tST3  SHUTTER-2 EXIST \nCH0_15\tPH\tIN\tST3  SHUTTER-3 EXIST \nCH0_16\tPH\tIN\tST3  SHUTTER-4 EXIST \nCH0_17\tPH\tIN\tST3  SHUTTER-1 FLOW OUT \nCH0_18\tPH\tIN\tST3  SHUTTER-2 FLOW OUT \nCH0_19\tPH\tIN\tST3  SHUTTER-3 FLOW OUT \nCH0_20\tPH\tIN\tST3  SHUTTER-4 FLOW OUT \nCH0_21\tPH\tIN\tST3  SHUTTER FULL \nCH1_00\tCR\tOUT\tEMERGENCY STOP INTERLOCK\nCH1_01\tPL\tOUT\tAUTO RUNNING\nCH1_02\tPL\tOUT\tMASTER ON\nCH1_03\tBZ\tOUT\tBUZZER-1\nCH1_04\tPL\tOUT\tTOWER LAMP RED\nCH1_05\tPL\tOUT\tTOWER LAMP YELLOW\nCH1_06\tPL\tOUT\tTOWER LAMP GREEN\nCH1_08\tPL\tOUT\t2PB DANDORI LOCK-UNLOCK\nCH1_09\tPL\tOUT\t2PB SCAN ENABLE\nCH1_10\tPL\tOUT\t2PB FAULT\nCH1_11\tBZ\tOUT\t2PB BUZZER-2\nCH1_12\tPL\tOUT\t2PB KANBAN  OK\nCH1_13\tPL\tOUT\t2PB KANBAN  NG\nCH1_14\tPL\tOUT\t2PB TRACE  OK\nCH1_15\tPL\tOUT\t2PB TRACE  NG\nCH2_00\tPH\tIN\tST2 INSERT FLOW OUT \nCH2_01\tPH\tIN\tST1 INSERT FLOW OUT \nCH2_02\tPH\tIN\tST1  SHUTTER-1 FULL \nCH2_03\tPH\tIN\tST1  SHUTTER-2 FULL \nCH2_04\tPH\tIN\tST1  SHUTTER-3 FULL \nCH2_05\tPH\tIN\tST1  SHUTTER-4 FULL \nCH2_14\tAS\tIN\tST1 STOPPER-5 CHUCK\nCH2_15\tAS\tIN\tST1 STOPPER-5 UNCHUCK\nCH3_00\tAS\tIN\tST3 EJECTOR FORWARD\nCH3_01\tAS\tIN\tST3 EJECTOR BACKWARD\nCH3_02\tAS\tIN\tST3 PUSHER FORWARD\nCH3_03\tAS\tIN\tST3 PUSHER BACKWARD\nCH3_04\tAS\tIN\tST2 STOPPER-1 UP POS\nCH3_05\tAS\tIN\tST2 STOPPER-1 DOWN\nCH3_06\tAS\tIN\tST1 LEFT DIVIDER BACKWARD\nCH3_07\tAS\tIN\tST1 LEFT DIVIDER FORWARD\nCH3_08\tAS\tIN\tST1 RIGHT DIVIDER BACKWARD\nCH3_09\tAS\tIN\tST1 RIGHT DIVIDER FORWARD\nCH3_10\tAS\tIN\tST1 STOPPER-2 CHUCK\nCH3_11\tAS\tIN\tST1 STOPPER-2 UNCHUCK\nCH3_12\tAS\tIN\tST1 STOPPER-3 CHUCK\nCH3_13\tAS\tIN\tST1 STOPPER-3 UNCHUCK\nCH3_14\tAS\tIN\tST1 STOPPER-4 CHUCK\nCH3_15\tAS\tIN\tST1 STOPPER-4 UNCHUCK\nCH5_00\tCR\tOUT\tST3  EJECTOR FORWARD\nCH5_01\tCR\tOUT\tST3  EJECTOR BACKWARD\nCH5_02\tCR\tOUT\tST3  PUSHER FORWARD\nCH5_03\tCR\tOUT\tST3  PUSHER BACKWARD\nCH5_04\tCR\tOUT\tST2  STOPPER-1 UP pos\nCH5_05\tCR\tOUT\tST2  STOPPER-1 DOWN\nCH5_06\tCR\tOUT\tST1 LEFT DIVIDER BACKWARD\nCH5_07\tCR\tOUT\tST1 LEFT DIVIDER FORWARD\nCH5_08\tCR\tOUT\tST1 RIGHT DIVIDER BACKWARD\nCH5_09\tCR\tOUT\tST1 RIGHT DIVIDER FORWARD\nCH5_10\tSOL\tOUT\tST1 STOPPER-2 CHUCK\nCH5_11\tSOL\tOUT\tST1  STOPPER-2 UNCHUCK\nCH5_12\tSOL\tOUT\tST1  STOPPER-3 CHUCK\nCH5_13\tSOL\tOUT\tST1  STOPPER-3 UNCHUCK\nCH5_14\tSOL\tOUT\tST1  STOPPER-4 CHUCK\nCH5_15\tSOL\tOUT\tST1  STOPPER-4 UNCHUCK\nCH6_00\tSOL\tOUT\tST1  STOPPER-5 CHUCK\nCH6_01\tSOL\tOUT\tST1  STOPPER-5 UNCHUCK\nCH6_02\tSOL\tOUT\tST1 DANDORI  TYPE-1 LOCK\nCH6_03\tSOL\tOUT\tST1 DANDORI  TYPE-1 UNLOCK\nCH6_04\tSOL\tOUT\tST1 DANDORI  TYPE-2 LOCK\nCH6_05\tSOL\tOUT\tST1 DANDORI  TYPE-2 UNLOCK\nCH6_07\tCR\tOUT\tST1 PART FEEDER-1 START\nCH6_08\tCR\tOUT\tST1 PART FEEDER-2 START\nVS0_00\tSRV_LS\tIN\tST2 SERVO LEFT POS2\nVS0_01\tSRV_LS\tIN\tST2 SERVO RIGHT POS3\nVS0_02\tSRV_LS\tIN\tST2 SERVO CENTER POS1\nVS0_03\tSRV_CMD\tOUT\tST2 SERVO CENTER POS1\nVS0_04\tSRV_CMD\tOUT\tST2 SERVO LEFT POS2\nVS0_05\tSRV_CMD\tOUT\tST2 SERVO RIGHT POS3",
   "stationNames": {
-    "ST1": "Supply Feeder",
+    "ST1": "Supply_Feeder",
     "ST2": "Buffer",
-    "ST3": "CE Eject"
+    "ST3": "CE_Eject"
   },
   "timerDefaults": {
-    "phpx": "T#200MS",
-    "motion": "T#5S"
+    "phpx": "T#2ms",
+    "motion": ""
   },
   "arraySizes": {
-    "al": "100",
-    "mf": "90",
-    "stationBlock": "30"
+    "al": "",
+    "mf": "",
+    "stationBlock": ""
   },
   "hmiMap": {
     "enabled": true,
     "mode": "manual",
     "btnArea": "W",
     "alArea": "H",
+    "mfArea": "H",
     "pbBase": "460",
     "rdOffset": "23",
     "alBase": "300",
     "mfBase": "320",
     "perPage": "4",
-    "stride": "1"
+    "stride": "2"
   },
-  "advancedInstructions": false,
-  "actuatorOverrides": {},
-  "motionSequences": {},
-  "conditionDefs": {}
+  "advancedInstructions": true,
+  "actuatorOverrides": {
+    "SOL_ST1_DDR_TYP1_LCK": {
+      "mode": "openloop"
+    },
+    "SOL_ST1_DDR_TYP1_ULCK": {
+      "mode": "openloop"
+    },
+    "SOL_ST1_DDR_TYP2_LCK": {
+      "mode": "openloop"
+    },
+    "SOL_ST1_DDR_TYP2_ULCK": {
+      "mode": "openloop"
+    },
+    "CR_ST1_PART_FDR1_STR": {
+      "mode": "openloop"
+    },
+    "CR_ST1_PART_FDR2_STR": {
+      "mode": "openloop"
+    }
+  },
+  "motionSequences": {
+    "ST1": [
+      {
+        "condition": "LB300",
+        "comment": "Buffering type 1",
+        "conditionComments": {},
+        "conditionPositions": {},
+        "nodes": [
+          {
+            "id": "n4",
+            "type": "motion",
+            "after": [],
+            "join": "AND",
+            "x": 20,
+            "y": 75,
+            "sol": "SOL_ST1_STP2_UCHK"
+          },
+          {
+            "id": "n5",
+            "type": "motion",
+            "after": [],
+            "join": "AND",
+            "x": 172,
+            "y": 74,
+            "sol": "SOL_ST1_STP3_UCHK"
+          },
+          {
+            "id": "n6",
+            "type": "motion",
+            "after": [
+              "n4"
+            ],
+            "join": "AND",
+            "x": 19,
+            "y": 185,
+            "sol": "SOL_ST1_STP2_CHK"
+          },
+          {
+            "id": "n7",
+            "type": "motion",
+            "after": [
+              "n5"
+            ],
+            "join": "AND",
+            "x": 176,
+            "y": 182,
+            "sol": "SOL_ST1_STP3_CHK"
+          }
+        ]
+      },
+      {
+        "condition": "LB301",
+        "comment": "Discharging type 1",
+        "conditionComments": {},
+        "conditionPositions": {},
+        "nodes": [
+          {
+            "id": "n1",
+            "type": "motion",
+            "after": [],
+            "join": "AND",
+            "x": 20,
+            "y": 75,
+            "sol": "CR_ST1_LFT_DIV_BWD"
+          },
+          {
+            "id": "n2",
+            "type": "motion",
+            "after": [
+              "n1"
+            ],
+            "join": "AND",
+            "x": 195,
+            "y": 75,
+            "sol": "CR_ST1_LFT_DIV_FWD"
+          }
+        ]
+      },
+      {
+        "condition": "LB302",
+        "comment": "Buffering type 2",
+        "conditionComments": {},
+        "conditionPositions": {},
+        "nodes": [
+          {
+            "id": "n1",
+            "type": "motion",
+            "after": [],
+            "join": "AND",
+            "x": 12,
+            "y": 78,
+            "sol": "SOL_ST1_STP4_UCHK"
+          },
+          {
+            "id": "n2",
+            "type": "motion",
+            "after": [],
+            "join": "AND",
+            "x": 195,
+            "y": 75,
+            "sol": "SOL_ST1_STP5_UCHK"
+          },
+          {
+            "id": "n3",
+            "type": "motion",
+            "after": [
+              "n1"
+            ],
+            "join": "AND",
+            "x": 21,
+            "y": 201,
+            "sol": "SOL_ST1_STP4_CHK"
+          },
+          {
+            "id": "n4",
+            "type": "motion",
+            "after": [
+              "n2"
+            ],
+            "join": "AND",
+            "x": 201,
+            "y": 203,
+            "sol": "SOL_ST1_STP5_CHK"
+          }
+        ],
+        "endPos": {
+          "x": 152,
+          "y": 301
+        }
+      },
+      {
+        "condition": "LB303",
+        "comment": "Discharging type 2",
+        "conditionComments": {},
+        "conditionPositions": {},
+        "nodes": [
+          {
+            "id": "n1",
+            "type": "motion",
+            "after": [],
+            "join": "AND",
+            "x": 20,
+            "y": 75,
+            "sol": "CR_ST1_RGT_DIV_BWD"
+          },
+          {
+            "id": "n2",
+            "type": "motion",
+            "after": [
+              "n1"
+            ],
+            "join": "AND",
+            "x": 195,
+            "y": 75,
+            "sol": "CR_ST1_RGT_DIV_FWD"
+          }
+        ]
+      }
+    ],
+    "ST2": [
+      {
+        "condition": "LB300",
+        "comment": "Buffering Type 1 Cycle1",
+        "conditionComments": {},
+        "conditionPositions": {},
+        "nodes": [
+          {
+            "id": "n1",
+            "type": "motion",
+            "after": [],
+            "join": "AND",
+            "x": 20,
+            "y": 75,
+            "sol": "SRV_ST2_SRV_CTR_POS1"
+          }
+        ]
+      },
+      {
+        "condition": "LB301",
+        "comment": "Buffering Type 1 Cycle2",
+        "conditionComments": {},
+        "conditionPositions": {},
+        "nodes": [
+          {
+            "id": "n1",
+            "type": "motion",
+            "after": [],
+            "join": "AND",
+            "x": 18,
+            "y": 77,
+            "sol": "SRV_ST2_SRV_LFT_POS2"
+          },
+          {
+            "id": "n3",
+            "type": "decision",
+            "after": [
+              "n1"
+            ],
+            "join": "AND",
+            "x": 188,
+            "y": 78,
+            "cond": "Lb231",
+            "comment": "dsd"
+          },
+          {
+            "id": "n5",
+            "type": "motion",
+            "after": [
+              "n3#Y"
+            ],
+            "join": "AND",
+            "x": 362,
+            "y": 79,
+            "sol": "CR_ST2_STP1_UP_POS"
+          },
+          {
+            "id": "n10",
+            "type": "alarm",
+            "after": [
+              "n3#N"
+            ],
+            "join": "AND",
+            "x": 111,
+            "y": 182,
+            "category": "cyclestop",
+            "comment": "alarm warning lupa ngangkat"
+          },
+          {
+            "id": "n11",
+            "type": "motion",
+            "after": [
+              "n10"
+            ],
+            "join": "AND",
+            "x": 188,
+            "y": 252,
+            "sol": "CR_ST2_STP1_DN"
+          },
+          {
+            "id": "n12",
+            "type": "motion",
+            "after": [
+              "n11"
+            ],
+            "join": "AND",
+            "x": 209,
+            "y": 332,
+            "sol": "SRV_ST2_SRV_CTR_POS1"
+          }
+        ],
+        "startPos": {
+          "x": 64,
+          "y": 2
+        },
+        "endPos": {
+          "x": 401,
+          "y": 521
+        }
+      },
+      {
+        "condition": "LB302",
+        "comment": "Bufferiasde1",
+        "conditionComments": {},
+        "conditionPositions": {},
+        "nodes": [
+          {
+            "id": "n1",
+            "type": "motion",
+            "after": [],
+            "join": "AND",
+            "x": 20,
+            "y": 75,
+            "sol": "SRV_ST2_SRV_CTR_POS1"
+          }
+        ]
+      },
+      {
+        "condition": "LB303",
+        "comment": "Buffering Type 2 Cycle2",
+        "conditionComments": {},
+        "conditionPositions": {},
+        "nodes": [
+          {
+            "id": "n1",
+            "type": "motion",
+            "after": [],
+            "join": "AND",
+            "x": 20,
+            "y": 75,
+            "sol": "SRV_ST2_SRV_RGT_POS3"
+          }
+        ]
+      },
+      {
+        "condition": "LB304",
+        "comment": "Discharging",
+        "conditionComments": {},
+        "conditionPositions": {},
+        "nodes": [
+          {
+            "id": "n1",
+            "type": "motion",
+            "after": [],
+            "join": "AND",
+            "x": 20,
+            "y": 75,
+            "sol": "SRV_ST2_SRV_CTR_POS1"
+          },
+          {
+            "id": "n2",
+            "type": "motion",
+            "after": [
+              "n1"
+            ],
+            "join": "AND",
+            "x": 195,
+            "y": 75,
+            "sol": "CR_ST2_STP1_UP_POS"
+          },
+          {
+            "id": "n3",
+            "type": "motion",
+            "after": [
+              "n2"
+            ],
+            "join": "AND",
+            "x": 370,
+            "y": 75,
+            "sol": "CR_ST2_STP1_DN"
+          }
+        ]
+      }
+    ],
+    "ST3": [
+      {
+        "condition": "LB300",
+        "comment": "supply to insulator",
+        "conditionComments": {},
+        "conditionPositions": {},
+        "nodes": [
+          {
+            "id": "n1",
+            "type": "motion",
+            "after": [],
+            "join": "AND",
+            "x": 20,
+            "y": 75,
+            "sol": "CR_ST3_PSH_FWD"
+          },
+          {
+            "id": "n2",
+            "type": "motion",
+            "after": [
+              "n1"
+            ],
+            "join": "AND",
+            "x": 195,
+            "y": 75,
+            "sol": "CR_ST3_EJC_FWD"
+          },
+          {
+            "id": "n3",
+            "type": "motion",
+            "after": [
+              "n2"
+            ],
+            "join": "AND",
+            "x": 370,
+            "y": 75,
+            "sol": "CR_ST3_EJC_BWD"
+          },
+          {
+            "id": "n4",
+            "type": "motion",
+            "after": [
+              "n3"
+            ],
+            "join": "AND",
+            "x": 545,
+            "y": 75,
+            "sol": "CR_ST3_PSH_BWD"
+          }
+        ]
+      }
+    ]
+  },
+  "conditionDefs": {
+    "ST1": [
+      {
+        "name": "Buffering Type 1",
+        "bit": "",
+        "groups": [
+          [
+            {
+              "bit": "LB3113",
+              "neg": false
+            }
+          ]
+        ]
+      },
+      {
+        "name": "Discharging Type 1",
+        "bit": "",
+        "groups": [
+          [
+            {
+              "bit": "LB3114",
+              "neg": false
+            }
+          ]
+        ]
+      },
+      {
+        "name": "Buffering Type 2",
+        "bit": "",
+        "groups": [
+          [
+            {
+              "bit": "LB3115",
+              "neg": false
+            }
+          ]
+        ]
+      },
+      {
+        "name": "Discharging Type 2",
+        "bit": "",
+        "groups": [
+          [
+            {
+              "bit": "LB3116",
+              "neg": false
+            }
+          ]
+        ]
+      }
+    ],
+    "ST2": [
+      {
+        "name": "Buffering Type 1 Cycle1",
+        "bit": "LB300",
+        "groups": [
+          [
+            {
+              "bit": "LB2001",
+              "neg": false
+            }
+          ]
+        ]
+      },
+      {
+        "name": "Buffering Type 1 Cycle2",
+        "bit": "",
+        "groups": [
+          [
+            {
+              "bit": "LB2002",
+              "neg": false
+            }
+          ]
+        ]
+      },
+      {
+        "name": "Buffering Type 2 Cycle1",
+        "bit": "",
+        "groups": [
+          [
+            {
+              "bit": "LB2003",
+              "neg": false
+            }
+          ]
+        ]
+      },
+      {
+        "name": "Buffering Type 2 Cycle2",
+        "bit": "",
+        "groups": [
+          [
+            {
+              "bit": "LB2004",
+              "neg": false
+            }
+          ]
+        ]
+      },
+      {
+        "name": "Discharging",
+        "bit": "",
+        "groups": [
+          [
+            {
+              "bit": "LB2005",
+              "neg": false
+            }
+          ]
+        ]
+      }
+    ],
+    "ST3": [
+      {
+        "name": "Disharge CE To Insulator",
+        "bit": "",
+        "groups": [
+          [
+            {
+              "bit": "LB832",
+              "neg": false
+            }
+          ]
+        ]
+      }
+    ]
+  }
 }
