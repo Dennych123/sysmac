@@ -116,6 +116,24 @@ pilihannya diingat &mdash; termasuk sesudah server dimatikan.</p>
   project disimpan, jadi hasil sinkron bisa tertimpa. Yang lama selalu dicadangkan dulu.</p>
 </div>
 
+<div class="step mati" id="s4">
+  <h2><span class="no">4</span>Flow chart &amp; project JSON</h2>
+  <p class="apa">Program PLC yang sedang jalan dibaca ulang jadi IO list + urutan gerak (bisa dibuka
+  di Generator) dan digambar jadi FLOW PROCESS DIAGRAM A3 landscape, siap dicetak ke PDF.</p>
+  <div class="row">
+    <input id="fcCompany" type="text" placeholder="Perusahaan (title block), mis. PT. DENSO INDONESIA">
+    <input id="fcDwg" type="text" placeholder="Drawing no.">
+    <button onclick="buatFlow()">Buat flow chart</button>
+  </div>
+  <div id="fcStatus" class="status"></div>
+  <div class="row" id="fcHasil" style="display:none">
+    <a id="fcBuka" target="_blank"><button type="button">Buka dokumen</button></a>
+    <a id="fcJson"><button type="button" class="ghost">Unduh project JSON</button></a>
+  </div>
+  <p class="kecil">Dokumen terbuka di tab baru: <b>Ctrl+P</b> &rarr; ukuran A3, landscape, margin
+  none &rarr; Save as PDF. Kedua berkas juga ditulis di samping <code>.smc2</code>-nya.</p>
+</div>
+
 <pre id="log">siap.</pre>
 
 <details>
@@ -198,7 +216,7 @@ function pilihFolder(){
     return api('ws/set',{dir:r.path}).then(function(w){
       $('folder').value = w.root;
       perbaruiPerintah(w.root);
-      PLC=''; HMI=''; HIST=''; aktif('s2',false); aktif('s3',false);
+      PLC=''; HMI=''; HIST=''; aktif('s2',false); aktif('s3',false); aktif('s4',false);
       log('folder project: ' + w.root + '  (tersimpan, ikut terpakai lain kali)');
       pindai();
     });
@@ -221,9 +239,9 @@ function pindai(){
       'PLC : ' + (PLC ? '<b>' + PLC + '</b>' : '<i>tidak ada .smc2 di folder ini</i>') + '<br>' +
       'HMI : ' + (HMI ? '<b>' + HMI + '</b>' : '<i>tidak ada project NB-Designer di folder ini</i>');
 
-    if (!PLC) { aktif('s2', false); aktif('s3', false); return; }
+    if (!PLC) { aktif('s2', false); aktif('s3', false); aktif('s4', false); return; }
     HIST = PLC.replace(/\\.smc2$/i,'') + '-history';
-    aktif('s2', true); aktif('s3', !!HMI);
+    aktif('s2', true); aktif('s3', !!HMI); aktif('s4', true);
     simpanPilihan(true);
     muatRiwayat(); cekPantau();
   }, function(e){ log('gagal memindai folder: ' + e.message, true); });
@@ -424,6 +442,34 @@ function nbSync(tulis){
   });
 }
 
+// ------------------------------------------------------------------ flow chart
+// Nama perusahaan / nomor gambar diingat per browser - itu isian title block yang sama tiap kali.
+var FC_URL = [];
+function buatFlow(){
+  if (!PLC) return log('pilih folder project dulu', true);
+  try { localStorage.setItem('fcCompany', $('fcCompany').value); localStorage.setItem('fcDwg', $('fcDwg').value); } catch (e) {}
+  $('fcStatus').className = 'status';
+  $('fcStatus').textContent = 'membaca ' + PLC + '...';
+  $('fcHasil').style.display = 'none';
+  api('flow/build',{path:PLC, company:$('fcCompany').value.trim(), dwg:$('fcDwg').value.trim()}).then(function(r){
+    FC_URL.forEach(function(u){ URL.revokeObjectURL(u); });
+    var html = URL.createObjectURL(new Blob([r.doc], {type:'text/html'}));
+    var json = URL.createObjectURL(new Blob([r.projectText], {type:'application/json'}));
+    FC_URL = [html, json];
+    $('fcBuka').href = html;
+    $('fcJson').href = json;
+    $('fcJson').setAttribute('download', r.json.split('/').pop().split(String.fromCharCode(92)).pop());
+    $('fcHasil').style.display = 'flex';
+    $('fcStatus').className = 'status ok';
+    $('fcStatus').textContent = r.stations.map(function(s){ return s.program + ': ' + s.variants + ' varian, ' + s.steps + ' langkah'; }).join('  |  ')
+      + (r.skipped ? '   (' + r.skipped + ' langkah tidak terbawa ke Generator - lihat laporan)' : '');
+    log('ditulis: ' + r.json + '  +  ' + r.html + String.fromCharCode(10, 10) + r.report);
+  }, function(e){
+    $('fcStatus').className = 'status bad';
+    $('fcStatus').textContent = 'gagal: ' + e.message;
+  });
+}
+
 // ------------------------------------------------------------------ lanjutan
 function pilihSumber(){
   api('pick/file',{title:'Pilih project JSON atau AlarmLib.csv',
@@ -449,6 +495,7 @@ setInterval(function(){
   if (PANTAU) muatRiwayat();
 }, 8000);
 
+try { $('fcCompany').value = localStorage.getItem('fcCompany') || ''; $('fcDwg').value = localStorage.getItem('fcDwg') || ''; } catch (e) {}
 muatFolder();
 cekVersi();
 setInterval(cekVersi, 10000);

@@ -3510,6 +3510,14 @@ TOOLS_CARDS = """<p class="tool-note" id="toolMode"></p>
     <code class="cmd">node scripts/smc2_extract.js project.smc2 history/ --clean</code>
   </div>
 
+  <div class="tool" data-needs="server">
+    <h3><span class="ico">&#128200;</span>.smc2 to project JSON + flow chart <span class="tag srv">server</span></h3>
+    <p>Read a program that is already running on the machine back into a project JSON (IO list +
+       motion sequences the generator can open) and draw its FLOW PROCESS DIAGRAM: A3 landscape,
+       snaking rows, judgement diamonds, condition boxes. Print it to PDF from the browser.</p>
+    <a class="go" href="http://127.0.0.1:7654/edit">Buka halaman Project (langkah 4)</a>
+  </div>
+
   <div class="tool">
     <h3><span class="ico">&#128172;</span>Write comments back to .smc2 <span class="tag cli">CLI</span></h3>
     <p>Array element comments (AL[n] / MF[n]) written back into the project file itself - the

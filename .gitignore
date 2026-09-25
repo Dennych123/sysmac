@@ -16,3 +16,7 @@ tools/opcua/pki/
 # dalamnya. Barisnya ditahan: kalau nanti ada yang meng-klon-nya ke sini lagi, yang tercatat
 # cuma gitlink - klon repo ini dapat folder KOSONG tanpa satu pun tanda bahwa isinya hilang.
 blurobot/
+
+# Gambar acuan pelanggan (bertanda CONFIDENTIAL). Repo ini PUBLIK - disimpan lokal saja,
+# aturan gayanya ditulis di docs/FLOW_CHART_DOC.md.
+docs/ref/

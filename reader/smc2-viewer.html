@@ -1014,6 +1014,22 @@ function parseTree(oemText) {
   return out;
 }
 
+// Tabel variabel LOKAL tiap program = entity `Variables` anak entity `Program`. Tanpa ini
+// semua variabel lokal tercampur jadi satu daftar, dan `LB411` ST3 terbaca dengan komen
+// `LB411` milik ST1 - nama sama, arti lain, tanpa satu pun tanda.
+function varOwners(oemText) {
+  const own = new Map();
+  function walk(node, prog) {
+    const t = node.attrs.type;
+    if (t === 'Program') prog = node.attrs.name || prog;
+    else if (t === 'Variables' && prog && node.attrs.id) own.set(node.attrs.id, prog);
+    const kids = xmlChild(node, 'ChildEntities');
+    if (kids) for (const ch of kids.kids) if (ch.tag === 'Entity') walk(ch, prog);
+  }
+  for (const e of xmlParse(oemText).kids) if (e.tag === 'Entity') walk(e, null);
+  return own;
+}
+
 // --------------------------------------------- ladder DataContract (Studio <= 1.56)
 // Komentar dipakai bersama gaya DataContract: kemunculan PERTAMA membawa teks
 // dengan z:Id, kemunculan berikutnya cuma z:Ref ke id itu. Harus diresolusi,
@@ -1235,8 +1251,10 @@ async function readProject(buf, unzipFn) {
     if (m) proj.studio = m[1];
   }
 
+  const oemText = await get(oemName);
+  const owners = varOwners(oemText);
   const seen = new Map();
-  for (const t of parseTree(await get(oemName))) {
+  for (const t of parseTree(oemText)) {
     let entry = seen.get(t.prog);
     if (!entry) { entry = { name: t.prog, sections: [] }; seen.set(t.prog, entry); proj.programs.push(entry); }
     const s = { name: t.sect, id: t.id, kind: null, rungs: [], st: null };
@@ -1255,7 +1273,10 @@ async function readProject(buf, unzipFn) {
   for (const [n, f] of files) {
     const b = await inflate(f);
     if (b.length > 6 && text(b.subarray(0, 8)).startsWith('[SLWD ')) {
-      proj.variables.push(...parseVars(text(b)));
+      const prog = owners.get(n.split('/').pop().replace(/\.xml$/, ''));
+      const vs = parseVars(text(b));
+      if (prog) vs.forEach(v => { if ((v.group || '').indexOf('GLOBAL') < 0) v.program = prog; });
+      proj.variables.push(...vs);
     }
   }
   return proj;
