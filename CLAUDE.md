@@ -27,6 +27,7 @@ node scripts/smc2_section.js x.smc2 spec.json [--write] # tambah section ladder 
 node scripts/smc2_task.js x.smc2                        # program mana ditugaskan ke task mana
 node scripts/smc2_task.js x.smc2 P011_ST1 [--write]     # tugaskan program ke task, tanpa Studio
 node scripts/smc2_extract.js x.smc2 history/ --clean    # .smc2 -> teks yang kebaca `git diff`
+node scripts/smc2_project.js x.smc2 p.json --doc f.html # .smc2 -> project JSON (io+flow) + FLOW PROCESS DIAGRAM A3
 node scripts/app.js --ws C:/kerja                      # aplikasi lokal + API, folder kerja disetel
 node scripts/mcp.js --ws C:/kerja                      # server MCP, folder kerja yang sama
 ```
@@ -1184,6 +1185,19 @@ Alarm yang PINDAH NOMOR dilaporkan terpisah dari yang teksnya disunting, dan cum
 pindahannya tidak ambigu (satu kandidat). Nomor alarm tercetak di layar NB dan lembar
 troubleshooting; yang bergeser membuat semuanya salah tunjuk sekaligus.
 
+## `.smc2` → project JSON + flow chart - `scripts/smc2_project.js`, `scripts/flowdoc.js`
+
+Kebalikan generator: program yang sudah jalan di mesin dibaca ulang jadi `io` + `motionSequences`
+(dibuka generator) dan `flow` (graf SEMUA rung AutoRunning), lalu digambar jadi FLOW PROCESS
+DIAGRAM gaya Denso. Aturan dan jebakannya di [docs/FLOW_CHART_DOC.md](docs/FLOW_CHART_DOC.md);
+yang paling gampang terulang:
+
+- **Variabel lokal itu per PROGRAM** - `readProject` sekarang memberi medan `program`. Dicampur,
+  ST3 tergambar menggerakkan stopper ST1 dengan tampilan yang sangat meyakinkan.
+- **Gambar acuan (`docs/ref/`) tidak ikut git.** Bertanda CONFIDENTIAL, repo ini publik.
+- **`motionSequences` pakai nama solenoid versi GENERATOR**, bukan nama di program; langkah yang
+  tidak bisa dinyatakan editor dicatat di `generatorSkipped`, bukan dibuang diam-diam.
+
 ## `.smc2` supaya `git diff`-nya kebaca - `scripts/smc2_extract.js`
 
 `.smc2` itu ZIP; di-commit apa adanya git cuma bilang "binary files differ". Skrip ini membongkar
@@ -1224,6 +1238,7 @@ menghasilkan berkas yang sama persis.**
 | `scripts/smc2_task.js` | tugaskan program ke task di `.smc2` - empat tempat sekaligus |
 | `scripts/smc2_diff.js` `reader/diff.js` | bandingkan dua `.smc2`, hanya baca |
 | `scripts/smc2_extract.js` | `.smc2` -> teks deterministik buat di-commit |
+| `scripts/smc2_project.js` `flowdoc.js` | `.smc2` -> project JSON (io + flow) -> FLOW PROCESS DIAGRAM A3 |
 | `scripts/mcp.js` | server MCP: 15 alat (generator + berkas + smc2 + git + penugasan task) |
 | `scripts/ws.js` `api.js` | folder kerja + API bersama halaman dan MCP |
 | `scripts/edit_page.js` | halaman `/edit`: catat, lihat riwayat, kembalikan |

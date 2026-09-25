@@ -237,6 +237,28 @@ const ALAT = {
     return { wrote: true, already: false, program: r.program, task: r.task, seq: r.seq, places: r.lapor, backup: bak, checked: cek };
   },
 
+  // .smc2 -> project JSON (io + flow) + FLOW PROCESS DIAGRAM, ditulis DI SAMPING .smc2-nya.
+  // Dua berkas itu turunan murni (dibangun ulang tiap klik dari .smc2 yang tidak disentuh), jadi
+  // ditulis tanpa .bak - cadangan tiap klik cuma menumpuk berkas yang tidak dibaca siapa pun.
+  'flow/build': async (b) => {
+    if (!b.path) throw new Error('butuh "path" (.smc2)');
+    const P = require(path.join(REPO, 'scripts', 'smc2_project.js'));
+    const { render } = require(path.join(REPO, 'scripts', 'flowdoc.js'));
+    const j = await P.fromFile(ws.amanPath(b.path));
+    const doc = render(j, { company: b.company || undefined, dwg: b.dwg || undefined, subject: b.subject || undefined });
+    const base = b.path.replace(/\.smc2$/i, '');
+    const projectText = JSON.stringify(j, null, 2);
+    const out = {};
+    for (const [k, nama, isi] of [['json', base + '.project.json', projectText], ['html', base + '.flow.html', doc]]) {
+      fs.writeFileSync(ws.amanPath(nama), isi, 'utf8');
+      out[k] = nama;
+    }
+    return Object.assign(out, { report: P.report(j), doc, projectText,
+      stations: j.flow.stations.map(s => ({ program: s.program, variants: s.variants.length,
+                                             steps: s.variants.reduce((a, v) => a + v.nodes.length, 0) })),
+      skipped: j.generatorSkipped.length });
+  },
+
   // -------------------------------------------------------------- NB-Designer
   // Skripnya dijalankan APA ADANYA sebagai proses anak, sama seperti tombol di halaman alat.
   // Kalau API ini punya salinan logikanya sendiri, dua jalur itu akan berbeda hasil dan yang
